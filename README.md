@@ -133,8 +133,11 @@ Vieheen voi vaihtaa (Q), kun siima on kelattu sisään.
   kuljettua metriä kohden), ja painuu kelauksen jatkuessa yhä syvemmälle, lopulta pohjaa pitkin.
   Noin 30 cm/s nopeudella sukellus ja nousu ovat tasapainossa, jolloin vaappu ui samalla syvyydellä;
   hitaammin kelattuna se nousee ja nopeammin kelattuna se sukeltaa. Vedettäessä vaappu heiluttaa pyrstöään (wiggle). Kelausnopeus 10–100 cm/s
-  säädetään hiiren rullalla. Liikkumaton vaappu kiinnostaa kaloja vain vähän, ja liikkuvaa vaappua kala
+  säädetään hiiren rullalla. Vaappua kelattaessa siima kulkee ongen kärjestä lähes suorana (pieni notko)
+  vaappuun asti myös veden alla, toisin kuin koho-onginnassa. Liikkumaton vaappu kiinnostaa kaloja vain vähän, ja liikkuvaa vaappua kala
   jahtaa nopeasti.
+
+Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan suuhun.
 
 Lajit pitävät eri vieheistä: ahven pitää madosta (vaappu noin 0,3-kertaisesti), hauki iskee
 mieluummin vaappuun (1,6-kertaisesti) kuin matoon (0,35-kertaisesti). Tähtäin on valitun vieheen

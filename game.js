@@ -2408,19 +2408,28 @@ function updateFishes() {
         f.mode = 'interest'; f.t = rand(240, 720);
       }
     } else if (f.mode === 'interest') {
-      // Kala ui syötin luo; ahven nielaisee sen heti perille päästyään
+      // Kala ui syötin luo niin, että sen suu osuu syöttiin; ahven nielaisee sen heti perille päästyään
       if (!bait || --f.t <= 0) { f.mode = 'roam'; f.t = 0; continue; }
-      f.tx = bait.x; f.ty = bait.y; f.tz = bait.z;
-      f.a += angDiff(f.a, Math.atan2(bait.y - f.y, bait.x - f.x)) * 0.08;
+      const [mx, my] = fishMouth(f), ax = bait.x - (mx - f.x), ay = bait.y - (my - f.y);
+      f.tx = ax; f.ty = ay; f.tz = bait.z;
+      f.a += angDiff(f.a, Math.atan2(ay - f.y, ax - f.x)) * 0.08;
       // Hauki hiipii lähemmäs ja iskee viimeiset puolitoista metriä nopealla syöksyllä
-      const bd = Math.hypot(f.x - bait.x, f.y - bait.y);
+      const bd = Math.hypot(mx - bait.x, my - bait.y);
       // Liikkuvaa vaappua kala jahtaa uintinopeuttaan nopeammin
       moveFish(f, sp.strike && bd < 1.5 ? sp.strike : bait.moving ? sp.fight * 1.1 : sp.speed * 0.8);
-      if (Math.hypot(f.x - bait.x, f.y - bait.y, (f.z - bait.z) * 0.5) < (bait.lure === 'wobbler' ? 0.35 : 0.25) && sp.bite === 'instant') hookFish(f);
+      const [nx, ny] = fishMouth(f);
+      if (Math.hypot(nx - bait.x, ny - bait.y, (f.z - bait.z) * 0.5) < (bait.lure === 'wobbler' ? 0.3 : 0.22) && sp.bite === 'instant') hookFish(f);
     }
     f.z += clamp(f.tz - f.z, -0.004, 0.004);
     f.z = clamp(f.z, 0.15, Math.max(0.15, depthAt(f.x, f.y) - 0.1));
   }
+}
+
+// Kalan suun paikka maailmassa. Kala piirretään sivulta, pää ruudulla menosuunnan puolella, joten suu
+// on puolen kuvan leveyden päässä keskipisteestä ruudun vaakasuunnassa (1 px vaakaan = 1/16 m x:ssä ja -y:ssä).
+function fishMouth(f) {
+  const [sx] = screenDir(Math.cos(f.a), Math.sin(f.a)), m = ((f.px >> 1) + 1) * (sx < 0 ? -1 : 1);
+  return [f.x + m / 16, f.y - m / 16];
 }
 
 function hookFish(f) {
@@ -2657,11 +2666,15 @@ function drawUnderwater(camXr, camYr) {
       // Siima kohosta kalan suuhun ja pinnan alle vedetty koho
       const f = L.fish, [sx] = screenDir(Math.cos(f.a), Math.sin(f.a));
       const fx = Math.round(isoX(f.x, f.y) - camXr + (sx < 0 ? -1 : 1) * (f.px >> 1)), fy = Math.round(isoY(f.x, f.y) - camYr + f.z * Z_PX);
+      const wl = wobblerLine(camXr, camYr);
       g.globalAlpha = underVis(f.z * 0.5);
-      plotLine(g, lx, ly + L.sub * Z_PX, fx, fy, 'rgba(225, 230, 235, 0.6)');
+      if (wl) plotLine(g, wl.wx, wl.wy, wl.ex, wl.ey, 'rgba(225, 230, 235, 0.6)');
+      else plotLine(g, lx, ly + L.sub * Z_PX, fx, fy, 'rgba(225, 230, 235, 0.6)');
       if (L.sub > 0.05) { g.globalAlpha = underVis(L.sub); drawBobberAt(lx, Math.round(ly + L.sub * Z_PX), false); }
     } else if (L.kind === 'wobbler') {
-      // Pinnan alle sukeltanut vaappu
+      // Pinnan alle sukeltanut vaappu ja siima pinnasta vaappuun
+      const wl = wobblerLine(camXr, camYr);
+      if (wl && wl.depth > 0.02) { g.globalAlpha = underVis(wl.depth * 0.5); plotLine(g, wl.wx, wl.wy, wl.ex, wl.ey, 'rgba(225, 230, 235, 0.6)'); }
       if (L.z > 0.05) {
         g.globalAlpha = underVis(L.z);
         drawWobblerAt(lx, Math.round(ly + L.z * Z_PX), wobblerDir(L, camXr), L.moving);
@@ -3331,6 +3344,27 @@ function drawPlayer(sx, sy, camXr, camYr) {
   if (p.rod && !V.away) drawHeldRod(camXr, camYr);
 }
 
+// Vaapulla kelattaessa siima kulkee ongen kärjestä lähes suorana (pieni painovoiman notko) vaappuun tai
+// kalan suuhun asti myös veden alla, toisin kuin koho-onginnassa. Siima läpäisee pinnan kohdassa, jossa
+// suora viiva kärjen korkeudelta vaapun syvyyteen leikkaa vedenpinnan. Palauttaa ruutupisteet tai null.
+function wobblerLine(camXr, camYr) {
+  const L = cast.lure;
+  if (!L || L.kind !== 'wobbler' || L.st !== 'float' || !L.onWater) return null;
+  const f = L.fish;
+  if (f && (f.mode === 'land' || f.mode === 'caught')) return null;
+  const d = Math.hypot(L.x - player.x, L.y - player.y), slack = Math.max(0, L.out - d);
+  if (!f && L.z < 0.03 && slack > 0.3) return null;   // löysä siima pinnalla kelluvaan vaappuun
+  const g = rodGeom(), tx = g.tx - camXr, ty = g.ty - camYr, gy = isoY(player.x, player.y) - camYr;
+  let sx, sy, ex, ey;
+  if (f) {
+    const [dx] = screenDir(Math.cos(f.a), Math.sin(f.a));
+    sx = isoX(f.x, f.y) - camXr + (dx < 0 ? -1 : 1) * (f.px >> 1); sy = isoY(f.x, f.y) - camYr; ey = sy + f.z * Z_PX;
+  } else { sx = isoX(L.x, L.y) - camXr; sy = isoY(L.x, L.y) - camYr; ey = sy + L.z * Z_PX; }
+  ex = sx;
+  const h = Math.max(1, gy - ty), dz = ey - sy, t = h / (h + dz);
+  return { tx, ty, wx: lerp(tx, sx, t), wy: lerp(gy, sy, t), ex, ey, depth: dz / Z_PX, sag: 1 + Math.min(3, slack * 3) };
+}
+
 // Heitetty siima: lennon aikana suora; vedessä kireä siima on lähes suora, löysä siima laskeutuu
 // kärjestä pintaan ja loppumatka kiemurtelee kasana pinnalla
 function drawCastLine(g, camXr, camYr) {
@@ -3352,6 +3386,17 @@ function drawCastLine(g, camXr, camYr) {
     ctx.rotate(-Math.PI / 2);
     ctx.drawImage(img, -img.width, -(img.height >> 1));
     ctx.restore();
+    return;
+  }
+  const wl = wobblerLine(camXr, camYr);
+  if (wl) {
+    // Pinnan yläpuolinen osa kärjestä vedenpinnan läpäisykohtaan, pieni notko keskellä
+    const n = Math.max(2, Math.ceil(Math.hypot(wl.wx - wl.tx, wl.wy - wl.ty) / 2));
+    let px = wl.tx, py = wl.ty;
+    for (let i = 1; i <= n; i++) {
+      const t = i / n, x = lerp(wl.tx, wl.wx, t), y = lerp(wl.ty, wl.wy, t) + wl.sag * 4 * t * (1 - t);
+      plotLine(ctx, px, py, x, y, col); px = x; py = y;
+    }
     return;
   }
   const lx = isoX(L.x, L.y) - camXr, ly = lureY(L) - camYr;
@@ -3842,27 +3887,24 @@ function drawReelReticle(x, y) {
   ctx.fillStyle = '#d8a850'; ctx.fillRect(x + ex - 1, y + ey - 1, 2, 2);
 }
 
-// Vaappu tähtäimenä: suurempi kuva vaapusta, joka heiluttaa pyrstöään; alla sama rengas kuin koholla
+// Vaappu tähtäimenä: pieni kalan muotoinen uistin edestä katsottuna sivulta – tumma selkä, harmaansininen
+// kylki, vaalea vatsa, silmä, läpikuultava kieli nokan alla ja kaksi kolmihaarakoukkua vatsan alla.
+// Pyrstö heiluu puolelta toiselle kuin kelattaessa.
 function drawWobblerReticle(x, y) {
-  const t = time * 0.07, onWater = waterPx(x + Math.round(cam.x), y + Math.round(cam.y));
-  const rr = 4.5 + (onWater ? Math.sin(t * 0.8) * 0.8 : 0);
-  ctx.fillStyle = onWater ? 'rgba(205, 232, 245, 0.85)' : 'rgba(205, 205, 195, 0.55)';
-  for (let k = 0; k < 18; k++) {
-    const a = (k / 18) * Math.PI * 2;
-    ctx.fillRect(Math.round(x + Math.cos(a) * rr), Math.round(y + 1 + Math.sin(a) * rr * 0.5), 1, 1);
-  }
-  const w = Math.sin(time * 0.12) > 0 ? 1 : 0, top = y - 4;
-  // Rivit: selkä, kylki silmineen, vatsa ja kieli; pyrstöpää (vasen) heilahtaa
-  const rows = [[-2, 4, '#4c6276'], [-3, 5, '#7890a8'], [-2, 4, '#b8c8d8']];
-  for (const pass of [0, 1]) {
-    rows.forEach(([dx, len, col], i) => {
-      ctx.fillStyle = pass ? col : 'rgba(10, 14, 12, 0.55)';
-      ctx.fillRect(x + dx + (pass ? 0 : 1), top + i + (pass ? 0 : 1) + (i === 1 ? 0 : 0), len, 1);
-    });
-  }
-  ctx.fillStyle = '#4c6276'; ctx.fillRect(x - 4, top + w, 1, 2);       // pyrstö
-  ctx.fillStyle = '#101418'; ctx.fillRect(x + 1, top + 1, 1, 1);        // silmä
-  ctx.fillStyle = 'rgba(208, 224, 232, 0.85)'; ctx.fillRect(x + 2, top + 3, 2, 1);   // kieli
+  const w = Math.round(Math.sin(time * 0.18));
+  const px = [];
+  const add = (dx, dy, col) => px.push([dx, dy, col]);
+  for (let dx = -3; dx <= 2; dx++) add(dx, -3, '#3e5266');
+  for (let dx = -4; dx <= 3; dx++) { add(dx, -2, '#7890a8'); add(dx, -1, '#9ab0c4'); }
+  for (let dx = -3; dx <= 2; dx++) add(dx, 0, '#dce6ee');
+  add(4, -2, '#7890a8'); add(4, -1, '#9ab0c4');
+  add(2, -2, '#101418'); add(-1, -2, '#5c7490'); add(-2, -1, '#86a0b8');      // silmä ja kyljen kuviointi
+  add(-5, -2 + w, '#3e5266'); add(-6, -3 + w, '#3e5266'); add(-6, -1 + w, '#3e5266');   // pyrstö
+  add(5, 0, 'rgba(220, 235, 245, 0.8)'); add(6, 1, 'rgba(220, 235, 245, 0.8)'); add(5, 1, 'rgba(220, 235, 245, 0.6)');   // kieli
+  for (const hx of [1, -3]) { add(hx, 1, '#b8bcc0'); add(hx - 1, 2, '#9aa0a8'); add(hx + 1, 2, '#9aa0a8'); }   // koukut
+  ctx.fillStyle = 'rgba(10, 14, 12, 0.5)';
+  for (const [dx, dy] of px) ctx.fillRect(x + dx + 1, y + dy + 1, 1, 1);
+  for (const [dx, dy, col] of px) { ctx.fillStyle = col; ctx.fillRect(x + dx, y + dy, 1, 1); }
 }
 
 // Pieni keinuva koho. Sen alla oleva rengas on vaaleansininen veden päällä ja harmaa maalla.
