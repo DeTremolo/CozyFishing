@@ -4174,10 +4174,10 @@ function render() {
       line('WOBBLER', '#a8c0d8');
       line('REEL ' + cast.reelSpeed + ' cm/s' + (touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
     } else if (player.rod) line('HOOK ' + cast.hookDepth.toFixed(1) + ' m' + (cast.lure ? '' : touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
-    // Vedessä olevan vaapun syvyys ja matka pohjaan
+    // Vedessä olevan vaapun syvyys; matka pohjaan vain debug-tilassa (vesi piilotettuna)
     const L = cast.lure;
     if (L && L.kind === 'wobbler' && L.st === 'float' && L.onWater && !L.fish) {
-      line('WOBBLER ' + L.z.toFixed(2) + ' m  BOTTOM +' + Math.max(0, depthAt(L.x, L.y) - L.z).toFixed(2) + ' m', '#a8c0d8');
+      line('DEPTH ' + (L.z * 100).toFixed(1) + ' cm' + (water.show ? '' : '  BOTTOM +' + Math.max(0, depthAt(L.x, L.y) - L.z).toFixed(2) + ' m'), '#a8c0d8');
     }
     if (cast.lure && cast.lure.st === 'float') line('LINE ' + cast.lure.out.toFixed(1) + ' / ' + LINE_MAX + ' m', '#c8d8e0');
     if (catches.length) line('CATCH ' + catches.length + '  ' + fmtWeight(catches.reduce((s, c) => s + c.w, 0)), '#a7f070');
@@ -4203,12 +4203,13 @@ function render() {
     text((player.light ? 'F  LAMP ON' : 'F  LAMP OFF'), 6, H - 11, 4, player.light ? '#ffe9a0' : '#94b0c2', 'left');
   }
   if (banners.length) text(banners[0].text, W / 2, 34, 6, '#ffcd75');
-  // Syvyyslukema tähtäimen kohdalta (veden syvyys siinä pinnan kohdassa, johon tähtäin osuu) ja veden kehitysnäppäimet
+  // Debug-tilassa (vesi piilotettuna) tähtäimen vieressä veden syvyys siinä pinnan kohdassa, johon
+  // tähtäin osuu; lisäksi veden kehitysnäppäimet
   if (state === 'play' && aiming() && !touch.on) {
     const ax = Math.round(mouseX) + Math.round(cam.x) - PB.x0, ay = Math.round(mouseY) + Math.round(cam.y) - PB.y0;
-    if (ax >= 0 && ay >= 0 && ax < PB.w && ay < PB.h && (pondMask[ay * PB.w + ax] === 1 || pondMask[ay * PB.w + ax] === 2)) {
+    if (!water.show && ax >= 0 && ay >= 0 && ax < PB.w && ay < PB.h && (pondMask[ay * PB.w + ax] === 1 || pondMask[ay * PB.w + ax] === 2)) {
       const [wx, wy] = absToWorld(Math.round(mouseX) + Math.round(cam.x), Math.round(mouseY) + Math.round(cam.y));
-      text('DEPTH ' + depthAt(wx, wy).toFixed(1) + ' m', W - 6, H - 20, 5, '#e8dca0', 'right');
+      text(depthAt(wx, wy).toFixed(1) + ' m', Math.round(mouseX) + 9, Math.round(mouseY) - 9, 4, '#e8dca0', 'left');
     }
     text((water.show ? 'V HIDE WATER' : 'V SHOW WATER') + '  [ ] MURK ' + water.turb.toFixed(2) + '  B LINES', W - 6, H - 9, 4, '#94b0c2', 'right');
   }
