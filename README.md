@@ -51,7 +51,8 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   ja muoto arvotaan joka pelissä uudelleen. Pinnassa heijastuvat taivas ja kauimman rannan puut.
   Tyynellä vesi on lähes peilityyni, tuulella pinta väreilee ja heijastus vääristyy. Pohjaa ei näe.
   Rantavedessä on kiviä.
-- **Rantapenger**: noin 3–4 m leveä, kiertää koko lammen; penkereellä kasvaa ruohoa.
+- **Rantapenger**: noin 3–4 m leveä, kiertää koko lammen; penkereellä ja aukealla kasvaa ruohotuppaita ja
+  tiheämmin lyhyttä ruohoa. Ruohoa ei häivytetä pelaajan ympärillä, vaan se peittää sen takana seisovan hahmon.
   Metsään ja veteen ei voi kävellä.
 - **Metsä**: enimmäkseen eri muotoisia kuusia (kapea, suippo latvus yksittäisistä riippuvista oksista ja
   niiden alta roikkuvista neulasverhoista), joukossa harvakseltaan mäntyjä ja koivuja. Puiden latvukset

@@ -627,8 +627,8 @@ function makeRock(rnd, small) {
 // röyhy latvassa), osmankäämiä (ruskea tähkä) ja kaarevia saran lehtiä. Huojunta on esilaskettu
 // SWAY_FRAMES vaiheeseen: tuuli taivuttaa korsia sitä enemmän, mitä korkeampi ja notkeampi korsi on.
 const SWAY_FRAMES = 9;
-function makeGrass(rnd, reed) {
-  const w = reed ? 19 : 15, h = reed ? 22 : 13, ax = w >> 1, ay = h - 2;
+function makeGrass(rnd, reed, short) {
+  const w = reed ? 19 : short ? 11 : 15, h = reed ? 22 : short ? 9 : 13, ax = w >> 1, ay = h - 2;
   const T = reed ? ['#3a5426', '#56762f', '#7c9a44', '#a8b664'] : ['#35502a', '#4c6c32', '#6a8a40', '#94a856'];
   const parts = [];
   if (reed) {
@@ -642,8 +642,9 @@ function makeGrass(rnd, reed) {
       });
     }
   } else {
-    const n = 5 + Math.floor(rnd() * 5);
-    for (let k = 0; k < n; k++) parts.push({ kind: 'blade', x0: ax + Math.round((rnd() - 0.5) * 9), len: 4 + rnd() * 6, lean: (rnd() - 0.5) * 0.5, flex: 0.7 + rnd() * 0.6, dry: rnd() < 0.15 });
+    // Lyhyt ruoho: matalia, tiheitä korsia; tavallinen tuppas on pidempi
+    const n = short ? 4 + Math.floor(rnd() * 5) : 5 + Math.floor(rnd() * 5);
+    for (let k = 0; k < n; k++) parts.push({ kind: 'blade', x0: ax + Math.round((rnd() - 0.5) * (short ? 7 : 9)), len: short ? 2 + rnd() * 3.5 : 4 + rnd() * 6, lean: (rnd() - 0.5) * 0.6, flex: 0.7 + rnd() * 0.6, dry: rnd() < 0.12 });
   }
   parts.sort((a, b) => b.len - a.len);   // pitkät taakse
   const frames = [];
@@ -716,7 +717,7 @@ const FOREST_SPR = (() => {
 const WATER_ROCK_SPR = (() => { const rnd = mulberry32(33); return Array.from({ length: 6 }, () => makeRock(rnd, true)); })();
 const GRASS_SPR = (() => {
   const rnd = mulberry32(41);
-  return [Array.from({ length: 6 }, () => makeGrass(rnd, false)), Array.from({ length: 6 }, () => makeGrass(rnd, true))];
+  return [Array.from({ length: 6 }, () => makeGrass(rnd, false)), Array.from({ length: 6 }, () => makeGrass(rnd, true)), Array.from({ length: 8 }, () => makeGrass(rnd, false, true))];
 })();
 const SIL = { player: silhouette(PLAYER_SPR.S[0].img) };
 
@@ -863,6 +864,13 @@ function genMap() {
     const x = (i % N) + rnd(), y = ((i / N) | 0) + rnd();
     if (nearCamp(x, y, 2.7) || onDock(x, y, 1)) continue;
     if (type[cellIdx(x, y)] === T_BANK || type[cellIdx(x, y)] === T_CLEAR) decor.push({ x, y, spr: GRASS_SPR[0][Math.floor(rnd() * 6)], reed: false });
+  }
+  // Lyhyttä ruohoa tiheämmin, myös lähempänä nuotiota (ei aivan tulisijan vieressä)
+  for (let i = 0; i < N * N; i++) {
+    if ((type[i] !== T_BANK && type[i] !== T_CLEAR) || rnd() > 0.55) continue;
+    const x = (i % N) + rnd(), y = ((i / N) | 0) + rnd();
+    if (nearCamp(x, y, 1.9) || onDock(x, y, 0.6) || shoreDist(x, y) < 0.2) continue;
+    if (type[cellIdx(x, y)] === T_BANK || type[cellIdx(x, y)] === T_CLEAR) decor.push({ x, y, spr: GRASS_SPR[2][Math.floor(rnd() * 8)], reed: false });
   }
   for (let a = 0; a < Math.PI * 2; a += 0.012) {
     // Kaislikko kasvaa vain vedessä ja laikuittain: paikoin leveänä tiheänä vyönä, paikoin kapeana ja harvana.
@@ -3941,10 +3949,10 @@ function drawWorld() {
   const playerD = player.x + player.y;
   frontCtx.clearRect(0, 0, W, H);
   for (const o of list) {
-    // Pelaajan edessä olevat puut ja ruohot menevät etukerrokselle, josta aukko leikataan.
-    // Kivet ja kaislat näkyvät aina kokonaan ja peittävät niiden takana seisovan hahmon.
-    const rock = o.k === 0 && kind[o.i] === K_ROCK, reed = o.k === 1 && o.o.reed;
-    ctx = (o.k === 0 || o.k === 1) && o.d > playerD && !rock && !reed && playerShown() ? frontCtx : mainCtx;
+    // Pelaajan edessä olevat puut menevät etukerrokselle, josta aukko leikataan. Kivet, ruohot ja
+    // kaislat näkyvät aina kokonaan ja peittävät niiden takana seisovan hahmon.
+    const rock = o.k === 0 && kind[o.i] === K_ROCK;
+    ctx = o.k === 0 && o.d > playerD && !rock && playerShown() ? frontCtx : mainCtx;
     if (o.k === 0) {
       const spr = FOREST_SPR[kind[o.i]][pvar[o.i]];
       if (rock) ctx.drawImage(spr.full, o.sx - spr.ax, o.sy - spr.ay + 1);
