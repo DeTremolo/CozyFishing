@@ -1101,6 +1101,7 @@ function buildPond() {
   buildDepth();
   buildBasin();
   buildDock();
+  placeBoat();
   placeLilies();
   turbFor = -1;
   pondMaskCanvas = makeCanvas(PB.w, PB.h);
@@ -1194,7 +1195,7 @@ function placeLilies() {
     if (onDock(cx, cy, 2.5)) continue;
     for (let n = 0, m = 4 + Math.floor(rnd() * 8); n < m; n++) {
       const x = cx + (rnd() - 0.5) * 3, y = cy + (rnd() - 0.5) * 3, d = depthAt(x, y);
-      if (shoreDist(x, y) > -0.4 || d < 0.2 || d > 1.8 || onDock(x, y, 1.5)) continue;
+      if (shoreDist(x, y) > -0.4 || d < 0.2 || d > 1.8 || onDock(x, y, 1.5) || (boat && Math.hypot(x - boat.x, y - boat.y) < 2.4)) continue;
       if (lilies.some((o) => Math.hypot(o.x - x, o.y - y) < 0.55) || waterRocks.some((o) => Math.hypot(o.x - x, o.y - y) < 0.9)) continue;
       const set = LILY_SPR[yellow ? 'yellow' : 'white'];
       lilies.push({ x, y, pad: set[Math.floor(rnd() * set.length)], flower: rnd() < 0.3 ? (yellow ? 'yellow' : 'white') : null, ph: rnd() * 6.28 });
@@ -2985,6 +2986,7 @@ function drawUnderwater(camXr, camYr) {
   }
   drawStems(g, camXr, camYr);
   drawDockPosts(g, camXr, camYr);
+  drawBoatUnder(g, camXr, camYr);
   g.globalAlpha = 1;
   ctx = mainCtx;
   g.globalCompositeOperation = 'destination-in';
@@ -3656,6 +3658,153 @@ function drawHookBait(kx, ky) {
   dot(kx - 1, ky + 1, '#c86a78'); dot(kx, ky + 1, '#e08a96'); dot(kx - 1 - w, ky + 2, '#b85a68');
 }
 
+// ---------------------------------------------------------------------------
+// Moottorivene: pieni vaalea soutuveneen kokoinen vene, jonka perässä on perämoottori. Veneen kuvat
+// lasketaan valmiiksi 16 suuntaan (BOAT_SPR[i], suunta i * 22,5 astetta maailman x-akselista):
+//   full  = vedenpäällinen osa (laidat, sisäpuoli, istuimet ja perämoottori)
+//   front = katsojaa lähempi laita, joka piirretään kyydissä olevan hahmon päälle
+//   under = veden alle jäävä pohja ja moottorin vetolaite (häivytetään syvyyden mukaan)
+// Kuvien ankkuri (ax, ay) on veneen keskikohta vesirajassa. Vene on aluksi kiinni laiturissa keula
+// oikealle. Ajomallia ei ole vielä: rider = null | 'stand' (seisoo kalastamassa) | 'drive' (istuu perässä
+// ja ohjaa perämoottoria oikealla kädellä).
+// ---------------------------------------------------------------------------
+const BOAT_N = 16, BOAT_PX = 10;   // suuntien määrä; korkeudet pikseleinä metriä kohden
+const BOAT_HULL = [[-1.5, -0.56], [-0.5, -0.64], [0.5, -0.56], [1.15, -0.32], [1.6, 0], [1.15, 0.32], [0.5, 0.56], [-0.5, 0.64], [-1.5, 0.56]];
+const boatH = (u) => 4 + Math.max(0, u - 0.6) * 1.8;   // laidan korkeus (px): keula nousee hieman
+function makeBoatSprites(a) {
+  const W2 = 72, H2 = 52, ax = 36, ay = 30, ca = Math.cos(a), sa = Math.sin(a);
+  const P = (u, v, z) => { const dx = u * ca - v * sa, dy = u * sa + v * ca; return [ax + (dx - dy) * 8, ay + (dx + dy) * 4 - z]; };
+  const mk = () => { const c = makeCanvas(W2, H2); return [c, c.getContext('2d')]; };
+  const [full, gf] = mk(), [front, gr] = mk(), [under, gu] = mk();
+  const light = (nu, nv) => { const nx = nu * ca - nv * sa, ny = nu * sa + nv * ca; return -0.7 * nx - 0.7 * ny; };
+  const n = BOAT_HULL.length;
+  // Laitojen pinnat: kukin laidan pätkä vesirajasta reunaan, kauimmat ensin
+  const faces = [];
+  for (let i = 0; i < n; i++) {
+    const [u0, v0] = BOAT_HULL[i], [u1, v1] = BOAT_HULL[(i + 1) % n];
+    const mu = (u0 + u1) / 2, mv = (v0 + v1) / 2, nu = v1 - v0, nv = -(u1 - u0);
+    const nl = Math.hypot(nu, nv) || 1, out = (nu * mu + nv * mv) > 0 ? 1 : -1;
+    faces.push({ i, u0, v0, u1, v1, depth: P(mu, mv, 0)[1], l: light(out * nu / nl, out * nv / nl), toward: P(mu * 1.2, mv * 1.2, 0)[1] > P(mu, mv, 0)[1] });
+  }
+  faces.sort((p, q) => p.depth - q.depth);
+  const wl = 0.9;   // vesirajan ääriviiva on hieman laitaa kapeampi
+  const sideCol = (l) => (l > 0.3 ? '#f2f0e6' : l > -0.3 ? '#d8d6ca' : '#b4b2a6');
+  const drawSide = (g, f) => {
+    const top0 = P(f.u0, f.v0, boatH(f.u0)), top1 = P(f.u1, f.v1, boatH(f.u1));
+    const bot0 = P(f.u0 * wl, f.v0 * wl, 0), bot1 = P(f.u1 * wl, f.v1 * wl, 0);
+    polyFill(g, [top0, top1, bot1, bot0], sideCol(f.l));
+    plotLine(g, top0[0], top0[1] + 1, top1[0], top1[1] + 1, '#3a6a9a');   // sininen raita laidan alla
+  };
+  // Moottori: kotelo, varsi ja ohjauskahva perässä keskellä
+  const motor = (g) => {
+    const [mx, my] = P(-1.66, 0, boatH(-1.5) + 3), [sx0, sy0] = P(-1.66, 0, boatH(-1.5)), [sx1, sy1] = P(-1.66, 0, 0);
+    plotLine(g, sx0, sy0, sx1, sy1, '#3a3e44');
+    g.fillStyle = '#26292e'; g.fillRect(Math.round(mx) - 2, Math.round(my) - 3, 5, 5);
+    g.fillStyle = '#4e545c'; g.fillRect(Math.round(mx) - 2, Math.round(my) - 3, 2, 4);
+    g.fillStyle = '#8a9098'; g.fillRect(Math.round(mx) - 1, Math.round(my) - 3, 3, 1);
+    const [tx, ty] = P(-1.15, 0.12, boatH(-1.5) + 2);
+    plotLine(g, mx, my, tx, ty, '#1e2024');
+    g.fillStyle = '#c83a2a'; g.fillRect(Math.round(tx), Math.round(ty), 1, 1);
+  };
+  const sternY = P(-1.5, 0, 0)[1], midY = P(0, 0, 0)[1], motorBehind = sternY < midY;
+  if (motorBehind) motor(gf);
+  for (const f of faces) if (!f.toward) drawSide(gf, f);
+  // Sisäpuoli: laitojen sisäpinta, puinen pohja ja kaksi istuinta
+  const rim = BOAT_HULL.map(([u, v]) => P(u, v, boatH(u)));
+  polyFill(gf, rim, '#cfcabb');
+  polyFill(gf, BOAT_HULL.map(([u, v]) => P(u * 0.8, v * 0.72, 1)), '#a8916a');
+  for (const u of [0.35, -1.1]) {
+    const w = 0.6 * (u > 0 ? 0.95 : 0.9), [x0, y0] = P(u, -w, boatH(u) - 1), [x1, y1] = P(u, w, boatH(u) - 1);
+    plotLine(gf, x0, y0, x1, y1, '#8a6a44'); plotLine(gf, x0, y0 - 1, x1, y1 - 1, '#b08c5a');
+  }
+  for (const f of faces) if (f.toward) { drawSide(gf, f); drawSide(gr, f); }
+  for (let i = 0; i < n; i++) {
+    const a0 = rim[i], a1 = rim[(i + 1) % n];
+    plotLine(gf, a0[0], a0[1], a1[0], a1[1], '#fbf9f2');
+    if (faces.find((f) => f.i === i && f.toward)) plotLine(gr, a0[0], a0[1], a1[0], a1[1], '#fbf9f2');
+  }
+  if (!motorBehind) { motor(gf); motor(gr); }
+  outlineSprite(full, 'rgba(20, 24, 26, 0.75)');
+  // Veden alla: pohja vesirajasta köliin ja moottorin vetolaite potkureineen
+  const keel = 0.55;
+  for (const f of faces) {
+    const t0 = P(f.u0 * wl, f.v0 * wl, 0), t1 = P(f.u1 * wl, f.v1 * wl, 0), b0 = P(f.u0 * keel, f.v0 * keel * 0.6, -3), b1 = P(f.u1 * keel, f.v1 * keel * 0.6, -3);
+    polyFill(gu, [t0, t1, b1, b0], f.l > 0 ? '#c8c6ba' : '#a4a298');
+  }
+  const [px0, py0] = P(-1.66, 0, 0), [px1, py1] = P(-1.66, 0, -6);
+  plotLine(gu, px0, py0, px1, py1, '#3a3e44');
+  gu.fillStyle = '#5a6068'; gu.fillRect(Math.round(px1) - 1, Math.round(py1), 3, 1);
+  return { full, front, under, ax, ay, P };
+}
+const BOAT_SPR = Array.from({ length: BOAT_N }, (_, i) => makeBoatSprites((i / BOAT_N) * Math.PI * 2));
+const boatIdx = (a) => ((Math.round(a / (Math.PI * 2 / BOAT_N)) % BOAT_N) + BOAT_N) % BOAT_N;
+let boat = null;
+function placeBoat() {
+  // Kiinni laiturin katsojan puoleisessa kyljessä, keula laiturin suuntaan (ruudulla oikealle)
+  const t = 4.6, s = -(DOCK_W / 2 + 0.75);
+  boat = { x: dock.x0 + dock.ux * t + dock.px * s, y: dock.y0 + dock.uy * t + dock.py * s, a: Math.atan2(dock.uy, dock.ux), rider: null, moored: true };
+}
+const boatBob = () => Math.round(Math.sin(time * 0.045) * 0.6);
+function drawBoat(camXr, camYr) {
+  const b = boat, spr = BOAT_SPR[boatIdx(b.a)];
+  const x = Math.round(isoX(b.x, b.y) - camXr) - spr.ax, y = Math.round(isoY(b.x, b.y) - camYr) - spr.ay + boatBob();
+  if (x > W || y > H || x + spr.full.width < 0 || y + spr.full.height < 0) return;
+  ctx.drawImage(spr.full, x, y);
+  if (!b.rider) return;
+  drawBoatRider(spr, x, y);
+  ctx.drawImage(spr.front, x, y);
+}
+// Kyydissä oleva hahmo. Seisova hahmo on veneen keskellä; kuljettaja istuu perässä kasvot menosuuntaan
+// ja pitää oikealla kädellä perämoottorin ohjauskahvasta.
+function drawBoatRider(spr, x, y) {
+  const b = boat, [hx, hy] = screenDir(Math.cos(b.a), Math.sin(b.a));
+  const av = Math.atan2(hy, Math.abs(hx)), view = VIEW_ORDER[clamp(Math.round((av + Math.PI / 2) / (Math.PI / 4)), 0, 4)], flip = hx < 0;
+  if (b.rider === 'stand') {
+    const [px, py] = spr.P(0, 0, 1), img = PLAYER_SPR[view][0].img;
+    drawImg(img, x + px - 8, y + py - 20, flip);
+    return;
+  }
+  // Istuva kuljettaja: hahmon kuvasta vain yläosa (jalat jäävät laidan taakse)
+  const [px, py] = spr.P(-1.0, 0, boatH(-1.1) - 1), img = PLAYER_SPR[view][0].img, h = 15;
+  const dx = Math.round(x + px - 8), dy = Math.round(y + py - h);
+  if (flip) { ctx.save(); ctx.translate(dx + img.width, dy); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0, img.width, h, 0, 0, img.width, h); ctx.restore(); }
+  else ctx.drawImage(img, 0, 0, img.width, h, dx, dy, img.width, h);
+  // Oikea käsi ohjauskahvalla: hihasta kahvaan
+  const [gx, gy] = spr.P(-1.15, 0.12, boatH(-1.5) + 2), sh = [x + px + (flip ? -3 : 3), y + py - 8];
+  plotLine(ctx, sh[0], sh[1], x + gx, y + gy, '#6c8c40');
+  dot(x + gx, y + gy, '#f6d0ac');
+}
+// Veneen veden alle jäävä osa (vedenalaiselle kerrokselle, häivytettynä)
+function drawBoatUnder(g, camXr, camYr) {
+  if (!boat) return;
+  const spr = BOAT_SPR[boatIdx(boat.a)];
+  const x = Math.round(isoX(boat.x, boat.y) - camXr) - spr.ax, y = Math.round(isoY(boat.x, boat.y) - camYr) - spr.ay + boatBob();
+  g.globalAlpha = underVis(0.3);
+  g.drawImage(spr.under, x, y);
+  g.globalAlpha = 1;
+}
+// Veneen heijastus: vedenpäällinen kuva peilataan vesirajan suhteen ja rajataan veden alueelle
+const boatReflC = makeCanvas(72, 52), boatReflCtx = boatReflC.getContext('2d');
+function drawBoatReflection(camXr, camYr) {
+  if (!boat || !water.show) return;
+  const spr = BOAT_SPR[boatIdx(boat.a)], g = boatReflCtx;
+  const bx = Math.round(isoX(boat.x, boat.y) - camXr), by = Math.round(isoY(boat.x, boat.y) - camYr) + boatBob();
+  const rx = bx - spr.ax + Math.round(Math.sin(time * 0.05) * wind.gust), ry = by - (spr.full.height - spr.ay);
+  if (rx > W || ry > H || rx + 72 < 0 || ry + 52 < 0) return;
+  g.globalCompositeOperation = 'source-over';
+  g.clearRect(0, 0, 72, 52);
+  g.save(); g.translate(0, 52); g.scale(1, -1); g.drawImage(spr.full, 0, 0); g.restore();
+  // Peilikuvassa vesirajan alapuolelle jäävä osa (kuvan yläosa) on veden sisällä, joten vain ay:n
+  // korkeus vesirajasta ylöspäin heijastuu; loput peittää vesi
+  g.globalCompositeOperation = 'source-atop';
+  g.fillStyle = 'rgba(16, 26, 34, 0.45)'; g.fillRect(0, 0, 72, 52);
+  g.globalCompositeOperation = 'destination-in';
+  g.drawImage(pondMaskCanvas, PB.x0 - camXr - rx, PB.y0 - camYr - ry);
+  ctx.globalAlpha = 0.4;
+  ctx.drawImage(boatReflC, rx, ry);
+  ctx.globalAlpha = 1;
+}
+
 // Pelaajan heijastus vedenpinnasta: hahmon kuva peilataan vedenpinnan tasossa (laiturilla kannen alta)
 // ja rajataan lammen alueelle. Heijastus on tumma ja läpikuultava ja väreilee tuulessa; se näkyy esim.
 // laiturilla ja lammen pohjoisrannalla, kun vettä on hahmon edessä ruudulla.
@@ -4136,6 +4285,7 @@ function drawWorld() {
   }
   drawUnderwater(camXr, camYr);
   drawPlayerReflection(camXr, camYr);
+  drawBoatReflection(camXr, camYr);
   snapStars('a');
   if (!water.show) drawDebugLines(camXr, camYr);
   drawLilies(camXr, camYr);
@@ -4167,6 +4317,7 @@ function drawWorld() {
     list.push({ d: o.x + o.y, k: 1, o, sx, sy });
   }
   list.push({ d: TENT.cx + TENT.cy + 2, k: 2 });
+  if (boat) list.push({ d: boat.x + boat.y, k: 8 });
   list.push({ d: CAMP.cx + CAMP.cy + 1, k: 3 });
   for (const a of animals) list.push({ d: a.x + a.y, k: 4, a });
   if (water.show) for (const o of waterRocks) list.push({ d: o.x + o.y, k: 7, o });
@@ -4196,6 +4347,8 @@ function drawWorld() {
       drawAnimal(o.a, isoX(o.a.x, o.a.y) - camXr, isoY(o.a.x, o.a.y) - camYr);
     } else if (o.k === 5) {
       drawDuck(o.dk, isoX(o.dk.x, o.dk.y) - camXr, isoY(o.dk.x, o.dk.y) - camYr);
+    } else if (o.k === 8) {
+      drawBoat(camXr, camYr);
     } else if (o.k === 7) {
       drawWaterRockTop(o.o, camXr, camYr);
     } else {

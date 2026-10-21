@@ -65,6 +65,12 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   nousevat hehkuvat kipinät leijailevat savun mukana ja hohtavat pimeällä) ja
   noin 8 m pitkä laituri, jolle voi kävellä. Laiturin paalujen vedenpäällinen osa näkyy reunapalkin alla, ja veden alla
   oleva osa häipyy syvyyden ja sameuden mukaan.
+- **Moottorivene**: laiturin katsojan puoleisessa kyljessä on kiinni pieni vaalea vene (keula oikealle),
+  jonka perässä on perämoottori. Veneestä on valmiit kuvat 16 suuntaan, sen vedenpäällinen osa heijastuu
+  vedestä ja veden alle jäävä pohja ja moottorin vetolaite häipyvät syvyyden mukaan. Valmiina ovat myös
+  kuvat kyydissä olevasta hahmosta: kuljettaja istuu perässä kasvot menosuuntaan ja ohjaa perämoottoria
+  oikealla kädellä, ja pysäytetyssä veneessä hahmo voi seistä kalastamassa (`boat.rider`). Veneellä ei
+  voi vielä ajaa.
 - **Heijastus**: pelaajan hahmo heijastuu vedenpinnasta (esim. laiturilla ja lammen pohjoisrannalla).
 - **Aurinko ja valo**: aurinko nousee koillisesta, on keskipäivällä etelässä ja laskee luoteeseen, ja puiden,
   hahmon ja eläinten varjot kääntyvät ja pitenevät sen mukaan (varjojen suunta päivitetään kerran tunnissa
