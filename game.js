@@ -3757,7 +3757,9 @@ function drawBoat(camXr, camYr) {
 }
 // Ajon ajaksi onki lasketaan veneeseen: kahva pohjalla kuljettajan vieressä ja kärki roikkuu keulan yli
 function drawBoatRod(spr, x, y) {
-  const butt = spr.P(-0.7, 0.36, 1.5), rest = spr.P(1.5, 0.08, boatH(1.5) + 0.5), tip = spr.P(2.35, 0.12, boatH(1.6) - 1.5);
+  // Vapa on lähes suora: kärki jatkaa kahvasta keulan laitaan kulkevaa linjaa, vain pieni notko lopussa
+  const B = [-0.7, 0.36, 1.5], R = [1.5, 0.08, boatH(1.5) + 0.5], ext = 0.38;
+  const butt = spr.P(...B), rest = spr.P(...R), tip = spr.P(R[0] + (R[0] - B[0]) * ext, R[1] + (R[1] - B[1]) * ext, R[2] + (R[2] - B[2]) * ext - 0.6);
   const ln = (a, c, col, oy = 0) => plotLine(ctx, x + a[0], y + a[1] + oy, x + c[0], y + c[1] + oy, col);
   ln(butt, rest, 'rgba(14, 10, 8, 0.7)', 1); ln(rest, tip, 'rgba(14, 10, 8, 0.6)', 1);   // tumma reuna
   ln(butt, rest, '#c89a5a'); ln(rest, tip, '#c89a5a');
