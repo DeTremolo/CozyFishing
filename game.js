@@ -1215,13 +1215,23 @@ function drawLilies(camXr, camYr) {
   }
 }
 
-// Tähtien heijastukset piirretään yön pimennyksen jälkeen omalta kerrokseltaan, josta leikataan pois
-// lammen edessä olevat puut ja laituri. Ne näkyvät vain kirkkaana yönä; tuuli himmentää ja heiluttaa niitä.
+// Tähtien heijastukset piirretään yön pimennyksen jälkeen omalta kerrokseltaan. Ne näkyvät vain kirkkaana
+// yönä; tuuli himmentää ja heiluttaa niitä.
 let stars = [];
 const starCanvas = makeCanvas(W, H), starCtx = starCanvas.getContext('2d');
+// Tähdet piirretään vain sinne, missä vedenpinta näkyy: ruutu tallennetaan heti veden ja vedenalaisten
+// asioiden jälkeen (starSnap.a) ja vielä kerran, kun kaikki muu on piirretty (starSnap.b). Jos tähden
+// pikseli on muuttunut välissä, sen päälle on piirretty jotain (puu, kaisla, lumme, kivi, hahmo, lintu…).
+const starSnap = { a: null, b: null };
+const starVis = () => (water.show ? smooth((env.dark - 0.55) / 0.35) * (1 - env.overcast) * (1 - weather.fog) * (1 - wind.gust * 0.6) : 0);
+function snapStars(which) {
+  starSnap[which] = starVis() >= 0.03 && stars.length ? mainCtx.getImageData(0, 0, W, H).data : null;
+}
 function drawStarReflections(camXr, camYr) {
-  const vis = smooth((env.dark - 0.55) / 0.35) * (1 - env.overcast) * (1 - weather.fog) * (1 - wind.gust * 0.6);
-  if (vis < 0.03 || !water.show) return;
+  const vis = starVis();
+  if (vis < 0.03 || !starSnap.a || !starSnap.b) return;
+  const A = starSnap.a, B = starSnap.b;
+  const open = (x, y) => { const k = (y * W + x) * 4; return A[k] === B[k] && A[k + 1] === B[k + 1] && A[k + 2] === B[k + 2]; };
   const g = starCtx;
   g.globalCompositeOperation = 'source-over';
   g.clearRect(0, 0, W, H);
@@ -1234,13 +1244,14 @@ function drawStarReflections(camXr, camYr) {
     if (x < 1 || x >= W - 1) continue;
     // Tähti pysyy paikallaan; väreilevä pinta vain himmentää ja kirkastaa sitä
     const a = vis * st.b * (0.6 + 0.4 * Math.sin(time * 0.05 * st.sp + st.ph)) * (1 - wind.gust * 0.5 * (0.5 + 0.5 * Math.sin(time * 0.11 + st.ph * 3)));
-    g.fillStyle = `rgba(225, 232, 255, ${a.toFixed(3)})`;
-    g.fillRect(x, y, 1, 1);
-    if (st.b > 0.85) { g.fillStyle = `rgba(200, 210, 255, ${(a * 0.35).toFixed(3)})`; g.fillRect(x - 1, y, 1, 1); g.fillRect(x + 1, y, 1, 1); }
+    if (open(x, y)) { g.fillStyle = `rgba(225, 232, 255, ${a.toFixed(3)})`; g.fillRect(x, y, 1, 1); }
+    if (st.b > 0.85) {
+      g.fillStyle = `rgba(200, 210, 255, ${(a * 0.35).toFixed(3)})`;
+      if (open(x - 1, y)) g.fillRect(x - 1, y, 1, 1);
+      if (open(x + 1, y)) g.fillRect(x + 1, y, 1, 1);
+    }
   }
-  g.globalCompositeOperation = 'destination-out';
-  g.drawImage(front, 0, 0);
-  g.drawImage(dockImg, dockBX - camXr, dockBY - camYr);
+  starSnap.a = starSnap.b = null;
   ctx.globalCompositeOperation = 'lighter';
   ctx.drawImage(starCanvas, 0, 0);
   ctx.globalCompositeOperation = 'source-over';
@@ -3953,6 +3964,7 @@ function drawWorld() {
     drawRipples(camXr, camYr);
   }
   drawUnderwater(camXr, camYr);
+  snapStars('a');
   if (!water.show) drawDebugLines(camXr, camYr);
   drawLilies(camXr, camYr);
   ctx.drawImage(dockImg, dockBX - camXr, dockBY - camYr);
@@ -4049,6 +4061,7 @@ function drawWorld() {
     }
   }
 
+  snapStars('b');
   drawWeather(camXr, camYr);
   if (state !== 'play' && state !== 'pause') return;
   drawWindVane();
