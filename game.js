@@ -2271,7 +2271,7 @@ const SPECIES = {
     depth: [0.4, 3.5],                // mieluisin uintisyvyys metreinä
     speed: 0.013, fight: 0.034,       // uinti- ja pakonopeus (m / päivitys)
     bite: 'instant',                  // ahven nielaisee syötin heti
-    interest: 1 / (60 * 22),          // todennäköisyys kiinnostua lähellä olevasta syötistä päivitystä kohden
+    interest: 1.1 / (60 * 22),          // todennäköisyys kiinnostua lähellä olevasta syötistä päivitystä kohden
     lures: { bobber: 1, wobbler: 0.3 },   // kiinnostus vieheittäin: ahven pitää madosta
     energy: 4, regen: 2,              // voimien ja niiden palautumisen kertoimet
     pal: { back: '#34421f', body: '#7c8a3c', belly: '#d4cca4', bar: '#202a14', fin: '#d4542a', eye: '#101010' },
@@ -2284,7 +2284,7 @@ const SPECIES = {
     depth: [0.3, 1.2],                // kaislikossa; syvänteessä hauki ui syvemmällä (ks. pikeHome)
     speed: 0.005, fight: 0.05, strike: 0.075,
     bite: 'instant',
-    interest: 1 / (60 * 30), sight: 4.5,
+    interest: 1.1 / (60 * 30), sight: 4.5,
     lures: { bobber: 0.35, wobbler: 1.6 },   // hauki iskee mieluummin vaappuun
     energy: 3, regen: 4,
     pal: { back: '#2a3a1c', body: '#5c7434', belly: '#d8d4b0', bar: '#c8c878', fin: '#8a6a2a', eye: '#101010' },
@@ -2779,6 +2779,37 @@ function drawUnderwater(camXr, camYr) {
   g.drawImage(pondMaskCanvas, PB.x0 - camXr, PB.y0 - camYr);
   g.globalCompositeOperation = 'source-over';
   ctx.drawImage(underCanvas, 0, 0);
+}
+
+// Debug-tila (vesi piilotettuna): jokaisesta kalasta pystyviiva pintaan ja pohjaan, pinnan kohdalla
+// rengas. Tähtäimen kohdalta (lammen päällä) viiva pohjaan.
+function drawDebugLines(camXr, camYr) {
+  for (const f of fishes) {
+    if (f.mode === 'land' || f.mode === 'caught') continue;
+    const x = Math.round(isoX(f.x, f.y) - camXr), sy = Math.round(isoY(f.x, f.y) - camYr);
+    if (x < -6 || x > W + 6 || sy < -6 || sy > H + 40) continue;
+    const fy = Math.round(sy + f.z * Z_PX), by = Math.round(sy + depthAt(f.x, f.y) * Z_PX);
+    const col = f.kind === 'pike' ? '120, 230, 140' : '255, 200, 90';
+    ctx.fillStyle = `rgba(${col}, 0.55)`;
+    for (let y = sy + 1; y < fy - 1; y++) ctx.fillRect(x, y, 1, 1);
+    ctx.fillStyle = `rgba(${col}, 0.3)`;
+    for (let y = fy + 2; y <= by; y++) ctx.fillRect(x, y, 1, 1);
+    ctx.fillStyle = `rgba(${col}, 0.8)`;
+    ctx.fillRect(x - 1, by, 3, 1);                                  // pohjan kohta
+    for (let k = 0; k < 12; k++) {                                  // rengas pinnalla
+      const a = (k / 12) * Math.PI * 2;
+      ctx.fillRect(Math.round(x + Math.cos(a) * 3), Math.round(sy + Math.sin(a) * 1.5), 1, 1);
+    }
+  }
+  if (state === 'play' && aiming()) {
+    const mx = Math.round(mouseX), my = Math.round(mouseY);
+    if (waterPx(mx + camXr, my + camYr)) {
+      const [wx, wy] = absToWorld(mx + camXr, my + camYr), by = Math.round(my + depthAt(wx, wy) * Z_PX);
+      ctx.fillStyle = 'rgba(200, 230, 255, 0.6)';
+      for (let y = my + 4; y <= by; y++) ctx.fillRect(mx, y, 1, 1);
+      ctx.fillRect(mx - 1, by, 3, 1);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -3805,6 +3836,7 @@ function drawWorld() {
     drawRipples(camXr, camYr);
   }
   drawUnderwater(camXr, camYr);
+  if (!water.show) drawDebugLines(camXr, camYr);
   drawLilies(camXr, camYr);
   ctx.drawImage(dockImg, dockBX - camXr, dockBY - camYr);
   drawLure(camXr, camYr);
@@ -4137,6 +4169,11 @@ function render() {
       line('WOBBLER', '#a8c0d8');
       line('REEL ' + cast.reelSpeed + ' cm/s' + (touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
     } else if (player.rod) line('HOOK ' + cast.hookDepth.toFixed(1) + ' m' + (cast.lure ? '' : touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
+    // Vedessä olevan vaapun syvyys ja matka pohjaan
+    const L = cast.lure;
+    if (L && L.kind === 'wobbler' && L.st === 'float' && L.onWater && !L.fish) {
+      line('WOBBLER ' + L.z.toFixed(2) + ' m  BOTTOM +' + Math.max(0, depthAt(L.x, L.y) - L.z).toFixed(2) + ' m', '#a8c0d8');
+    }
     if (cast.lure && cast.lure.st === 'float') line('LINE ' + cast.lure.out.toFixed(1) + ' / ' + LINE_MAX + ' m', '#c8d8e0');
     if (catches.length) line('CATCH ' + catches.length + '  ' + fmtWeight(catches.reduce((s, c) => s + c.w, 0)), '#a7f070');
   }

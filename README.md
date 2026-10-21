@@ -97,7 +97,9 @@ Vesi piirretään läpinäkyvänä kerroksena pohjan päälle. Jokaisen kohdan l
 syvyys tiedetään, ja sameus (`water.turb`, valon vaimeneminen metriä kohden, oletuksena 2,5) ratkaisee, kuinka
 paljon pohjaa näkyy: matalikolla pohja näkyy, syvässä ja sameassa vedessä ei. Pintaan heijastuvat
 taivas ja rannan puut. Veden piirron voi piilottaa (V), jolloin pohja, kalat ja syötti näkyvät
-täysin ja sorsat uivat näkymättömällä pinnalla. Tähtäimen kohdalta näytetään pohjan syvyys.
+täysin ja sorsat uivat näkymättömällä pinnalla. Tällöin peli on debug-tilassa: jokaisesta kalasta piirretään
+pystyviiva pintaan ja pohjaan (pinnalla rengas; ahvenet keltaisella, hauet vihreällä), ja tähtäimen kohdalta
+viiva lammen pohjaan. Tähtäimen kohdalta näytetään pohjan syvyys.
 
 ## Kalastus
 
@@ -137,7 +139,8 @@ Vieheen voi vaihtaa (Q), kun siima on kelattu sisään.
   Noin 30 cm/s nopeudella sukellus ja nousu ovat tasapainossa, jolloin vaappu ui samalla syvyydellä;
   hitaammin kelattuna se nousee ja nopeammin kelattuna se sukeltaa. Vedettäessä vaappu heiluttaa pyrstöään (wiggle). Kelausnopeus 10–100 cm/s
   säädetään hiiren rullalla. Vaappua kelattaessa siima kulkee ongen kärjestä lähes suorana (pieni notko)
-  vaappuun asti myös veden alla, toisin kuin koho-onginnassa. Liikkumaton vaappu kiinnostaa kaloja vain vähän, ja liikkuvaa vaappua kala
+  vaappuun asti myös veden alla, toisin kuin koho-onginnassa. Vedessä olevan vaapun syvyys ja matka pohjaan näkyvät
+  vasemmassa yläkulmassa. Liikkumaton vaappu kiinnostaa kaloja vain vähän, ja liikkuvaa vaappua kala
   jahtaa nopeasti.
 
 Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan suuhun.
