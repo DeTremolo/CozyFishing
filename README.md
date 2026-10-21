@@ -2,6 +2,10 @@
 
 Selaimessa pyörivä isometrinen pikseligrafiikkapeli. © 2026 DeTremolo Games.
 
+Peli täyttää koko selainikkunan: pikselikoko valitaan niin, että ikkunaan mahtuu vähintään 384 x 216
+pelipikseliä, ja leveämmässä tai korkeammassa ikkunassa näkyy enemmän maisemaa. Näppäinohjeet ovat
+aloitusruudulla.
+
 Retkeilijä on lähtenyt kalaan pienelle metsälammelle synkän kuusimetsän siimekseen.
 Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Android-/APK-kääntö ei ole vielä mukana.
 
@@ -55,6 +59,7 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   kaislikossa on järviruokoa,
   osmankäämiä ja saraa, jotka taipuvat tuulessa sulavasti. Kaislikon väleissä on avoimia
   rantakohtia, joista pääsee kalastamaan vapaasti. Matalassa rantavedessä kelluu lumpeita ja ulpukoita.
+  Lumpeiden varret ja kaislojen vedenalaiset varret ulottuvat lammen pohjaan asti; kaislikko huojuu rauhallisesti.
 - **Aukea** lammen vasemmalla rannalla: teltta, palava nuotio (savu kulkee tuulen mukana; välillä ritisten
   nousevat hehkuvat kipinät leijailevat savun mukana ja hohtavat pimeällä) ja
   noin 8 m pitkä laituri, jolle voi kävellä.

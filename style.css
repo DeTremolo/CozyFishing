@@ -16,6 +16,8 @@ html, body {
 
 body {
   display: flex;
+  position: fixed;
+  inset: 0;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -27,10 +29,10 @@ canvas {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   cursor: none;
-  box-shadow: 0 0 0 4px #1a1c2c, 0 0 40px rgba(110, 160, 180, 0.2);
 }
 
 .help {
+  display: none;   /* peli täyttää koko ikkunan; ohjeet ovat aloitusruudulla */
   font-size: 9px;
   line-height: 1.8;
   margin: 14px 16px 0;

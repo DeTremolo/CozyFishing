@@ -6,7 +6,7 @@
 // kokonaislukukertoimella isoksi -> terävät pikselit.
 // Mittakaava: yksi ruutu on yksi metri.
 // ---------------------------------------------------------------------------
-const W = 384, H = 216;
+let W = 384, H = 216;      // pelipuskurin koko; lasketaan selainikkunan mukaan (ks. resize)
 const HW = 8, HH = 4;      // puolikas isometrisestä ruudusta (ruutu on 16x8 px)
 const N = 112;             // kartan koko ruutuina (metreinä)
 const C = N / 2;           // lammen keskipiste
@@ -38,19 +38,24 @@ mainCtx.imageSmoothingEnabled = false;
 frontCtx.imageSmoothingEnabled = false;
 let S = 3;
 
+// Peli täyttää koko selainikkunan. Pikselikoko S (näytön oikeina pikseleinä, devicePixelRatio huomioiden)
+// valitaan niin, että ikkunaan mahtuu vähintään 384 x 216 pelipikseliä, ja puskurin leveys ja korkeus
+// lasketaan ikkunan mukaan: leveämmässä ikkunassa näkyy enemmän maisemaa. Kokonaisluvullinen S pitää
+// pikselit tasakokoisina myös Windowsin näyttöskaalauksella (esim. 125 % tai 150 %).
+let buffersReady = false;
 function resize() {
-  // S lasketaan näytön oikeina pikseleinä (devicePixelRatio), jotta pikselit pysyvät tasakokoisina
-  // myös Windowsin näyttöskaalauksella (esim. 125 % tai 150 %)
-  const dpr = window.devicePixelRatio || 1;
-  // Kosketusnäytöllä ohjeteksti on piilossa, joten koko korkeus on pelin käytössä
-  // ja kuva skaalataan täyteen kokoon (puhelimen tiheällä näytöllä murtoluvullinen kerroin ei näy)
-  const isTouch = document.body.classList.contains('touch');
-  const fit = Math.min((innerWidth * dpr) / W, ((innerHeight - (isTouch ? 0 : 50)) * dpr) / H);
-  S = Math.max(1, isTouch ? Math.floor(fit * 4) / 4 : Math.floor(fit));
-  view.width = W * S;
-  view.height = H * S;
-  view.style.width = (W * S) / dpr + 'px';
-  view.style.height = (H * S) / dpr + 'px';
+  const dpr = window.devicePixelRatio || 1, pw = Math.round(innerWidth * dpr), ph = Math.round(innerHeight * dpr);
+  S = Math.max(1, Math.floor(Math.min(ph / 216, pw / 384)));
+  const nw = Math.ceil(pw / S), nh = Math.ceil(ph / S);
+  view.width = nw * S;
+  view.height = nh * S;
+  view.style.width = (nw * S) / dpr + 'px';
+  view.style.height = (nh * S) / dpr + 'px';
+  if (nw === W && nh === H && buffersReady) return;
+  W = nw; H = nh;
+  buf.width = W; buf.height = H; front.width = W; front.height = H;
+  mainCtx.imageSmoothingEnabled = false; frontCtx.imageSmoothingEnabled = false;
+  if (buffersReady) resizeBuffers();
 }
 addEventListener('resize', resize);
 resize();
@@ -1036,7 +1041,7 @@ const WAVE_NOISE = (() => {
 })();
 const waterCanvas = makeCanvas(W, H);
 const waterCtx = waterCanvas.getContext('2d');
-const waterImg = waterCtx.createImageData(W, H);
+let waterImg = waterCtx.createImageData(W, H);
 const waveOff = { x: 0, y: 0 };
 
 function buildPond() {
@@ -1147,7 +1152,7 @@ let lilies = [];
 function placeLilies() {
   const rnd = mulberry32(Math.floor(Math.random() * 1e9));
   lilies = [];
-  for (let c = 0; c < 11; c++) {
+  for (let c = 0; c < 17; c++) {
     const yellow = rnd() < 0.45, a = rnd() * Math.PI * 2;
     const r0 = pondR(a) - (0.8 + rnd() * 2.2), cx = C + Math.cos(a) * r0, cy = C + Math.sin(a) * r0;
     if (onDock(cx, cy, 2.5)) continue;
@@ -1160,6 +1165,24 @@ function placeLilies() {
     }
   }
 }
+// Lumpeiden ja ulpukoiden varret sekä kaislojen vedenalaiset varret ulottuvat lammen pohjaan. Ne
+// piirretään vedenalaiselle kerrokselle, joten ne himmenevät syvyyden ja sameuden mukaan.
+function drawStems(g, camXr, camYr) {
+  const stem = (wx, wy, col, bend) => {
+    const x = Math.round(isoX(wx, wy) - camXr), y = Math.round(isoY(wx, wy) - camYr);
+    if (x < -6 || x > W + 6 || y < -4 || y > H + 2) return;
+    const len = Math.round(depthAt(wx, wy) * Z_PX);
+    g.fillStyle = col;
+    for (let k = 1; k <= len; k++) {
+      g.globalAlpha = underVis(k / Z_PX);
+      g.fillRect(x + Math.round(Math.sin((k / Math.max(1, len)) * Math.PI) * bend), y + k, 1, 1);
+    }
+  };
+  for (const o of lilies) stem(o.x, o.y, '#4a6a2c', o.ph > 3.14 ? 1 : -1);
+  for (const o of decor) if (o.reed) { stem(o.x, o.y, '#6a6a38', 0); stem(o.x + 0.06, o.y - 0.06, '#56602e', 0); }
+  g.globalAlpha = 1;
+}
+
 function drawLilies(camXr, camYr) {
   for (const o of lilies) {
     const x = Math.round(isoX(o.x, o.y) - camXr), y = Math.round(isoY(o.x, o.y) - camYr);
@@ -1221,7 +1244,7 @@ function updateTurbidity() {
   for (let k = 0; k < turbAlpha.length; k++) turbAlpha[k] = Math.round((1 - Math.exp(-water.turb * (seenDepth[k] + 0.15) * 1.3)) * 255);
 }
 
-const rowWob = new Int8Array(H);
+let rowWob = new Int8Array(H);
 function drawWater(camXr, camYr) {
   updateTurbidity();
   const x0 = Math.max(0, PB.x0 - camXr), x1 = Math.min(W, PB.x0 + PB.w - camXr);
@@ -2080,7 +2103,7 @@ const lightCanvas = makeCanvas(W, H);
 const lightCtx = lightCanvas.getContext('2d', { willReadFrequently: true });
 const darkCanvas = makeCanvas(W, H);
 const darkCtx = darkCanvas.getContext('2d');
-const darkImg = darkCtx.createImageData(W, H);
+let darkImg = darkCtx.createImageData(W, H);
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 const DARK_LEVELS = 6;
 
@@ -2773,6 +2796,7 @@ function drawUnderwater(camXr, camYr) {
       drawHookBait(lx, hy);
     }
   }
+  drawStems(g, camXr, camYr);
   g.globalAlpha = 1;
   ctx = mainCtx;
   g.globalCompositeOperation = 'destination-in';
@@ -3351,6 +3375,7 @@ function update() {
   updatePlayer();
   if (state === 'sleep') { pressed = {}; return; }
   updateWeather();
+  updateSway();
   updateCampfire();
   updateDucks();
   updateFishes();
@@ -3737,7 +3762,7 @@ function buildRevealMask() {
 
 const holeShape = makeCanvas(W, H), holeShapeCtx = holeShape.getContext('2d', { willReadFrequently: true });
 const holeCanvas = makeCanvas(W, H), holeCtx = holeCanvas.getContext('2d');
-const holeImg = holeCtx.createImageData(W, H);
+let holeImg = holeCtx.createImageData(W, H);
 function viewHole(psx, psy, camXr, camYr) {
   const g = holeShapeCtx, a0 = player.fa;
   g.globalCompositeOperation = 'source-over';
@@ -3812,8 +3837,15 @@ function drawWaterRockTop(o, camXr, camYr) {
   ctx.fillRect(sx - 4, sy + 1, 9, 1);
 }
 
+// Huojunnan vaiheet kasvavat joka päivityksellä tuulen voimakkuuden mukaan. Kun vaihe kertyy näin (eikä
+// kerrota aikaa tuulella), heilunta ei nytkähdä tuulen muuttuessa.
+const swayPh = { grass: 0, tree: 0 };
+function updateSway() {
+  swayPh.grass += 0.009 + wind.gust * 0.016;
+  swayPh.tree += 1 + wind.gust * 0.6;
+}
 function grassFrame(o) {
-  const g = wind.gust, s = Math.sin(time * (0.022 + g * 0.04) + o.x * 0.7 + o.y * 0.4) + 0.3 * Math.sin(time * 0.061 + o.x * 1.3);
+  const g = wind.gust, s = Math.sin(swayPh.grass + o.x * 0.7 + o.y * 0.4) + 0.3 * Math.sin(time * 0.027 + o.x * 1.3);
   const v = clamp(wind.sx * g * 1.1 + s * (0.15 + g * 0.6), -1, 1);
   return Math.round((v + 1) * 0.5 * (SWAY_FRAMES - 1));
 }
@@ -3822,8 +3854,8 @@ function grassFrame(o) {
 // puulla on oma tahtinsa ja vaiheensa, joten metsä ei heilu yhtä aikaa (koivut heiluvat enemmän).
 function treeFrame(i, birch) {
   const g = wind.gust, r = hash2(i, 7);
-  const speed = (0.006 + r * 0.007) * (1 + g * 0.6), amp = (0.1 + g * 0.85) * (birch ? 1.35 : 1);
-  const v = wind.sx * g * (birch ? 0.8 : 0.55) + Math.sin(time * speed + r * 40) * amp;
+  const amp = (0.1 + g * 0.85) * (birch ? 1.35 : 1);
+  const v = wind.sx * g * (birch ? 0.8 : 0.55) + Math.sin(swayPh.tree * (0.006 + r * 0.007) + r * 40) * amp;
   return clamp(Math.round(v * 2), -3, 3) + 3;
 }
 
@@ -4148,18 +4180,23 @@ function render() {
 
   if (state === 'title') {
     dim(0.5);
-    text('COZY', W / 2, 40, 16, '#ffcd75');
-    text('FISHING', W / 2, 60, 16, '#a7d8f0');
-    text('A QUIET POND IN THE SPRUCE FOREST', W / 2, 92, 5, '#c8d8b0');
-    if (blink) text(touch.on ? 'TAP TO START' : 'CLICK TO START', W / 2, 118, 7);
+    const ty = Math.floor((H - 216) / 2);   // aloitusruutu ikkunan keskelle
+    text('COZY', W / 2, ty + 40, 16, '#ffcd75');
+    text('FISHING', W / 2, ty + 60, 16, '#a7d8f0');
+    text('A QUIET POND IN THE SPRUCE FOREST', W / 2, ty + 92, 5, '#c8d8b0');
+    if (blink) text(touch.on ? 'TAP TO START' : 'CLICK TO START', W / 2, ty + 118, 7);
     const help = touch.on
       ? ['drag anywhere = walk · ROD = rod · LAMP = headlamp', 'SLEEP = sleep in the tent until morning']
       : ['WASD = walk · mouse = look and aim · R = rod', 'F = headlamp · E = sleep in the tent until morning'];
-    text(help[0], W / 2, 144, 4, '#94b0c2');
-    text(help[1], W / 2, 154, 4, '#94b0c2');
-    text('stand still and the forest animals come closer', W / 2, 164, 4, '#c0a070');
-    text(CREDITS.copyright, W / 2, 184, 5, '#a7f070');
-    text(CREDITS.rights, W / 2, 194, 4, '#94b0c2');
+    text(help[0], W / 2, ty + 140, 4, '#94b0c2');
+    text(help[1], W / 2, ty + 148, 4, '#94b0c2');
+    if (!touch.on) {
+      text('Q lure · wheel hook / reel speed · C cut line · V water', W / 2, ty + 156, 4, '#94b0c2');
+      text('T time speed · L sync clock to local time · P pause · M sound', W / 2, ty + 164, 4, '#94b0c2');
+    }
+    text('stand still and the forest animals come closer', W / 2, ty + 175, 4, '#c0a070');
+    text(CREDITS.copyright, W / 2, ty + 188, 5, '#a7f070');
+    text(CREDITS.rights, W / 2, ty + 198, 4, '#94b0c2');
     text('v' + VERSION, W - 6, H - 10, 4, '#6f8a78', 'right');
     return;
   }
@@ -4220,6 +4257,18 @@ function render() {
     text(touch.on ? 'Tap to resume' : 'P to resume', W / 2, 110, 6, '#94b0c2');
   }
 }
+
+// Ikkunan koon muuttuessa ruudun kokoiset apukerrokset luodaan uudelleen
+function resizeBuffers() {
+  for (const c of [waterCanvas, starCanvas, lightCanvas, darkCanvas, lampCanvas, lampTint, underCanvas, holeShape, holeCanvas]) { c.width = W; c.height = H; }
+  fogCanvas.width = W / 4; fogCanvas.height = H / 4;
+  waterImg = waterCtx.createImageData(W, H);
+  darkImg = darkCtx.createImageData(W, H);
+  holeImg = holeCtx.createImageData(W, H);
+  rowWob = new Int8Array(H);
+  if (player) { cam.x = isoX(player.x, player.y) - W / 2; cam.y = isoY(player.x, player.y) - 12 - H / 2; }
+}
+buffersReady = true;
 
 // ---------------------------------------------------------------------------
 // Pelisilmukka: kiinteä 60 Hz päivitys, piirto joka ruudunpäivityksellä
