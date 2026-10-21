@@ -1630,6 +1630,7 @@ function adjustReel(dv) {
   SFX.reel();
 }
 // Kelaus metreinä päivitystä kohden: koholla nopea vakio, vaapulla säädetty nopeus
+const WOB_DIVE = 0.4, WOB_RISE = 0.12;   // vaapun sukellus (m / kuljettu m) ja nousu (m/s)
 const reelStep = (L) => (L.kind === 'wobbler' ? cast.reelSpeed / 100 / 60 : REEL);
 
 function toggleRod() {
@@ -1733,10 +1734,11 @@ function updateCast() {
   L.onWater = lureInWater(L.x, L.y);
   L.moving = moved > 0.0005;
   if (L.kind === 'wobbler') {
-    // Vaappu kelluu. Vedettäessä se sukeltaa sitä syvemmälle, mitä nopeammin sitä kelataan
-    // (100 cm/s noin 1,5 m), ja pysähtyessään se nousee hitaasti takaisin pintaan.
-    const dive = L.onWater && L.moving ? Math.min(1.5, moved * 60 * 1.5) : 0;
-    L.z = dive > L.z ? L.z + (dive - L.z) * 0.03 : Math.max(dive, L.z - 0.005);
+    // Vaappu kelluu ja nousee koko ajan pintaa kohti (WOB_RISE). Vedettäessä kieli painaa sitä alas
+    // sitä nopeammin, mitä kovempaa kelataan (WOB_DIVE metriä kuljettua metriä kohden). Kelaamalla
+    // vaappu painuu yhä syvemmälle, kunnes se kulkee pohjaa pitkin; noin 30 cm/s nopeudella
+    // sukellus ja nousu ovat tasapainossa ja vaappu ui samalla syvyydellä.
+    L.z += (L.onWater ? moved * WOB_DIVE : 0) - WOB_RISE / 60;
     L.z = L.onWater ? clamp(L.z, 0, Math.max(0, depthAt(L.x, L.y) - 0.06)) : 0;
   }
   if (L.onWater) {

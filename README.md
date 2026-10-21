@@ -126,9 +126,11 @@ voi kerätä talteen kävelemällä sen päälle (myös siiman katkaisun jälkee
 Vieheen voi vaihtaa (Q), kun siima on kelattu sisään.
 
 - **Koho ja mato**: koukku riippuu kohon alla säädetyllä syvyydellä.
-- **Vaappu**: pieni (noin 3 px) harmaansininen viehe. Se kelluu ja sukeltaa vedettäessä sitä
-  syvemmälle, mitä nopeammin sitä kelataan (100 cm/s noin 1,5 m, 10 cm/s noin 0,15 m). Pysähtyessään se
-  nousee hitaasti pintaan. Vedettäessä vaappu heiluttaa pyrstöään (wiggle). Kelausnopeus 10–100 cm/s
+- **Vaappu**: pieni (noin 3 px) harmaansininen viehe. Se kelluu ja pyrkii koko ajan nousemaan pintaa
+  kohti (12 cm/s). Kelattaessa se sukeltaa sitä nopeammin, mitä kovempaa kelataan (40 cm sukellusta
+  kuljettua metriä kohden), ja painuu kelauksen jatkuessa yhä syvemmälle, lopulta pohjaa pitkin.
+  Noin 30 cm/s nopeudella sukellus ja nousu ovat tasapainossa, jolloin vaappu ui samalla syvyydellä;
+  hitaammin kelattuna se nousee ja nopeammin kelattuna se sukeltaa. Vedettäessä vaappu heiluttaa pyrstöään (wiggle). Kelausnopeus 10–100 cm/s
   säädetään hiiren rullalla. Liikkumaton vaappu kiinnostaa kaloja vain vähän, ja liikkuvaa vaappua kala
   jahtaa nopeasti.
 
