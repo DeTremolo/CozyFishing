@@ -2576,7 +2576,7 @@ function updateFight(L, held) {
   // kelaaminen tai siiman vetäminen kävelemällä lisää sitä.
   if (f.mode === 'fight' || f.mode === 'tired') {
     const e = f.energy / f.maxE, pulling = held || (p.moving && d >= L.out - 0.01);
-    const chance = taut ? (0.0001 + 0.0012 * e * e) * (pulling ? 2.5 : 1) : 0.00002 * e;
+    const chance = (taut ? (0.0001 + 0.0012 * e * e) * (pulling ? 2.5 : 1) : 0.00002 * e) * 0.5;
     if (Math.random() < chance) { releaseFish(L, f); return; }
   }
   if (f.mode !== 'land' && shoreDist(f.x, f.y) > -0.1) { f.mode = 'land'; f.z = 0; f.flopT = 8; f.hopT = 0; }
@@ -2781,15 +2781,13 @@ function drawUnderwater(camXr, camYr) {
   ctx.drawImage(underCanvas, 0, 0);
 }
 
-// Debug-tila (vesi piilotettuna): jokaisesta kalasta pystyviiva pintaan ja pohjaan, pinnan kohdalla
-// rengas. Tähtäimen kohdalta (lammen päällä) viiva pohjaan.
+// Debug-tila (vesi piilotettuna): jokaisesta kalasta ja vedessä olevasta vaapusta pystyviiva pintaan ja
+// pohjaan, pinnan kohdalla rengas. Tähtäimen kohdalta (lammen päällä) viiva pohjaan.
 function drawDebugLines(camXr, camYr) {
-  for (const f of fishes) {
-    if (f.mode === 'land' || f.mode === 'caught') continue;
-    const x = Math.round(isoX(f.x, f.y) - camXr), sy = Math.round(isoY(f.x, f.y) - camYr);
-    if (x < -6 || x > W + 6 || sy < -6 || sy > H + 40) continue;
-    const fy = Math.round(sy + f.z * Z_PX), by = Math.round(sy + depthAt(f.x, f.y) * Z_PX);
-    const col = f.kind === 'pike' ? '120, 230, 140' : '255, 200, 90';
+  const depthLine = (wx, wy, z, col) => {
+    const x = Math.round(isoX(wx, wy) - camXr), sy = Math.round(isoY(wx, wy) - camYr);
+    if (x < -6 || x > W + 6 || sy < -6 || sy > H + 40) return;
+    const fy = Math.round(sy + z * Z_PX), by = Math.round(sy + depthAt(wx, wy) * Z_PX);
     ctx.fillStyle = `rgba(${col}, 0.55)`;
     for (let y = sy + 1; y < fy - 1; y++) ctx.fillRect(x, y, 1, 1);
     ctx.fillStyle = `rgba(${col}, 0.3)`;
@@ -2800,7 +2798,14 @@ function drawDebugLines(camXr, camYr) {
       const a = (k / 12) * Math.PI * 2;
       ctx.fillRect(Math.round(x + Math.cos(a) * 3), Math.round(sy + Math.sin(a) * 1.5), 1, 1);
     }
+  };
+  for (const f of fishes) {
+    if (f.mode === 'land' || f.mode === 'caught') continue;
+    depthLine(f.x, f.y, f.z, f.kind === 'pike' ? '120, 230, 140' : '255, 200, 90');
   }
+  // Vedessä oleva vaappu (violetti)
+  const L = cast.lure;
+  if (L && L.kind === 'wobbler' && L.st === 'float' && L.onWater && !L.fish) depthLine(L.x, L.y, L.z, '230, 130, 240');
   if (state === 'play' && aiming()) {
     const mx = Math.round(mouseX), my = Math.round(mouseY);
     if (waterPx(mx + camXr, my + camYr)) {
@@ -4198,11 +4203,12 @@ function render() {
     text((player.light ? 'F  LAMP ON' : 'F  LAMP OFF'), 6, H - 11, 4, player.light ? '#ffe9a0' : '#94b0c2', 'left');
   }
   if (banners.length) text(banners[0].text, W / 2, 34, 6, '#ffcd75');
-  // Syvyyslukema tähtäimen kohdalta (näkyvän pohjan syvyys) ja veden kehitysnäppäimet
+  // Syvyyslukema tähtäimen kohdalta (veden syvyys siinä pinnan kohdassa, johon tähtäin osuu) ja veden kehitysnäppäimet
   if (state === 'play' && aiming() && !touch.on) {
     const ax = Math.round(mouseX) + Math.round(cam.x) - PB.x0, ay = Math.round(mouseY) + Math.round(cam.y) - PB.y0;
     if (ax >= 0 && ay >= 0 && ax < PB.w && ay < PB.h && (pondMask[ay * PB.w + ax] === 1 || pondMask[ay * PB.w + ax] === 2)) {
-      text('DEPTH ' + seenDepth[ay * PB.w + ax].toFixed(1) + ' m', W - 6, H - 20, 5, '#e8dca0', 'right');
+      const [wx, wy] = absToWorld(Math.round(mouseX) + Math.round(cam.x), Math.round(mouseY) + Math.round(cam.y));
+      text('DEPTH ' + depthAt(wx, wy).toFixed(1) + ' m', W - 6, H - 20, 5, '#e8dca0', 'right');
     }
     text((water.show ? 'V HIDE WATER' : 'V SHOW WATER') + '  [ ] MURK ' + water.turb.toFixed(2) + '  B LINES', W - 6, H - 9, 4, '#94b0c2', 'right');
   }

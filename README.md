@@ -98,8 +98,9 @@ syvyys tiedetään, ja sameus (`water.turb`, valon vaimeneminen metriä kohden, 
 paljon pohjaa näkyy: matalikolla pohja näkyy, syvässä ja sameassa vedessä ei. Pintaan heijastuvat
 taivas ja rannan puut. Veden piirron voi piilottaa (V), jolloin pohja, kalat ja syötti näkyvät
 täysin ja sorsat uivat näkymättömällä pinnalla. Tällöin peli on debug-tilassa: jokaisesta kalasta piirretään
-pystyviiva pintaan ja pohjaan (pinnalla rengas; ahvenet keltaisella, hauet vihreällä), ja tähtäimen kohdalta
-viiva lammen pohjaan. Tähtäimen kohdalta näytetään pohjan syvyys.
+pystyviiva pintaan ja pohjaan (pinnalla rengas; ahvenet keltaisella, hauet vihreällä, vedessä oleva
+vaappu violetilla), ja tähtäimen kohdalta
+viiva lammen pohjaan. Tähtäimen kohdalta näytetään veden syvyys siinä pinnan kohdassa, johon tähtäin osuu.
 
 ## Kalastus
 
