@@ -1,0 +1,144 @@
+/* Cozy Fishing — © 2026 DeTremolo Games. All rights reserved. */
+/* Fontti tulee pelin mukana, joten peli toimii myös ilman nettiyhteyttä */
+@font-face {
+  font-family: "Press Start 2P";
+  src: url("fonts/PressStart2P-Regular.ttf") format("truetype");
+  font-display: block;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #0c140e;
+  color: #94b0c2;
+  font-family: "Press Start 2P", monospace;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  cursor: none;
+  box-shadow: 0 0 0 4px #1a1c2c, 0 0 40px rgba(110, 160, 180, 0.2);
+}
+
+.help {
+  font-size: 9px;
+  line-height: 1.8;
+  margin: 14px 16px 0;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------------------
+   Kosketusohjaus (body.touch asetetaan touch.js:ssä)
+   --------------------------------------------------------------------------- */
+#touch-ui, #rotate { display: none; }
+
+body.touch {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+body.touch .help { display: none; }
+body.touch canvas { box-shadow: none; }
+
+body.touch #touch-ui {
+  display: block;
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tbtn {
+  pointer-events: auto;
+  position: absolute;
+  font-family: "Press Start 2P", monospace;
+  color: #f4f4f4;
+  background: rgba(26, 28, 44, 0.55);
+  border: 2px solid rgba(148, 176, 194, 0.6);
+  border-radius: 6px;
+  padding: 0;
+  touch-action: none;
+}
+.tbtn.down { background: rgba(148, 176, 194, 0.5); }
+
+/* Pikkunapit pystyriviin vasempaan reunaan rannekellon alle */
+.top-buttons {
+  position: absolute;
+  top: calc(max(0px, env(safe-area-inset-top)) + 24vh);   /* rannekellon alapuolelle */
+  left: max(10px, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.top-buttons .tbtn { position: static; width: 40px; height: 32px; font-size: 12px; }
+.top-buttons .tbtn[hidden] { display: none; }
+body.menu .top-buttons #btn-pause, body.menu .action-buttons { display: none; }
+
+/* Ongen ja taskulampun napit oikeaan reunaan */
+.action-buttons {
+  position: absolute;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: 22%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.action-buttons .tbtn { position: static; width: 82px; height: 46px; font-size: 9px; color: #94b0c2; }
+.action-buttons .tbtn.on { color: #ffcd75; border-color: #ffcd75; background: rgba(120, 90, 40, 0.45); }
+/* Nukkumaan voi mennä vain teltan ovella */
+#btn-sleep { display: none; color: #ffcd75; }
+body.can-sleep #btn-sleep { display: block; }
+/* Heitto ja kelaus vain onki kädessä (napin pohjassa pitäminen lataa heittoa tai kelaa) */
+#btn-cast { display: none; color: #a7d8f0; }
+body.has-rod #btn-cast { display: block; }
+#btn-cut { display: none; color: #e0a0a0; }
+body.line-out #btn-cut { display: block; }
+#btn-lure { display: none; color: #a8c0d8; }
+body.can-lure #btn-lure { display: block; }
+
+.stick {
+  display: none;
+  position: absolute;
+  width: 112px;
+  height: 112px;
+  margin: -56px 0 0 -56px;
+  border-radius: 50%;
+  border: 2px solid rgba(244, 244, 244, 0.35);
+  background: rgba(26, 28, 44, 0.25);
+}
+.stick.show { display: block; }
+.knob {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  background: rgba(244, 244, 244, 0.45);
+  transform: translate(-50%, -50%);
+}
+
+@media (orientation: portrait) {
+  body.touch #rotate {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    font-size: 12px;
+    line-height: 2;
+    color: #ffcd75;
+    background: #0c140e;
+  }
+}

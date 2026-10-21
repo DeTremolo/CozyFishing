@@ -1,0 +1,47 @@
+<!doctype html>
+<!-- Cozy Fishing — © 2026 DeTremolo Games. All rights reserved. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0c140e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Cozy Fishing</title>
+  <meta name="author" content="DeTremolo Games">
+  <meta name="copyright" content="© 2026 DeTremolo Games. All rights reserved.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="screen"></canvas>
+  <p class="help">WASD walk &nbsp;·&nbsp; Mouse aim, hold = cast / reel &nbsp;·&nbsp; R rod &nbsp;·&nbsp; Q lure &nbsp;·&nbsp; wheel hook / reel speed &nbsp;·&nbsp; F lamp &nbsp;·&nbsp; C cut &nbsp;·&nbsp; H fish bar &nbsp;·&nbsp; E sleep &nbsp;·&nbsp; T / Shift+T time speed &nbsp;·&nbsp; P pause &nbsp;·&nbsp; M sound</p>
+  <script>
+    // Windows-sovelluksessa F11 vaihtaa koko näytön tilaa (ohjelma hoitaa ikkunan)
+    addEventListener('keydown', (e) => {
+      if (e.code === 'F11' && window.chrome && window.chrome.webview) {
+        e.preventDefault();
+        window.chrome.webview.postMessage('toggleFullscreen');
+      }
+    });
+  </script>
+  <!-- Kosketusohjaimet: näkyvät vain kosketusnäytöllä -->
+  <div id="touch-ui">
+    <div class="top-buttons">
+      <button id="btn-pause" class="tbtn" aria-label="Pause">II</button>
+      <button id="btn-sound" class="tbtn" aria-label="Sound">&#9834;</button>
+      <button id="btn-full" class="tbtn" aria-label="Full screen">&#9974;</button>
+    </div>
+    <div class="action-buttons">
+      <button id="btn-cut" class="tbtn" aria-label="Cut line">CUT</button>
+      <button id="btn-lure" class="tbtn" aria-label="Change lure">LURE</button>
+      <button id="btn-cast" class="tbtn" aria-label="Cast or reel">CAST</button>
+      <button id="btn-rod" class="tbtn" aria-label="Rod">ROD</button>
+      <button id="btn-light" class="tbtn" aria-label="Headlamp">LAMP</button>
+      <button id="btn-sleep" class="tbtn" aria-label="Sleep">SLEEP</button>
+    </div>
+  </div>
+  <div id="rotate">Turn your phone sideways</div>
+  <script src="game.js"></script>
+  <script src="touch.js"></script>
+</body>
+</html>
