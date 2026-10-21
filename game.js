@@ -1315,7 +1315,7 @@ function drawWater(camXr, camYr) {
         else { r = E.refl[0]; gg = E.refl[1]; bb = E.refl[2]; aR = 0.5; }
       } else if (a > thrA) { r = hr; gg = hg; bb = hb; aR = 0.85; }
       else if (b > thrB) { r = mr; gg = mg; bb = mb; aR = 0.35; }
-      else { r = wr; gg = wg; bb = wb; aR = 0.15; }
+      else { r = wr; gg = wg; bb = wb; aR = E.reflK; }
       const aT = turbAlpha[k] / 255, kb = (1 - aR) * aT, A = aR + kb;
       d[p] = (r * aR + E.body[0] * kb) / A; d[p + 1] = (gg * aR + E.body[1] * kb) / A; d[p + 2] = (bb * aR + E.body[2] * kb) / A;
       d[p + 3] = A * 255;
@@ -1579,7 +1579,6 @@ function setupWorld() {
   buildGround();
   buildRevealMask();
   buildPond();
-  buildSunShadows();
   player = {
     x: 37.5, y: 76, fa: -Math.PI / 4, gux: 1, guy: 0, anim: 0, moving: false, view: 'E', flip: false,
     rod: false, light: false, stillT: 0, lure: 'bobber',
@@ -1597,6 +1596,8 @@ function setupWorld() {
   wind.ta = wind.a;
   time = 0; clock = 0; birdT = 120; skyBirdT = 600; duckT = rand(1800, 3600); animalT = 300;
   weather.kind = weatherKindNow(); weather.rain = WEATHER[weather.kind].rain; weather.fog = WEATHER[weather.kind].fog;
+  buildSunShadows();
+  mistWisps = [];
   phaseName = phaseOf(todNow());
   updateEnv();
   cam.x = isoX(player.x, player.y) - W / 2;
@@ -1893,12 +1894,14 @@ function updateLine() {
 // ---------------------------------------------------------------------------
 const TOD_KEYS = [
   [0.00, [70, 66, 100], [40, 44, 72], [60, 50, 110, 0.16], 0.55],
-  [0.05, [205, 150, 140], [110, 120, 160], [255, 160, 120, 0.12], 0.12],
-  [0.10, [185, 180, 170], [115, 140, 165], [255, 210, 160, 0.07], 0],
+  [0.04, [240, 160, 115], [90, 120, 140], [255, 130, 90, 0.2], 0.15],     // aamurusko
+  [0.08, [252, 210, 120], [100, 158, 152], [255, 180, 80, 0.2], 0.02],     // kultainen aamu, lähivesi turkoosi
+  [0.14, [220, 210, 165], [110, 155, 160], [255, 215, 140, 0.1], 0],
   [0.25, [145, 178, 192], [95, 135, 160], [255, 255, 255, 0], 0],
   [0.56, [145, 178, 192], [95, 135, 160], [255, 255, 255, 0], 0],
-  [0.64, [225, 150, 90], [90, 100, 140], [255, 140, 60, 0.12], 0],
-  [0.71, [150, 85, 105], [50, 52, 90], [130, 60, 120, 0.16], 0.4],
+  [0.62, [250, 210, 120], [100, 152, 148], [255, 190, 90, 0.16], 0],      // kultainen hetki
+  [0.67, [252, 165, 80], [70, 128, 134], [255, 130, 50, 0.24], 0.05],     // auringonlasku
+  [0.71, [190, 90, 110], [60, 56, 95], [170, 60, 120, 0.2], 0.4],          // iltarusko
   [0.78, [26, 32, 56], [18, 22, 42], [20, 30, 80, 0.14], 1],
   [0.96, [26, 32, 56], [18, 22, 42], [20, 30, 80, 0.14], 1],
   [1.00, [70, 66, 100], [40, 44, 72], [60, 50, 110, 0.16], 0.55],
@@ -1948,6 +1951,8 @@ function updateEnv() {
   const refl = lerp3([9, 19, 14], sky, 0.06);
   env = {
     tod: t, sky, zen, tint, dark, overcast,
+    // Aamu- ja iltavalossa vedenpinta heijastaa värikästä taivasta voimakkaammin
+    reflK: 0.15 + 0.35 * clamp(tint[3] * 4, 0, 1) * (1 - dark),
     refl: refl.map(Math.round), reflMid: lerp3(refl, sky, 0.12).map(Math.round), reflHi: lerp3(refl, sky, 0.3).map(Math.round),
     ring: lerp3(sky, [235, 240, 245], 0.55).map(Math.round).join(', '),
     body: lerp3([26, 38, 30], sky, 0.12).map(Math.round),   // humuspitoisen lammen ruskeanvihreä vesi
@@ -2069,10 +2074,57 @@ function newDrop(y) {
   return { x: rand(-40, W + 40), y, sp: heavy ? rand(5, 7) : rand(2.6, 3.6), floor: rand(10, H), len: heavy ? 3 : 1, splash: 0, sx: 0, sy: 0 };
 }
 
+// Vedenpinnan usva: usvan aikana lammen päällä leijuu ohut usvakerros ja sen päällä pehmeitä usvalauttoja,
+// jotka ajelehtivat tuulen mukana. Usva piirretään puolella resoluutiolla (pikselimäinen) ja rajataan
+// lammen alueelle. Kaislat, lumpeet ja rannan puut jäävät usvan yläpuolelle.
+let mistWisps = [];
+const mistLow = makeCanvas(1, 1), mistLowCtx = mistLow.getContext('2d');
+const mistCanvas = makeCanvas(1, 1), mistCtx = mistCanvas.getContext('2d');
+function mistSpot() {
+  for (let k = 0; k < 50; k++) {
+    const x = C + rand(-POND_RMAX, POND_RMAX), y = C + rand(-POND_RMAX, POND_RMAX);
+    if (shoreDist(x, y) < -1) return { x, y, r: rand(3, 7), a: rand(0.5, 1) };
+  }
+  return { x: C, y: C, r: 5, a: 0.7 };
+}
+function drawWaterMist(camXr, camYr) {
+  const f = weather.fog;
+  if (f < 0.03 || !water.show) return;
+  if (!mistWisps.length) mistWisps = Array.from({ length: 22 }, mistSpot);
+  const lw = Math.ceil(W / 2), lh = Math.ceil(H / 2);
+  if (mistLow.width !== lw || mistLow.height !== lh) { mistLow.width = lw; mistLow.height = lh; mistCanvas.width = W; mistCanvas.height = H; }
+  const lum = 1 - env.dark * 0.75, base = lerp3([214, 222, 224], env.sky, 0.35).map((v) => Math.round(v * lum));
+  const g = mistLowCtx;
+  g.clearRect(0, 0, lw, lh);
+  g.fillStyle = `rgba(${base[0]}, ${base[1]}, ${base[2]}, 0.32)`;
+  g.fillRect(0, 0, lw, lh);
+  for (const o of mistWisps) {
+    o.x += wind.wx * (0.002 + wind.gust * 0.006); o.y += wind.wy * (0.002 + wind.gust * 0.006);
+    if (shoreDist(o.x, o.y) > 1.5) Object.assign(o, mistSpot());
+    const sx = (isoX(o.x, o.y) - camXr) / 2, sy = (isoY(o.x, o.y) - camYr) / 2, rx = o.r * 8 / 2, ry = o.r * 2.2 / 2;
+    if (sx < -rx || sx > lw + rx || sy < -ry || sy > lh + ry) continue;
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, rx);
+    gr.addColorStop(0, `rgba(${base[0]}, ${base[1]}, ${base[2]}, ${0.55 * o.a})`);
+    gr.addColorStop(1, `rgba(${base[0]}, ${base[1]}, ${base[2]}, 0)`);
+    g.save(); g.translate(sx, sy); g.scale(1, ry / rx); g.fillStyle = gr; g.fillRect(-rx, -rx, rx * 2, rx * 2); g.restore();
+  }
+  const m = mistCtx;
+  m.globalCompositeOperation = 'source-over';
+  m.clearRect(0, 0, W, H);
+  m.imageSmoothingEnabled = false;
+  m.drawImage(mistLow, 0, 0, lw * 2, lh * 2);
+  m.globalCompositeOperation = 'destination-in';
+  m.drawImage(pondMaskCanvas, PB.x0 - camXr, PB.y0 - camYr);
+  ctx.globalAlpha = Math.min(1, f * 1.1);
+  ctx.drawImage(mistCanvas, 0, 0);
+  ctx.globalAlpha = 1;
+}
+
 // Usva piirretään matalalla resoluutiolla -> pikselimäinen "sumuverho"
 const fogCanvas = makeCanvas(W / 4, H / 4);
 const fogCtx = fogCanvas.getContext('2d');
 
+const tintCanvas = makeCanvas(1, 1), tintCtx = tintCanvas.getContext('2d');
 function drawWeather(camXr, camYr) {
   const w = weather;
   if (w.rain > 0.02) {
@@ -2097,9 +2149,9 @@ function drawWeather(camXr, camYr) {
     fogCtx.clearRect(0, 0, fw, fh);
     fogCtx.globalCompositeOperation = 'source-over';
     const lum = 1 - env.dark * 0.75;
-    fogCtx.fillStyle = `rgba(${Math.round(185 * lum)}, ${Math.round(196 * lum)}, ${Math.round(190 * lum)}, ${w.fog * 0.72})`;
+    fogCtx.fillStyle = `rgba(${Math.round(185 * lum)}, ${Math.round(196 * lum)}, ${Math.round(190 * lum)}, ${w.fog * 0.36})`;
     fogCtx.fillRect(0, 0, fw, fh);
-    fogCtx.fillStyle = `rgba(${Math.round(215 * lum)}, ${Math.round(222 * lum)}, ${Math.round(218 * lum)}, ${w.fog * 0.25})`;
+    fogCtx.fillStyle = `rgba(${Math.round(215 * lum)}, ${Math.round(222 * lum)}, ${Math.round(218 * lum)}, ${w.fog * 0.15})`;
     for (let k = 0; k < 7; k++) {
       const x = ((k * 37 + waveOff.x * -0.6 * (1 + k * 0.1) - camXr / 4) % (fw + 30) + fw + 30) % (fw + 30) - 15;
       const y = ((k * 23 - camYr / 4) % fh + fh) % fh;
@@ -2116,9 +2168,25 @@ function drawWeather(camXr, camYr) {
     ctx.drawImage(fogCanvas, 0, 0, W, H);
   }
   // Aamun ja illan värisävy
+  // Sävytys sekoitetaan pehmeällä valolla (soft-light), joka värittää kuvaa mutta säilyttää kontrastin:
+  // aamu- ja iltavalo hehkuu kultaisena ja oranssina ilman, että kuva haalistuu ruskeaksi.
+  // Vedenpinnalla sävytys on miedompi, jolloin lähivesi jää turkoosiksi ja heijastaa kultaista taivasta.
   const [tr, tg, tb, ta] = env.tint;
   if (ta > 0.005) {
-    ctx.fillStyle = `rgba(${Math.round(tr)}, ${Math.round(tg)}, ${Math.round(tb)}, ${ta.toFixed(3)})`;
+    if (tintCanvas.width !== W || tintCanvas.height !== H) { tintCanvas.width = W; tintCanvas.height = H; }
+    const tc = tintCtx;
+    tc.globalCompositeOperation = 'source-over';
+    tc.clearRect(0, 0, W, H);
+    tc.fillStyle = `rgba(${Math.round(tr)}, ${Math.round(tg)}, ${Math.round(tb)}, ${Math.min(0.6, ta * 2.2).toFixed(3)})`;
+    tc.fillRect(0, 0, W, H);
+    tc.globalCompositeOperation = 'destination-out';
+    tc.globalAlpha = 0.65;
+    tc.drawImage(pondMaskCanvas, PB.x0 - camXr, PB.y0 - camYr);
+    tc.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'soft-light';
+    ctx.drawImage(tintCanvas, 0, 0);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = `rgba(${Math.round(tr)}, ${Math.round(tg)}, ${Math.round(tb)}, ${(ta * 0.12).toFixed(3)})`;
     ctx.fillRect(0, 0, W, H);
   }
   drawNight(camXr, camYr);
@@ -3783,19 +3851,56 @@ function drawCampfire(sx, sy) {
 
 // Varjot: päivällä aurinko, yöllä nuotio heittää hahmoista pitkät varjot.
 // Puiden auringonvarjot ovat valmiiksi piirrettyinä karttakokoisella kerroksella.
-const sunShadow = makeCanvas(N * HW * 2, N * HH * 2);
-const sunCtx = sunShadow.getContext('2d');
+// Aurinko kiertää päivän mittaan: aamulla (noin klo 5) se nousee koillisesta, keskipäivällä (klo 13) se on
+// etelässä korkeimmillaan ja illalla (noin klo 21.30) se laskee luoteeseen. Varjo osoittaa poispäin
+// auringosta ja on sitä pidempi, mitä matalammalla aurinko on. Ruudulla itä on oikealla ja pohjoinen
+// ylhäällä; maan pinta on isometrisesti litistynyt, joten varjon pystykomponentti puolitetaan.
+// Palauttaa vinoutusmatriisin kertoimet [c, d]: piste korkeudella h siirtyy (-c * h, -d * h).
+function sunShear(hour) {
+  const t = clamp((hour - 5) / 16.5, 0, 1), az = (60 + t * 250) * Math.PI / 180;
+  const elev = Math.max(0.12, Math.sin(Math.PI * t) * 0.87);
+  const L = clamp(0.42 / Math.tan(elev), 0.4, 2.2);
+  const vx = -Math.sin(az), vy = Math.cos(az) * 0.5;
+  return [-vx * L, -vy * L];
+}
+const gameHour = () => (4.5 + todNow() * 24) % 24;
 
-function buildSunShadows() {
-  sunCtx.setTransform(1, 0, 0, 1, 0, 0);
-  sunCtx.clearRect(0, 0, sunShadow.width, sunShadow.height);
-  for (let i = 0; i < N * N; i++) {
+// Puiden varjot piirretään karttakokoiselle kerrokselle. Kun auringon suunta on muuttunut noin
+// 20 minuuttia (pelin kellossa), uusi kerros piirretään taustalla muutaman ruudunpäivityksen aikana
+// (ettei peli nyki) ja häivytetään sitten vanhan tilalle.
+let sunA = makeCanvas(N * HW * 2, N * HH * 2), sunB = makeCanvas(N * HW * 2, N * HH * 2);
+const sunShade = { key: null, job: null, fade: -1 };
+function sunRows(canvas, key, r0, r1) {
+  const g = canvas.getContext('2d'), [c, d] = sunShear(key);
+  for (let cy = r0; cy < r1; cy++) for (let cx = 0; cx < N; cx++) {
+    const i = cy * N + cx;
     if (type[i] !== T_FOREST || kind[i] === 3) continue;
-    const cx = i % N, cy = (i / N) | 0, spr = FOREST_SPR[kind[i]][pvar[i]];
-    sunCtx.setTransform(1, 0, -0.8, 0.35, isoX(cx + 0.5, cy + 0.5), isoY(cx + 0.5, cy + 0.5) + 2);
-    sunCtx.drawImage(spr.sil, -spr.ax, -spr.ay);
+    const spr = FOREST_SPR[kind[i]][pvar[i]];
+    g.setTransform(1, 0, c, d, isoX(cx + 0.5, cy + 0.5), isoY(cx + 0.5, cy + 0.5) + 2);
+    g.drawImage(spr.sil, -spr.ax, -spr.ay);
   }
-  sunCtx.setTransform(1, 0, 0, 1, 0, 0);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+}
+function buildSunShadows() {
+  const key = Math.round(gameHour() * 3) / 3;
+  sunA.getContext('2d').clearRect(0, 0, sunA.width, sunA.height);
+  sunRows(sunA, key, 0, N);
+  Object.assign(sunShade, { key, job: null, fade: -1 });
+}
+function tickSunShadows() {
+  const S2 = sunShade, key = Math.round(gameHour() * 3) / 3;
+  if (S2.job) {
+    const r1 = Math.min(N, S2.job.row + 12);
+    sunRows(sunB, S2.job.key, S2.job.row, r1);
+    S2.job.row = r1;
+    if (r1 >= N) { S2.key = S2.job.key; S2.job = null; S2.fade = 0; }
+  } else if (S2.fade >= 0) {
+    S2.fade += 1 / 90;
+    if (S2.fade >= 1) { [sunA, sunB] = [sunB, sunA]; S2.fade = -1; }
+  } else if (key !== S2.key) {
+    sunB.getContext('2d').clearRect(0, 0, sunB.width, sunB.height);
+    S2.job = { key, row: 0 };
+  }
 }
 
 function drawShadows(camXr, camYr) {
@@ -3803,10 +3908,15 @@ function drawShadows(camXr, camYr) {
   const ents = playerShown() ? [{ sx: isoX(player.x, player.y) - camXr, sy: isoY(player.x, player.y) - camYr - playerLift(), sil: SIL.player, ax: 8, ay: 19 }] : [];
   for (const a of animals) ents.push({ sx: isoX(a.x, a.y) - camXr, sy: isoY(a.x, a.y) - camYr, sil: ANIMAL[a.kind].sil, ax: ANIMAL[a.kind].w >> 1, ay: ANIMAL[a.kind].h - 1 });
   if (day > 0.05) {
-    ctx.globalAlpha = 0.34 * day * (1 - env.overcast * 0.75);
-    ctx.drawImage(sunShadow, -camXr, -camYr);
+    tickSunShadows();
+    const a = 0.34 * day * (1 - env.overcast * 0.75), fd = sunShade.fade;
+    ctx.globalAlpha = a * (fd >= 0 ? 1 - fd : 1);
+    ctx.drawImage(sunA, -camXr, -camYr);
+    if (fd >= 0) { ctx.globalAlpha = a * fd; ctx.drawImage(sunB, -camXr, -camYr); }
+    ctx.globalAlpha = a;
+    const [c, d] = sunShear(gameHour());
     for (const e of ents) {
-      ctx.setTransform(1, 0, -0.8, 0.35, e.sx, e.sy);
+      ctx.setTransform(1, 0, c, d, e.sx, e.sy);
       ctx.drawImage(e.sil, -e.ax, -e.ay);
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -3967,6 +4077,7 @@ function drawWorld() {
   snapStars('a');
   if (!water.show) drawDebugLines(camXr, camYr);
   drawLilies(camXr, camYr);
+  drawWaterMist(camXr, camYr);
   ctx.drawImage(dockImg, dockBX - camXr, dockBY - camYr);
   drawLure(camXr, camYr);
   drawLoose(camXr, camYr);

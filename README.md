@@ -64,6 +64,11 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
 - **Aukea** lammen vasemmalla rannalla: teltta, palava nuotio (savu kulkee tuulen mukana; välillä ritisten
   nousevat hehkuvat kipinät leijailevat savun mukana ja hohtavat pimeällä) ja
   noin 8 m pitkä laituri, jolle voi kävellä.
+- **Aurinko ja valo**: aurinko nousee koillisesta, on keskipäivällä etelässä ja laskee luoteeseen, ja puiden,
+  hahmon ja eläinten varjot kääntyvät ja pitenevät sen mukaan (puiden varjokerros päivitetään noin 20 pelin
+  minuutin välein ja vaihdetaan pehmeästi). Aamurusko, kultainen aamu, kultainen hetki ja auringonlasku
+  sävyttävät maiseman kultaiseksi ja oranssiksi; vedenpinnalla sävytys on miedompi ja vesi heijastaa
+  värikästä taivasta voimakkaammin.
 - **Vuorokausi** (1x nopeudella 24 h, kuten oikea kello): aamu, päivä, ilta ja yö. Kellonaika näkyy vasemmassa yläkulmassa rannekellosta
   (pikseligrafiikkana piirretty kellotaulu `img/watch.png`, viisarit piirretään ohjelmallisesti). Kirkkaana yönä tähdet heijastuvat vedestä; tyynellä ne vain tuikkivat, aallokossa ne heiluvat pikselin tai kaksi. Ajan
   nopeutta voi muuttaa 1x–10x (T), ja nopeus näkyy kellon vieressä. Kellon voi kelata nopeasti
@@ -75,7 +80,8 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
 - **Uni**: teltan ovella voi mennä nukkumaan. Ruutu pimenee ja aika kuluu nopeasti aamuun kello 7.00 asti.
 - **Sää**: selkeä, tihkusade, kova sade tai usva. Sää määräytyy pelin kellon mukaan: noin 40 %:na päivistä
   sataa kerran (0,7–4 tuntia), muina päivinä ei lainkaan. Usvaa voi olla vain aamulla 3.30–9.30 ja illalla
-  19.30–23.30, ja se on todennäköisempää sateen jälkeen. Sadepisarat jättävät lammen pintaan renkaita.
+  19.30–23.30, ja se on todennäköisempää sateen jälkeen. Usvan aikana lammen pinnalla leijuu ohut usvakerros ja
+  tuulen mukana ajelehtivia usvalauttoja; muualla usva on kevyempää. Sadepisarat jättävät lammen pintaan renkaita.
   Tuulen suunta ja voimakkuus vaihtelevat ja kallistavat sadetta. Sään ja ajan vaihtumisesta ei tule
   ilmoituksia; kellon vieressä on sääkuvake (aurinko tai yöllä kuu, pilvi ja pisarat, usvajuovat),
   sen alla kompassi, jonka nuoli näyttää tuulen suunnan, ja palkit tuulen voimakkuudelle (0–3).
