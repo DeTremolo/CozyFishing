@@ -142,7 +142,8 @@ voi kerätä talteen kävelemällä sen päälle (myös siiman katkaisun jälkee
 
 Vieheen voi vaihtaa (Q), kun siima on kelattu sisään.
 
-- **Koho ja mato**: koukku riippuu kohon alla säädetyllä syvyydellä.
+- **Koho ja mato**: koukku riippuu kohon alla säädetyllä syvyydellä. Kohon kärjessä on neonvihreä valopiste, joka hehkuu
+  pimeällä; kun kala vetää kohon pinnan alle, valo himmenee.
 - **Vaappu**: pieni (noin 3 px) harmaansininen viehe. Se kelluu ja pyrkii koko ajan nousemaan pintaa
   kohti (12 cm/s). Kelattaessa se sukeltaa sitä nopeammin, mitä kovempaa kelataan (40 cm sukellusta
   kuljettua metriä kohden), ja painuu kelauksen jatkuessa yhä syvemmälle, lopulta pohjaa pitkin.
