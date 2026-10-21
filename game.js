@@ -1561,10 +1561,12 @@ function setupWorld() {
   spawnFish();
   catches = [];
   ducks = [makeDuck(C + rand(-8, 8), C + rand(-8, 8), true, false), makeDuck(C + rand(-8, 8), C + rand(-8, 8), false, false)];
-  weather = { kind: 'clear', t: rand(50, 90) * 60, rain: 0, fog: 0, rainDay: -1 };
+  weatherSeed = Math.floor(Math.random() * 1e9); weatherPlans.clear();
+  weather = { kind: 'clear', rain: 0, fog: 0 };
   wind = { a: rand(0, Math.PI * 2), s: 0.25, ta: 0, ts: 0.25, t: 0, gust: 0.25, sx: 0, sy: 0, wx: 0, wy: 0 };
   wind.ta = wind.a;
   time = 0; clock = 0; birdT = 120; skyBirdT = 600; duckT = rand(1800, 3600); animalT = 300;
+  weather.kind = weatherKindNow(); weather.rain = WEATHER[weather.kind].rain; weather.fog = WEATHER[weather.kind].fog;
   phaseName = phaseOf(todNow());
   updateEnv();
   cam.x = isoX(player.x, player.y) - W / 2;
@@ -1927,10 +1929,6 @@ function updateDayPhase() {
   const ph = phaseOf(env.tod);
   if (ph === phaseName) return;
   phaseName = ph;
-  banners.push({
-    text: { MORNING: 'Dawn breaks over the pond...', DAY: 'The sun is high.', EVENING: 'Evening settles in...', NIGHT: 'Night falls over the forest.' }[ph],
-    t: 220,
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1938,15 +1936,61 @@ function updateDayPhase() {
 // vaihtelevat hitaasti ja vaikuttavat sateen suuntaan, savuun, kaisloihin ja aaltoihin.
 // ---------------------------------------------------------------------------
 const WEATHER = {
-  clear: { rain: 0, fog: 0, secs: [60, 110], msg: 'The sky clears.', label: '' },
-  drizzle: { rain: 0.35, fog: 0.12, secs: [45, 80], msg: 'A light drizzle begins...', label: 'DRIZZLE' },
-  rain: { rain: 1.15, fog: 0.18, secs: [35, 60], msg: 'Heavy rain pours down!', label: 'HEAVY RAIN' },
-  fog: { rain: 0, fog: 1, secs: [45, 80], msg: 'Mist rises from the pond...', label: 'FOG' },
+  clear: { rain: 0, fog: 0 },
+  drizzle: { rain: 0.35, fog: 0.12 },
+  rain: { rain: 1.15, fog: 0.18 },
+  fog: { rain: 0, fog: 1 },
 };
+
+// Sää määräytyy pelin kellon mukaan päiväkohtaisesta suunnitelmasta, joten se toimii myös nopeutetulla
+// ajalla ja unen aikana. Noin 40 %:na päivistä sataa kerran (tihkua tai kovaa sadetta 0,7–4 tuntia),
+// muina päivinä ei lainkaan. Usvaa voi olla vain aamulla 3.30–9.30 ja illalla 19.30–23.30; se on
+// todennäköisempää, jos on satanut (aamulla edellisenä päivänä, illalla samana päivänä).
+const RAIN_DAY = 0.4, FOG_P = 0.2, FOG_P_WET = 0.6;
+const weatherPlans = new Map();
+// Päivän sade (tai null): arvotaan päivän numerosta, joten edellisenkin päivän sade tiedetään
+function rainOf(day) {
+  const rnd = mulberry32(((day + 1000) * 2654435761) ^ weatherSeed);
+  if (rnd() >= RAIN_DAY) return null;
+  const start = rnd() * 22, len = 0.7 + rnd() * 3.3;
+  return { start, end: Math.min(24, start + len), kind: rnd() < 0.6 ? 'drizzle' : 'rain' };
+}
+function weatherPlan(day) {
+  if (weatherPlans.has(day)) return weatherPlans.get(day);
+  const rnd = mulberry32(((day + 1000) * 2246822519) ^ weatherSeed ^ 0x5bd1e995);
+  const plan = { rain: rainOf(day), fogs: [] };
+  if (rnd() < (rainOf(day - 1) ? FOG_P_WET : FOG_P)) {
+    const start = 3.5 + rnd() * 3, end = Math.min(9.5, start + 1 + rnd() * 2.5);
+    plan.fogs.push({ start, end });
+  }
+  if (rnd() < (plan.rain && plan.rain.end < 19.5 ? FOG_P_WET : FOG_P)) {
+    const start = 19.5 + rnd() * 2, end = Math.min(23.5, start + 1 + rnd() * 2);
+    plan.fogs.push({ start, end });
+  }
+  weatherPlans.set(day, plan);
+  return plan;
+}
+let weatherSeed = 0;
+// Pelin päivä ja kellonaika tunteina (keskiyöstä)
+function gameDayHour() {
+  const abs = 4.5 + ((clock + START_TOD * CYCLE) / CYCLE) * 24, day = Math.floor(abs / 24);
+  return [day, abs - day * 24];
+}
+function weatherKindNow() {
+  const [day, h] = gameDayHour(), plan = weatherPlan(day);
+  if (plan.rain && h >= plan.rain.start && h < plan.rain.end) return plan.rain.kind;
+  if (plan.fogs.some((f) => h >= f.start && h < f.end)) return 'fog';
+  return 'clear';
+}
+function setWeatherKind(kind) {
+  if (kind === weather.kind) return;
+  weather.kind = kind;
+  if (kind === 'rain') wind.ts = Math.max(wind.ts, rand(0.55, 0.9));
+}
 
 function updateWeather() {
   const w = weather;
-  if (--w.t <= 0) { nextWeather(); banners.push({ text: WEATHER[w.kind].msg, t: 200 }); }
+  setWeatherKind(weatherKindNow());
   const target = WEATHER[w.kind];
   w.rain += (target.rain - w.rain) * 0.004;
   w.fog += (target.fog - w.fog) * 0.003;
@@ -1982,20 +2026,6 @@ function updateWeather() {
     }
     if (d.splash > 0) d.splash--;
   }
-}
-
-function nextWeather() {
-  const w = weather;
-  // Usvaa on todennäköisemmin aamulla, illalla ja yöllä
-  const misty = phaseName !== 'DAY';
-  // Sade on harvinaisempaa kuin ennen, ja vuorokauden aikana voi sataa vain kerran
-  const today = Math.floor((clock + START_TOD * CYCLE) / CYCLE), rainy = w.rainDay === today ? [] : ['drizzle', 'rain'];
-  const pool = ['clear', 'clear', 'clear', 'clear', 'clear', 'fog', ...rainy, ...(misty ? ['fog', 'fog'] : [])].filter((k) => k !== w.kind);
-  w.kind = pick(pool);
-  if (w.kind === 'drizzle' || w.kind === 'rain') w.rainDay = today;
-  const [a, b] = WEATHER[w.kind].secs;
-  w.t = rand(a, b) * 60;
-  if (w.kind === 'rain') wind.ts = Math.max(wind.ts, rand(0.55, 0.9));
 }
 
 function nextWind() {
@@ -3286,8 +3316,7 @@ function framesToWake() {
 // Aika kuluu n päivitystä kerralla: sää ja tuuli vaihtuvat taustalla ilman ilmoituksia
 function fastForward(n) {
   time += n; clock += n;
-  weather.t -= n;
-  if (weather.t <= 0) nextWeather();
+  setWeatherKind(weatherKindNow());
   wind.t -= n;
   if (wind.t <= 0) nextWind();
   wind.s = wind.ts; wind.a = wind.ta;
@@ -4108,14 +4137,97 @@ function drawBobberReticle(x, y) {
   ctx.fillRect(x - 1 + Math.round(sway * 4 / 3), top + 2, 1, 1);
 }
 
-// Tuuliviiri oikeassa yläkulmassa: nuoli osoittaa tuulen kulkusuunnan ruudulla
+// Sää- ja tuulikuvakkeet oikeassa yläkulmassa (korvaavat säätekstit).
+// Sää: aurinko (yöllä kuu ja tähti), tihkusade (vaalea pilvi ja muutama pisara), kova sade (tumma pilvi
+// ja vinot sadeviirut) tai usva (ajelehtivat usvajuovat). Tuuli: kompassirengas, jonka sisällä nuoli
+// näyttää tuulen kulkusuunnan ruudulla, ja vieressä kolme palkkia tuulen voimakkuudelle
+// (tyyni = ei palkkeja eikä nuolta, heikko 1, kohtalainen 2, kova 3).
+function drawWeatherIcon(cx, cy) {
+  const k = weather.kind, night = env.dark > 0.5, t = time;
+  const shadowed = (fn) => { const c = ctx; c.save(); c.translate(1, 1); fn(true); c.restore(); fn(false); };
+  const cloud = (dark, sh) => {
+    const top = sh ? 'rgba(6, 10, 14, 0.5)' : dark ? '#6c7380' : '#d4d8e0', low = sh ? 'rgba(6, 10, 14, 0.5)' : dark ? '#4c525e' : '#a0a8b4';
+    ctx.fillStyle = low; disc(ctx, cx - 4, cy + 1, 3); disc(ctx, cx + 4, cy + 1, 3); ctx.fillRect(cx - 4, cy + 1, 9, 3);
+    ctx.fillStyle = top; disc(ctx, cx - 1, cy - 1, 4); disc(ctx, cx - 4, cy, 2); disc(ctx, cx + 3, cy, 3);
+    if (!sh) { ctx.fillStyle = dark ? '#8a92a0' : '#f4f6fa'; ctx.fillRect(cx - 3, cy - 4, 3, 1); ctx.fillRect(cx - 5, cy - 2, 1, 1); }
+  };
+  if (k === 'clear') {
+    if (night) {
+      // Kuunsirppi: kiekko, josta puuttuu siirretyn kiekon kohta
+      shadowed((sh) => {
+        ctx.fillStyle = sh ? 'rgba(6, 10, 14, 0.5)' : '#ece6c4';
+        for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) {
+          if (dx * dx + dy * dy <= 25 && (dx - 3) ** 2 + (dy + 2) ** 2 > 16) ctx.fillRect(cx - 1 + dx, cy + dy, 1, 1);
+        }
+      });
+      ctx.fillStyle = '#fff8dc'; ctx.fillRect(cx - 5, cy - 1, 1, 2);
+      const tw = Math.sin(t * 0.06) > 0;
+      ctx.fillStyle = '#f0f0ff'; ctx.fillRect(cx + 5, cy - 4, 1, 1);
+      if (tw) { ctx.fillRect(cx + 4, cy - 4, 3, 1); ctx.fillRect(cx + 5, cy - 5, 1, 3); }
+      ctx.fillRect(cx + 3, cy + 3, 1, 1);
+    } else {
+      shadowed((sh) => {
+        const ray = sh ? 'rgba(6, 10, 14, 0.5)' : '#ffb840';
+        for (let a = 0; a < 8; a++) {
+          const ang = a * Math.PI / 4 + t * 0.004, ux = Math.cos(ang), uy = Math.sin(ang);
+          ctx.fillStyle = ray; ctx.fillRect(Math.round(cx + ux * 5.5), Math.round(cy + uy * 5.5), 1, 1); ctx.fillRect(Math.round(cx + ux * 6.6), Math.round(cy + uy * 6.6), 1, 1);
+        }
+        ctx.fillStyle = sh ? 'rgba(6, 10, 14, 0.5)' : '#ffd860'; disc(ctx, cx, cy, 3);
+      });
+      ctx.fillStyle = '#fff2b0'; ctx.fillRect(cx - 2, cy - 2, 2, 1); ctx.fillRect(cx - 2, cy - 1, 1, 1);
+    }
+  } else if (k === 'drizzle' || k === 'rain') {
+    const heavy = k === 'rain';
+    shadowed((sh) => cloud(heavy, sh));
+    const n = heavy ? 5 : 3, sp = heavy ? 0.25 : 0.12;
+    for (let i = 0; i < n; i++) {
+      const x = cx - 5 + i * (heavy ? 2.5 : 4) + 1, y0 = cy + 5, ph = ((t * sp + i * 1.7) % 4);
+      const y = Math.round(y0 + ph);
+      ctx.fillStyle = heavy ? '#7ab4e8' : '#a8d4f4';
+      ctx.fillRect(Math.round(x - ph * (heavy ? 0.5 : 0)), y, 1, 1);
+      if (heavy) ctx.fillRect(Math.round(x - ph * 0.5) + 1, y - 1, 1, 1);
+    }
+  } else {
+    // Usva: kolme vaakasuoraa, hitaasti ajelehtivaa juovaa
+    for (let r = 0; r < 3; r++) {
+      const off = Math.round(Math.sin(t * 0.02 + r * 1.9) * 1.5), y = cy - 3 + r * 3, w = r === 1 ? 12 : 10;
+      ctx.fillStyle = 'rgba(6, 10, 14, 0.5)'; ctx.fillRect(cx - (w >> 1) + off + 1, y + 1, w, 1);
+      ctx.fillStyle = r === 1 ? '#dce2e6' : '#b4bec4'; ctx.fillRect(cx - (w >> 1) + off, y, w, 1);
+      ctx.fillStyle = 'rgba(220, 226, 230, 0.45)'; ctx.fillRect(cx - (w >> 1) + off - 1, y, 1, 1); ctx.fillRect(cx + (w >> 1) + off, y, 1, 1);
+    }
+  }
+}
+
 function drawWindVane() {
-  const cx = W - 10, cy = 27, g = wind.gust, len = 2 + Math.round(g * 3);
-  const x0 = cx - wind.sx * len, y0 = cy - wind.sy * len, x1 = cx + wind.sx * len, y1 = cy + wind.sy * len;
-  const col = g < 0.15 ? '#6f8a78' : g < 0.5 ? '#c8d8e0' : '#ffcd75';
-  plotLine(ctx, x0, y0, x1, y1, col);
-  const a = Math.atan2(wind.sy, wind.sx);
-  for (const s of [-1, 1]) dot(x1 - Math.cos(a + s * 0.7) * 2, y1 - Math.sin(a + s * 0.7) * 2, col);
+  const cx = W - 12, cy = 28, g = wind.gust;
+  const level = g < 0.08 ? 0 : g < 0.3 ? 1 : g < 0.6 ? 2 : 3;
+  // Kompassirengas tummalla pohjalla
+  ctx.fillStyle = 'rgba(8, 14, 18, 0.45)'; disc(ctx, cx, cy, 8);
+  for (let k = 0; k < 24; k++) {
+    const a = (k / 24) * Math.PI * 2;
+    ctx.fillStyle = k % 6 === 0 ? '#a8b8c0' : 'rgba(120, 140, 150, 0.7)';
+    ctx.fillRect(Math.round(cx + Math.cos(a) * 8), Math.round(cy + Math.sin(a) * 8), 1, 1);
+  }
+  const col = ['#7a8a90', '#c8d8e0', '#eef4f8', '#ffcd75'][level];
+  if (level === 0) { ctx.fillStyle = col; ctx.fillRect(cx - 1, cy - 1, 3, 3); ctx.fillStyle = 'rgba(8, 14, 18, 0.8)'; ctx.fillRect(cx, cy, 1, 1); }
+  else {
+    // Nuoli: varsi, sulat perässä ja täytetty kärki; puuskassa nuoli värähtää hieman
+    const a = Math.atan2(wind.sy, wind.sx) + Math.sin(time * 0.15) * 0.04 * level, ux = Math.cos(a), uy = Math.sin(a), nx = -uy, ny = ux;
+    const P = (along, side) => [cx + ux * along + nx * side, cy + uy * along + ny * side];
+    for (const sh of [1, 0]) {
+      const o = sh ? 1 : 0, c = sh ? 'rgba(4, 8, 10, 0.6)' : col;
+      plotLine(ctx, P(-6, 0)[0] + o, P(-6, 0)[1] + o, P(2, 0)[0] + o, P(2, 0)[1] + o, c);
+      for (const sd of [-1, 1]) plotLine(ctx, P(-6, 0)[0] + o, P(-6, 0)[1] + o, P(-7.5, sd * 1.8)[0] + o, P(-7.5, sd * 1.8)[1] + o, c);
+      polyFill(ctx, [P(6.5, 0), P(1.5, -3), P(1.5, 3)].map(([x, y]) => [x + o, y + o]), c);
+    }
+  }
+  // Voimakkuuspalkit
+  for (let b = 0; b < 3; b++) {
+    const h = 3 + b * 2, x = cx - 17 + b * 3, y = cy + 6 - h;
+    ctx.fillStyle = 'rgba(4, 8, 10, 0.5)'; ctx.fillRect(x + 1, y + 1, 2, h);
+    ctx.fillStyle = b < level ? col : 'rgba(150, 165, 175, 0.35)'; ctx.fillRect(x, y, 2, h);
+  }
+  drawWeatherIcon(W - 12, 9);
 }
 
 // Teksti piirretään isolle kankaalle, jotta pikselifontti pysyy terävänä
@@ -4226,11 +4338,7 @@ function render() {
     if (sleep.phase !== 'out') text(touch.on ? 'TAP TO WAKE UP' : 'PRESS ANY KEY TO WAKE UP', 6, H - 11, 4, '#94b0c2', 'left');
     return;
   }
-  const wl = WEATHER[weather.kind].label;
-  const windWord = wind.gust < 0.15 ? 'CALM' : wind.gust < 0.5 ? 'BREEZE' : 'WINDY';
-  text(wl ? wl : 'CLEAR', W - 6, 6, 5, '#ffffff', 'right');
-  text(windWord, W - 18, 25, 4, '#94b0c2', 'right');
-  if (muted) text('SOUND OFF', W - 6, 36, 4, '#94b0c2', 'right');
+  if (muted) text('SOUND OFF', W - 6, 42, 4, '#94b0c2', 'right');
   if (!touch.on) {
     if (canSleep()) text('E  SLEEP IN THE TENT', 6, H - 29, 4, blink ? '#ffcd75' : '#e0b060', 'left');
     else if (player.rod) text(cast.lure ? 'HOLD MOUSE  REEL IN' : 'HOLD MOUSE  CAST', 6, H - 29, 4, '#c8d8e0', 'left');

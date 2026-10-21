@@ -72,9 +72,12 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   häivytetään pehmeästi ditheröiden, mutta vain penkereen, aukean ja lammen kohdalta: metsän pohjaa ei paljasteta.
   Kaisloja ja kiviä ei häivytetä, ja niiden takana seisova hahmo jää niiden taakse.
 - **Uni**: teltan ovella voi mennä nukkumaan. Ruutu pimenee ja aika kuluu nopeasti aamuun kello 7.00 asti.
-- **Sää**: selkeä, tihkusade, kova sade tai usva. Sade on harvinaisempaa kuin muu sää, ja vuorokauden
-  aikana voi sataa vain kerran. Sadepisarat jättävät lammen pintaan renkaita.
-  Tuulen suunta ja voimakkuus vaihtelevat (tuuliviiri oikeassa yläkulmassa) ja kallistavat sadetta.
+- **Sää**: selkeä, tihkusade, kova sade tai usva. Sää määräytyy pelin kellon mukaan: noin 40 %:na päivistä
+  sataa kerran (0,7–4 tuntia), muina päivinä ei lainkaan. Usvaa voi olla vain aamulla 3.30–9.30 ja illalla
+  19.30–23.30, ja se on todennäköisempää sateen jälkeen. Sadepisarat jättävät lammen pintaan renkaita.
+  Tuulen suunta ja voimakkuus vaihtelevat ja kallistavat sadetta. Sään ja ajan vaihtumisesta ei tule
+  ilmoituksia; oikeassa yläkulmassa on sääkuvake (aurinko tai yöllä kuu, pilvi ja pisarat, usvajuovat),
+  sen alla kompassi, jonka nuoli näyttää tuulen suunnan, ja palkit tuulen voimakkuudelle (0–3).
 - **Eläimet**: oravat, jänikset ja hiiret liikkuvat metsän laidassa ja tulevat välillä penkereelle.
   Ne pakenevat, jos pelaaja tulee liian lähelle; paikallaan pysyvän pelaajan luo ne uskaltautuvat lähemmäs.
   Sinisorsat uivat lammella ja jättävät vanaveden, pyrähtävät lentoon ja laskeutuvat takaisin.
