@@ -69,7 +69,7 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   jonka perässä on perämoottori. Veneestä on valmiit kuvat 16 suuntaan, sen vedenpäällinen osa heijastuu
   vedestä ja veden alle jäävä pohja ja moottorin vetolaite häipyvät syvyyden mukaan. Valmiina ovat myös
   kuvat kyydissä olevasta hahmosta: kuljettaja istuu perässä kasvot menosuuntaan ja ohjaa perämoottoria
-  oikealla kädellä, ja pysäytetyssä veneessä hahmo voi seistä kalastamassa (`boat.rider`). Veneellä ei
+  oikealla kädellä (onki on laskettu veneen pohjalle kärki keulan yli), ja pysäytetyssä veneessä hahmo voi seistä kalastamassa (`boat.rider`). Veneellä ei
   voi vielä ajaa.
 - **Heijastus**: pelaajan hahmo heijastuu vedenpinnasta (esim. laiturilla ja lammen pohjoisrannalla).
 - **Aurinko ja valo**: aurinko nousee koillisesta, on keskipäivällä etelässä ja laskee luoteeseen, ja puiden,

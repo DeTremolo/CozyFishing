@@ -3751,9 +3751,22 @@ function drawBoat(camXr, camYr) {
   if (x > W || y > H || x + spr.full.width < 0 || y + spr.full.height < 0) return;
   ctx.drawImage(spr.full, x, y);
   if (!b.rider) return;
+  if (b.rider === 'drive') drawBoatRod(spr, x, y);
   drawBoatRider(spr, x, y);
   ctx.drawImage(spr.front, x, y);
 }
+// Ajon ajaksi onki lasketaan veneeseen: kahva pohjalla kuljettajan vieressä ja kärki roikkuu keulan yli
+function drawBoatRod(spr, x, y) {
+  const butt = spr.P(-0.7, 0.36, 1.5), rest = spr.P(1.5, 0.08, boatH(1.5) + 0.5), tip = spr.P(2.35, 0.12, boatH(1.6) - 1.5);
+  const ln = (a, c, col, oy = 0) => plotLine(ctx, x + a[0], y + a[1] + oy, x + c[0], y + c[1] + oy, col);
+  ln(butt, rest, 'rgba(14, 10, 8, 0.7)', 1); ln(rest, tip, 'rgba(14, 10, 8, 0.6)', 1);   // tumma reuna
+  ln(butt, rest, '#c89a5a'); ln(rest, tip, '#c89a5a');
+  const k = spr.P(-0.45, 0.33, 1.7);
+  ln(butt, k, '#d8a868');                                                               // korkkikahva
+  dot(x + butt[0] + 1, y + butt[1], '#6a7078');                                        // kela
+  dot(x + tip[0], y + tip[1], '#f4f4ec');
+}
+
 // Kyydissä oleva hahmo. Seisova hahmo on veneen keskellä; kuljettaja istuu perässä kasvot menosuuntaan
 // ja pitää oikealla kädellä perämoottorin ohjauskahvasta.
 function drawBoatRider(spr, x, y) {
@@ -3772,10 +3785,11 @@ function drawBoatRider(spr, x, y) {
   const legs = () => {
     for (const side of [-0.14, 0.14]) {
       const hip = spr.P(seatU + 0.1, side, seatZ + 1), knee = spr.P(seatU + 0.55, side, seatZ + 2.5), foot = spr.P(seatU + 0.7, side, 1);
-      const L = (a, c, col) => { plotLine(ctx, x + a[0], y + a[1], x + c[0], y + c[1], col); plotLine(ctx, x + a[0], y + a[1] + 1, x + c[0], y + c[1] + 1, col); };
+      // Paksu jalka: kolme pikseliä korkea ja kaksi leveä viiva
+      const L = (a, c, col) => { for (const [ox, oy] of [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]]) plotLine(ctx, x + a[0] + ox, y + a[1] + oy, x + c[0] + ox, y + c[1] + oy, col); };
       L(hip, knee, side < 0 ? '#6a523a' : '#5a4632');
       L(knee, foot, side < 0 ? '#5a4632' : '#4a3a2a');
-      ctx.fillStyle = '#22180e'; ctx.fillRect(Math.round(x + foot[0]) - 1, Math.round(y + foot[1]), 3, 1);   // saapas
+      ctx.fillStyle = '#22180e'; ctx.fillRect(Math.round(x + foot[0]) - 1, Math.round(y + foot[1]) + 1, 4, 2);   // saapas
     }
   };
   const legsFront = spr.P(seatU + 0.55, 0, 0)[1] > spr.P(seatU, 0, 0)[1];   // polvet katsojaa kohti
