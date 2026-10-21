@@ -165,12 +165,14 @@ function silhouette(img) {
 
 // Pelaaja: valkoihoinen retkeilijä lierihatussa, oliivinvihreä takki, ruskeat housut ja iso ruskea selkäreppu,
 // jonka päällä on makuualusta. Edestä repun sivut näkyvät olkapäiden takaa, takaa reppu peittää selän.
+// Värit ovat kirkkaampia ja kontrastisempia kuin maaston sävyt, ja hahmon ympärillä on tumma ääriviiva,
+// jotta se erottuu metsästä ja rannasta selvästi.
 const PLAYER_PAL = {
-  h: '#8a7248', H: '#4a3420', b: '#6e5a38',
-  s: '#f2c9a4', S: '#c9967a', e: '#2a2018', r: '#7a5a3a',
-  j: '#56683a', J: '#6e8248', d: '#3e4c28', p: '#3a2a1a', k: '#2a2018',
-  P: '#7a5230', L: '#94683c', q: '#553820', Q: '#3e5a6a', w: '#5f7f8f',
-  c: '#5e4a34', C: '#45362a', x: '#2e241a',
+  h: '#b0925a', H: '#5e4226', b: '#8c7046',
+  s: '#f6d0ac', S: '#d29c7c', e: '#2a2018', r: '#8a6440',
+  j: '#6c8c40', J: '#94b25c', d: '#40541e', p: '#3a2a1a', k: '#2a2018',
+  P: '#a8662c', L: '#cc8a48', q: '#6a3e1a', Q: '#3e7090', w: '#74a8c4',
+  c: '#6a523a', C: '#4a3a2a', x: '#22180e',
 };
 const PLAYER_FRONT = [
   '.....hhhh.....',
@@ -274,7 +276,14 @@ const VIEW_INFO = {
   NE: { rows: PLAYER_BACK_SIDE, legs: PLAYER_LEGS, rodX: 3, rodFront: true, lamp: -1, hand: 4, away: true },
   N: { rows: PLAYER_BACK, legs: PLAYER_LEGS, rodX: 4, rodFront: true, lamp: -1, hand: 4, away: true },
 };
-const PLAYER_SPR = Object.fromEntries(VIEW_ORDER.map((v) => [v, VIEW_INFO[v].legs.map((l) => sprite([...VIEW_INFO[v].rows, ...l], PLAYER_PAL))]));
+// Hahmon kuva saa yhden pikselin reunuksen, johon piirretään tumma ääriviiva (kuva on 16 x 21)
+function playerSprite(rows) {
+  const base = makeSprite(rows, PLAYER_PAL), c = makeCanvas(base.width + 2, base.height + 2);
+  c.getContext('2d').drawImage(base, 1, 1);
+  outlineSprite(c, '#120c0a');
+  return { img: c };
+}
+const PLAYER_SPR = Object.fromEntries(VIEW_ORDER.map((v) => [v, VIEW_INFO[v].legs.map((l) => playerSprite([...VIEW_INFO[v].rows, ...l]))]));
 
 // Sorsat (sinisorsa): koiras vihreäpäinen, naaras ruskea. Kaikki kuvat nokka oikealle.
 const DUCK_PAL_M = { g: '#1f5a3a', G: '#2f7a4a', y: '#e0b030', w: '#f0f0e8', r: '#6a3a2a', m: '#a8a8a0', M: '#74746e', n: '#5a4a3a', k: '#1a1a1a', u: '#3a4aa0' };
@@ -2104,6 +2113,28 @@ function drawWeather(camXr, camYr) {
   drawNight(camXr, camYr);
   drawStarReflections(camXr, camYr);
   drawEmbers(camXr, camYr);
+  drawGlows();
+}
+
+// Kohon valopisteen hehku: pimeällä pieni vihreä kehä, päivällä vain kirkas piste
+function drawGlows() {
+  const night = nightAmt();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const o of glows) {
+    const a = o.a * (0.85 + 0.15 * Math.sin(time * 0.1));
+    if (night > 0.05) {
+      ctx.fillStyle = `rgba(70, 255, 60, ${(0.1 * night * a).toFixed(3)})`;
+      disc(ctx, o.x, o.y, 5);
+      ctx.fillStyle = `rgba(70, 255, 60, ${(0.16 * night * a).toFixed(3)})`;
+      disc(ctx, o.x, o.y, 3);
+      ctx.fillStyle = `rgba(90, 255, 70, ${(0.5 * night * a).toFixed(3)})`;
+      ctx.fillRect(o.x - 1, o.y, 3, 1); ctx.fillRect(o.x, o.y - 1, 1, 3);
+    }
+    ctx.fillStyle = `rgba(190, 255, 160, ${(0.9 * a).toFixed(3)})`;
+    ctx.fillRect(o.x, o.y, 1, 1);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  glows = [];
 }
 
 // Kipinät piirretään yön pimennyksen päälle, joten ne hehkuvat pimeässä. Kipinän väri kulkee
@@ -2733,7 +2764,7 @@ function drawLoose(camXr, camYr) {
     const [ux, uy] = screenDir(-Math.cos(o.a), -Math.sin(o.a));
     if (o.onWater) plotLine(ctx, x, y, x + ux * 8, y + uy * 8 + 1, 'rgba(225, 230, 235, 0.45)');
     if (o.kind === 'wobbler') { if (!f) drawWobblerAt(x, y - 1, 1, false); }
-    else drawBobberAt(x, y, o.onWater, !o.onWater);
+    else drawBobberAt(x, y, o.onWater, !o.onWater, ctx.globalAlpha);
     ctx.globalAlpha = 1;
   }
 }
@@ -2818,7 +2849,7 @@ function drawUnderwater(camXr, camYr) {
       g.globalAlpha = underVis(f.z * 0.5);
       if (wl) plotLine(g, wl.wx, wl.wy, wl.ex, wl.ey, 'rgba(225, 230, 235, 0.6)');
       else plotLine(g, lx, ly + L.sub * Z_PX, fx, fy, 'rgba(225, 230, 235, 0.6)');
-      if (L.sub > 0.05) { g.globalAlpha = underVis(L.sub); drawBobberAt(lx, Math.round(ly + L.sub * Z_PX), false); }
+      if (L.sub > 0.05) { g.globalAlpha = underVis(L.sub); drawBobberAt(lx, Math.round(ly + L.sub * Z_PX), false, false, underVis(L.sub) * 0.6); }
     } else if (L.kind === 'wobbler') {
       // Pinnan alle sukeltanut vaappu ja siima pinnasta vaappuun
       const wl = wobblerLine(camXr, camYr);
@@ -3460,7 +3491,8 @@ function drawBackRod(sx, sy, flip, rodX) {
   const x = Math.round(flip ? sx - rodX - 1 : sx + rodX), y0 = Math.round(sy - 5), lean = (rodX >= 0) !== flip ? 1 : -1;
   for (let y = y0; y > y0 - 27; y--) {
     const h = y0 - y, xx = x + (h > 16 ? lean : 0);
-    dot(xx, y, h < 4 ? (h % 2 ? '#c8a070' : '#a8804c') : h > 25 ? '#d8d8d0' : h % 3 ? '#2e2418' : '#4a3a28');
+    if (h >= 4 && h <= 25) dot(xx + (flip ? -1 : 1), y, 'rgba(14, 10, 8, 0.7)');   // tumma reuna erottaa vavan taustasta
+    dot(xx, y, h < 4 ? (h % 2 ? '#e0b880' : '#b88a50') : h > 25 ? '#f4f4ec' : h % 5 === 0 ? '#e8e0c8' : '#c89a5a');
   }
   dot(x - lean, y0 - 4, '#3a3e44'); dot(x - lean, y0 - 5, '#6a7078');   // kela
 }
@@ -3470,9 +3502,11 @@ function drawHeldRod(camXr, camYr) {
   const g = rodGeom();
   const hx = g.hx - camXr, hy = g.hy - camYr, tx = g.tx - camXr, ty = g.ty - camYr;
   const dx = tx - hx, dy = ty - hy, l = Math.hypot(dx, dy), ux = dx / l, uy = dy / l;
-  plotLine(ctx, hx - ux * 3, hy - uy * 3, hx + ux * 1, hy + uy * 1, '#b8905a');   // korkkikahva
-  plotLine(ctx, hx + ux * 2, hy + uy * 2, tx, ty, '#2e2418');                     // vapa
-  dot(hx + ux * 5, hy + uy * 5, '#4a3a28'); dot(hx + ux * 9, hy + uy * 9, '#4a3a28');
+  // Vapa on vaalea, ja sen alla kulkee tumma reunaviiva, jotta se erottuu sekä metsästä että vedestä
+  plotLine(ctx, hx + ux * 2, hy + uy * 2 + 1, tx, ty + 1, 'rgba(14, 10, 8, 0.7)');
+  plotLine(ctx, hx - ux * 3, hy - uy * 3, hx + ux * 1, hy + uy * 1, '#d8a868');   // korkkikahva
+  plotLine(ctx, hx + ux * 2, hy + uy * 2, tx, ty, '#c89a5a');                     // vapa
+  for (const k of [5, 9, 13]) if (k < l - 1) dot(hx + ux * k, hy + uy * k, '#f0ece0');   // siimanohjaimet
   dot(hx + ux * 1, hy + uy * 1 + 1, '#3a3e44'); dot(hx + ux * 1 + 1, hy + uy * 1 + 1, '#6a7078');   // kela
   dot(tx, ty, '#d8d8d0');
   if (cast.lure) { drawCastLine(g, camXr, camYr); return; }
@@ -3490,7 +3524,7 @@ function drawHeldRod(camXr, camYr) {
   }
   // Koho: punainen yläosa, valkoinen alaosa ja ohut tikku päällä
   const bx = Math.round(line[BOB_I].x - camXr), by = Math.round(line[BOB_I].y - camYr);
-  dot(bx, by - 3, '#2a2018');
+  dot(bx, by - 3, '#7dff5a'); glows.push({ x: bx, y: by - 3, a: 1 });
   ctx.fillStyle = '#d8241c'; ctx.fillRect(bx - 1, by - 2, 2, 2);
   ctx.fillStyle = '#ff6a50'; ctx.fillRect(bx - 1, by - 2, 1, 1);
   ctx.fillStyle = '#f0f0ea'; ctx.fillRect(bx - 1, by, 2, 1);
@@ -3517,8 +3551,8 @@ function drawPlayer(sx, sy, camXr, camYr) {
   // osoittaa katsesuuntaan: poispäin katsottaessa se on hahmon takana.
   if (!p.rod && !V.rodFront) drawBackRod(sx, sy, p.flip, V.rodX);
   if (p.rod && V.away) drawHeldRod(camXr, camYr);
-  drawImg(spr.img, sx - 7, sy - 18, p.flip);
-  Object.assign(shownPlayer, { img: spr.img, x: sx - 7, y: sy - 18, flip: p.flip, hx: sx, hy: sy - 16 });
+  drawImg(spr.img, sx - 8, sy - 19, p.flip);
+  Object.assign(shownPlayer, { img: spr.img, x: sx - 8, y: sy - 19, flip: p.flip, hx: sx, hy: sy - 16 });
   // Otsalamppu hatun etuosassa: valkoinen piste näkyy vain, kun hahmo ei katso poispäin
   if (p.light && V.lamp >= 0) {
     const lx = sx - 7 + (p.flip ? 13 - V.lamp : V.lamp), ly = sy - 17;
@@ -3620,14 +3654,17 @@ function drawCastLine(g, camXr, camYr) {
 const lureLift = (L) => (!L.onWater && onDock(L.x, L.y) ? DOCK_Z : 0);
 
 // Koho: vedessä kelluessa näkyy punainen yläosa ja puolet valkoisesta, maassa se makaa kyljellään
-function drawBobberAt(x, y, floating, lying) {
+// Kohon kärjessä on neonvihreä valopiste. Sen hehku piirretään yön pimennyksen päälle (drawGlows),
+// jotta koho näkyy myös pimeällä; pinnan alle vedetyn kohon valo himmenee (glow = voimakkuus 0–1).
+let glows = [];
+function drawBobberAt(x, y, floating, lying, glow = 1) {
   if (lying) {
-    dot(x - 2, y - 1, '#2a2018');
+    dot(x - 2, y - 1, '#7dff5a'); glows.push({ x: x - 2, y: y - 1, a: glow * 0.8 });
     ctx.fillStyle = '#d8241c'; ctx.fillRect(x - 1, y - 1, 2, 1);
     ctx.fillStyle = '#f0f0ea'; ctx.fillRect(x + 1, y - 1, 2, 1);
     return;
   }
-  dot(x, y - 4, '#2a2018');
+  dot(x, y - 4, '#7dff5a'); glows.push({ x, y: y - 4, a: glow });
   ctx.fillStyle = '#d8241c'; ctx.fillRect(x - 1, y - 3, 2, 2);
   ctx.fillStyle = '#ff6a50'; ctx.fillRect(x - 1, y - 3, 1, 1);
   ctx.fillStyle = '#f0f0ea'; ctx.fillRect(x - 1, y - 1, 2, floating ? 1 : 2);
@@ -3752,7 +3789,7 @@ function buildSunShadows() {
 
 function drawShadows(camXr, camYr) {
   const night = nightAmt(), day = 1 - night;
-  const ents = playerShown() ? [{ sx: isoX(player.x, player.y) - camXr, sy: isoY(player.x, player.y) - camYr - playerLift(), sil: SIL.player, ax: 7, ay: 18 }] : [];
+  const ents = playerShown() ? [{ sx: isoX(player.x, player.y) - camXr, sy: isoY(player.x, player.y) - camYr - playerLift(), sil: SIL.player, ax: 8, ay: 19 }] : [];
   for (const a of animals) ents.push({ sx: isoX(a.x, a.y) - camXr, sy: isoY(a.x, a.y) - camYr, sil: ANIMAL[a.kind].sil, ax: ANIMAL[a.kind].w >> 1, ay: ANIMAL[a.kind].h - 1 });
   if (day > 0.05) {
     ctx.globalAlpha = 0.34 * day * (1 - env.overcast * 0.75);
