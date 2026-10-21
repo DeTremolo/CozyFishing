@@ -4391,11 +4391,21 @@ function render() {
     if (player.rod && player.lure === 'wobbler') {
       line('WOBBLER', '#a8c0d8');
       line('REEL ' + cast.reelSpeed + ' cm/s' + (touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
-    } else if (player.rod) line('HOOK ' + cast.hookDepth.toFixed(1) + ' m' + (cast.lure ? '' : touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
-    // Vedessä olevan vaapun syvyys; matka pohjaan vain debug-tilassa (vesi piilotettuna)
+    } else if (player.rod) {
+      // Koho-ongella koukun syvyyden perään tieto, jos syötti on pohjassa tai koho kuivalla maalla
+      const L = cast.lure, out = L && L.st === 'float' && !L.fish;
+      const where = !out ? '' : !L.onWater ? '  ON LAND' : cast.hookDepth >= depthAt(L.x, L.y) - 0.06 ? '  ON BOTTOM' : '';
+      line('HOOK ' + cast.hookDepth.toFixed(1) + ' m' + (L ? '' : touch.on ? '' : '  (WHEEL)') + where, where ? '#ffcd75' : '#e0b0b8');
+    }
+    // Vaapun syvyys, ja perään tieto, jos vaappu kulkee pohjassa tai on kuivalla maalla;
+    // matka pohjaan vain huijaustilassa
     const L = cast.lure;
-    if (L && L.kind === 'wobbler' && L.st === 'float' && L.onWater && !L.fish) {
-      line('DEPTH ' + (L.z * 100).toFixed(1) + ' cm' + (water.show ? '' : '  BOTTOM +' + Math.max(0, depthAt(L.x, L.y) - L.z).toFixed(2) + ' m'), '#a8c0d8');
+    if (L && L.kind === 'wobbler' && L.st === 'float' && !L.fish) {
+      if (!L.onWater) line('DEPTH -  ON LAND', '#ffcd75');
+      else {
+        const bottom = L.z >= depthAt(L.x, L.y) - 0.07;
+        line('DEPTH ' + (L.z * 100).toFixed(1) + ' cm' + (bottom ? '  ON BOTTOM' : '') + (water.show || bottom ? '' : '  BOTTOM +' + Math.max(0, depthAt(L.x, L.y) - L.z).toFixed(2) + ' m'), bottom ? '#ffcd75' : '#a8c0d8');
+      }
     }
     if (cast.lure && cast.lure.st === 'float') line('LINE ' + cast.lure.out.toFixed(1) + ' / ' + LINE_MAX + ' m', '#c8d8e0');
     if (catches.length) line('CATCH ' + catches.length + '  ' + fmtWeight(catches.reduce((s, c) => s + c.w, 0)), '#a7f070');

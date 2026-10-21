@@ -151,7 +151,8 @@ Vieheen voi vaihtaa (Q), kun siima on kelattu sisään.
   hitaammin kelattuna se nousee ja nopeammin kelattuna se sukeltaa. Vedettäessä vaappu heiluttaa pyrstöään (wiggle). Kelausnopeus 10–100 cm/s
   säädetään hiiren rullalla. Vaappua kelattaessa siima kulkee ongen kärjestä lähes suorana (pieni notko)
   vaappuun asti myös veden alla, toisin kuin koho-onginnassa. Vedessä olevan vaapun syvyys (cm) näkyy vasemmassa
-  yläkulmassa, ja vesi piilotettuna myös matka pohjaan. Liikkumaton vaappu kiinnostaa kaloja vain vähän, ja liikkuvaa vaappua kala
+  yläkulmassa, ja vesi piilotettuna myös matka pohjaan. Jos viehe on pohjassa (vaappu pohjaa pitkin tai koho-ongen
+  syötti pohjassa) tai kuivalla maalla, syvyysrivin perään tulee teksti ON BOTTOM tai ON LAND. Liikkumaton vaappu kiinnostaa kaloja vain vähän, ja liikkuvaa vaappua kala
   jahtaa nopeasti.
 
 Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan suuhun.
