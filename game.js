@@ -1219,22 +1219,39 @@ function drawLilies(camXr, camYr) {
 // yönä; tuuli himmentää ja heiluttaa niitä.
 let stars = [];
 const starCanvas = makeCanvas(W, H), starCtx = starCanvas.getContext('2d');
-// Tähdet piirretään vain sinne, missä vedenpinta näkyy: ruutu tallennetaan heti veden ja vedenalaisten
-// asioiden jälkeen (starSnap.a) ja vielä kerran, kun kaikki muu on piirretty (starSnap.b). Jos tähden
-// pikseli on muuttunut välissä, sen päälle on piirretty jotain (puu, kaisla, lumme, kivi, hahmo, lintu…).
-const starSnap = { a: null, b: null };
+// Tähdet piirretään vain sinne, missä vedenpinta näkyy. Ruutu kopioidaan heti veden ja vedenalaisten asioiden
+// jälkeen (starSnap.a). Kun kaikki muu on piirretty, kopiota verrataan ruutuun erotuksena (difference), erotus
+// vahvistetaan kyllästymään asti ja käännetään maskiksi: valkoinen = pinta näkyy, musta = päällä on jotain
+// (puu, kaisla, lumme, kivi, hahmo, lintu…). Kaikki tehdään piirtokomennoilla näytönohjaimella, ilman
+// pikselien lukemista, joten vertailu ei hidasta peliä.
+const starSnap = { a: makeCanvas(1, 1), mask: makeCanvas(1, 1), ok: false };
 const starVis = () => (water.show ? smooth((env.dark - 0.55) / 0.35) * (1 - env.overcast) * (1 - weather.fog) * (1 - wind.gust * 0.6) : 0);
 function snapStars(which) {
-  starSnap[which] = starVis() >= 0.03 && stars.length ? mainCtx.getImageData(0, 0, W, H).data : null;
+  if (starVis() < 0.03 || !stars.length) { starSnap.ok = false; return; }
+  const A = starSnap.a, M = starSnap.mask;
+  if (A.width !== W || A.height !== H) { A.width = M.width = W; A.height = M.height = H; }
+  if (which === 'a') { A.getContext('2d').drawImage(buf, 0, 0); return; }
+  const ga = A.getContext('2d');
+  ga.globalCompositeOperation = 'difference';
+  ga.drawImage(buf, 0, 0);
+  ga.globalCompositeOperation = 'lighter';
+  for (let k = 0; k < 6; k++) ga.drawImage(A, 0, 0);   // erotus x64 -> pienikin muutos kyllästyy
+  ga.globalCompositeOperation = 'source-over';
+  const gm = M.getContext('2d');
+  gm.globalCompositeOperation = 'source-over';
+  gm.fillStyle = '#fff'; gm.fillRect(0, 0, W, H);
+  gm.globalCompositeOperation = 'difference';
+  gm.drawImage(A, 0, 0);
+  gm.globalCompositeOperation = 'source-over';
+  starSnap.ok = true;
 }
 function drawStarReflections(camXr, camYr) {
   const vis = starVis();
-  if (vis < 0.03 || !starSnap.a || !starSnap.b) return;
-  const A = starSnap.a, B = starSnap.b;
-  const open = (x, y) => { const k = (y * W + x) * 4; return A[k] === B[k] && A[k + 1] === B[k + 1] && A[k + 2] === B[k + 2]; };
+  if (vis < 0.03 || !starSnap.ok) return;
   const g = starCtx;
   g.globalCompositeOperation = 'source-over';
-  g.clearRect(0, 0, W, H);
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, W, H);
   for (const st of stars) {
     const y = st.y - camYr;
     if (y < 0 || y >= H) continue;
@@ -1244,14 +1261,15 @@ function drawStarReflections(camXr, camYr) {
     if (x < 1 || x >= W - 1) continue;
     // Tähti pysyy paikallaan; väreilevä pinta vain himmentää ja kirkastaa sitä
     const a = vis * st.b * (0.6 + 0.4 * Math.sin(time * 0.05 * st.sp + st.ph)) * (1 - wind.gust * 0.5 * (0.5 + 0.5 * Math.sin(time * 0.11 + st.ph * 3)));
-    if (open(x, y)) { g.fillStyle = `rgba(225, 232, 255, ${a.toFixed(3)})`; g.fillRect(x, y, 1, 1); }
-    if (st.b > 0.85) {
-      g.fillStyle = `rgba(200, 210, 255, ${(a * 0.35).toFixed(3)})`;
-      if (open(x - 1, y)) g.fillRect(x - 1, y, 1, 1);
-      if (open(x + 1, y)) g.fillRect(x + 1, y, 1, 1);
-    }
+    g.fillStyle = `rgba(225, 232, 255, ${a.toFixed(3)})`;
+    g.fillRect(x, y, 1, 1);
+    if (st.b > 0.85) { g.fillStyle = `rgba(200, 210, 255, ${(a * 0.35).toFixed(3)})`; g.fillRect(x - 1, y, 1, 1); g.fillRect(x + 1, y, 1, 1); }
   }
-  starSnap.a = starSnap.b = null;
+  // Maski poistaa tähdet kohdista, joiden päälle on piirretty jotain; musta tausta ei lisää mitään
+  g.globalCompositeOperation = 'multiply';
+  g.drawImage(starSnap.mask, 0, 0);
+  g.globalCompositeOperation = 'source-over';
+  starSnap.ok = false;
   ctx.globalCompositeOperation = 'lighter';
   ctx.drawImage(starCanvas, 0, 0);
   ctx.globalCompositeOperation = 'source-over';
@@ -3865,8 +3883,8 @@ function sunShear(hour) {
 }
 const gameHour = () => (4.5 + todNow() * 24) % 24;
 
-// Puiden varjot piirretään karttakokoiselle kerrokselle. Kun auringon suunta on muuttunut noin
-// 20 minuuttia (pelin kellossa), uusi kerros piirretään taustalla muutaman ruudunpäivityksen aikana
+// Puiden varjot piirretään karttakokoiselle kerrokselle. Varjojen suunta päivitetään kerran tunnissa
+// (pelin kellossa): uusi kerros piirretään taustalla muutaman ruudunpäivityksen aikana
 // (ettei peli nyki) ja häivytetään sitten vanhan tilalle.
 let sunA = makeCanvas(N * HW * 2, N * HH * 2), sunB = makeCanvas(N * HW * 2, N * HH * 2);
 const sunShade = { key: null, job: null, fade: -1 };
@@ -3882,13 +3900,13 @@ function sunRows(canvas, key, r0, r1) {
   g.setTransform(1, 0, 0, 1, 0, 0);
 }
 function buildSunShadows() {
-  const key = Math.round(gameHour() * 3) / 3;
+  const key = Math.round(gameHour());
   sunA.getContext('2d').clearRect(0, 0, sunA.width, sunA.height);
   sunRows(sunA, key, 0, N);
   Object.assign(sunShade, { key, job: null, fade: -1 });
 }
 function tickSunShadows() {
-  const S2 = sunShade, key = Math.round(gameHour() * 3) / 3;
+  const S2 = sunShade, key = Math.round(gameHour());
   if (S2.job) {
     const r1 = Math.min(N, S2.job.row + 12);
     sunRows(sunB, S2.job.key, S2.job.row, r1);

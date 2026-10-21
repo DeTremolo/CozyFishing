@@ -65,8 +65,8 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   nousevat hehkuvat kipinät leijailevat savun mukana ja hohtavat pimeällä) ja
   noin 8 m pitkä laituri, jolle voi kävellä.
 - **Aurinko ja valo**: aurinko nousee koillisesta, on keskipäivällä etelässä ja laskee luoteeseen, ja puiden,
-  hahmon ja eläinten varjot kääntyvät ja pitenevät sen mukaan (puiden varjokerros päivitetään noin 20 pelin
-  minuutin välein ja vaihdetaan pehmeästi). Aamurusko, kultainen aamu, kultainen hetki ja auringonlasku
+  hahmon ja eläinten varjot kääntyvät ja pitenevät sen mukaan (varjojen suunta päivitetään kerran tunnissa
+  pelin kellon mukaan ja vaihdetaan pehmeästi). Aamurusko, kultainen aamu, kultainen hetki ja auringonlasku
   sävyttävät maiseman kultaiseksi ja oranssiksi; vedenpinnalla sävytys on miedompi ja vesi heijastaa
   värikästä taivasta voimakkaammin.
 - **Vuorokausi** (1x nopeudella 24 h, kuten oikea kello): aamu, päivä, ilta ja yö. Kellonaika näkyy vasemmassa yläkulmassa rannekellosta
