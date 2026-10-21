@@ -1674,7 +1674,11 @@ function updatePlayer() {
   const p = player;
   if (keyHit('KeyR')) toggleRod();
   if (keyHit('KeyF')) toggleLight();
-  if (keyHit('KeyE') && canSleep()) { startSleep(); return; }
+  if (keyHit('KeyE')) {
+    if (canSleep()) { startSleep(); return; }
+    if (canBoard()) boardBoat();
+    else if (p.boat && canLeave()) leaveBoat();
+  }
   if (keyHit('KeyC')) cutLine();
   if (keyHit('KeyH')) { ui.fishBar = !ui.fishBar; notify(ui.fishBar ? 'Fish strength bar shown' : 'Fish strength bar hidden', 90, 'fishbar'); }
   if (keyHit('KeyQ')) switchLure();
@@ -1685,6 +1689,20 @@ function updatePlayer() {
   let ky = (keyDown('KeyS', 'ArrowDown') ? 1 : 0) - (keyDown('KeyW', 'ArrowUp') ? 1 : 0);
   if (!kx && !ky) { kx = touch.mx; ky = touch.my; }
   p.moving = false;
+  if (p.boat) {
+    // Veneessä liikkeet ohjaavat venettä; seisova kalastaja kääntyy tähtäimen mukaan
+    if (boat.rider === 'drive') {
+      driveBoat(kx, ky);
+      p.fa = boat.a; [p.gux, p.guy] = screenDir(Math.cos(boat.a), Math.sin(boat.a)); faceTo(Math.cos(boat.a), Math.sin(boat.a));
+    } else if (aiming()) {
+      const [tx, ty] = absToWorld(mouseX + Math.round(cam.x), mouseY + Math.round(cam.y));
+      if (Math.hypot(tx - p.x, ty - p.y) > 0.25) faceTo(tx - p.x, ty - p.y);
+    } else if (kx || ky) faceTo(kx / HW + ky / HH, ky / HH - kx / HW);
+    p.stillT = 0;
+    updateCast();
+    if (p.rod && !cast.lure) updateLine();
+    return;
+  }
   if (kx || ky) {
     // Näytön suunta -> maailman suunta
     let vx = kx / HW + ky / HH, vy = ky / HH - kx / HW;
@@ -1718,7 +1736,7 @@ function faceTo(dx, dy) {
 }
 
 // Laiturilla seisova hahmo on kannen korkeudella
-const playerLift = () => (onDock(player.x, player.y) ? DOCK_Z : 0);
+const playerLift = () => (player.boat ? 1 : onDock(player.x, player.y) ? DOCK_Z : 0);
 // Otsalampun valo näkyy pelin ja tauon aikana
 const lampOn = () => player.light && (state === 'play' || state === 'pause');
 
@@ -1745,6 +1763,11 @@ const reelStep = (L) => (L.kind === 'wobbler' ? cast.reelSpeed / 100 / 60 : REEL
 function toggleRod() {
   const p = player;
   if (cast.lure) { notify('Reel in the line first.', 120, 'hint'); return; }
+  if (p.boat) {
+    // Veneessä onki otetaan vain pysähtyneenä: hahmo nousee seisomaan kalastamaan
+    if (!p.rod && !boatStopped()) { notify('Stop the boat to fish.', 100, 'hint'); return; }
+    boat.rider = p.rod ? 'drive' : 'stand';
+  }
   p.rod = !p.rod;
   cast.charging = false;
   if (p.rod) {
@@ -3570,6 +3593,7 @@ function update() {
   updateWeather();
   updateSway();
   updateCampfire();
+  updateBoat();
   updateDucks();
   updateFishes();
   updateLoose();
@@ -3742,7 +3766,107 @@ let boat = null;
 function placeBoat() {
   // Kiinni laiturin katsojan puoleisessa kyljessä, keula laiturin suuntaan (ruudulla oikealle)
   const t = 4.6, s = -(DOCK_W / 2 + 0.75);
-  boat = { x: dock.x0 + dock.ux * t + dock.px * s, y: dock.y0 + dock.uy * t + dock.py * s, a: Math.atan2(dock.uy, dock.ux), rider: null, moored: true };
+  boat = { x: dock.x0 + dock.ux * t + dock.px * s, y: dock.y0 + dock.uy * t + dock.py * s, a: Math.atan2(dock.uy, dock.ux), rider: null, moored: true, v: 0, th: 0, steer: 0, wakeT: 0 };
+}
+
+// ---------------------------------------------------------------------------
+// Veneen ajomalli. Kaasu (W / S tai liiketikku ylös/alas) kiihdyttää eteen tai peruuttaa, ja A / D
+// kääntää venettä; kääntyminen on sitä tehokkaampaa, mitä nopeammin vene kulkee. Vesi jarruttaa venettä
+// koko ajan. Runko ei pääse rantaan, laituriin eikä kiviin: törmätessä vene kimpoaa hieman takaisin.
+// Pysähtyneessä veneessä R ottaa ongen ja hahmo nousee seisomaan kalastamaan; R uudelleen palaa ajoon.
+// E nousee veneeseen laiturilta tai rannasta ja nousee maihin, kun vene on pysähtynyt rannan tai laiturin viereen.
+// ---------------------------------------------------------------------------
+const BOAT_MAX = 0.045, BOAT_REV = 0.012;   // huippunopeus eteen (noin 2,7 m/s) ja taakse (m / päivitys)
+function hullFree(x, y, a) {
+  const ca = Math.cos(a), sa = Math.sin(a);
+  for (const [u, v] of [[1.55, 0], [1.0, -0.36], [1.0, 0.36], [0, -0.64], [0, 0.64], [-1.55, -0.5], [-1.55, 0.5], [-1.7, 0]]) {
+    const px = x + u * ca - v * sa, py = y + u * sa + v * ca;
+    if (shoreDist(px, py) > -0.12 || onDock(px, py, 0.05) || waterRocks.some((r) => Math.hypot(r.x - px, r.y - py) < 0.55)) return false;
+  }
+  return true;
+}
+const boatStopped = () => Math.abs(boat.v) < 0.004;
+const canBoard = () => state === 'play' && boat && !player.boat && !cast.lure && boatStopped() && Math.hypot(player.x - boat.x, player.y - boat.y) < 2.4;
+// Maihinnousupaikka: lähin kohta veneen ympäriltä, jossa voi seistä (penger, aukea tai laituri)
+function landingSpot() {
+  for (const r of [1.0, 1.4, 1.8, 2.2, 2.6]) {
+    for (let k = 0; k < 24; k++) {
+      const a = (k / 24) * Math.PI * 2, x = boat.x + Math.cos(a) * r, y = boat.y + Math.sin(a) * r;
+      if (!blocked(x, y)) return [x, y];
+    }
+  }
+  return null;
+}
+const canLeave = () => state === 'play' && player.boat && !cast.lure && boatStopped() && !!landingSpot();
+function boardBoat() {
+  const p = player;
+  p.boat = true; p.rod = false; p.moving = false;
+  boat.rider = 'drive'; boat.moored = false; boat.th = boat.steer = 0;
+  p.x = boat.x; p.y = boat.y; p.fa = boat.a;
+  [p.gux, p.guy] = screenDir(Math.cos(boat.a), Math.sin(boat.a));
+  notify('In the boat: W / S throttle, A / D steer', 200, 'boat');
+  SFX.thud();
+}
+function leaveBoat() {
+  const spot = landingSpot();
+  if (!spot) return;
+  const p = player;
+  p.boat = false; p.rod = false; boat.rider = null; boat.th = boat.steer = 0;
+  [p.x, p.y] = spot;
+  faceTo(p.x - boat.x, p.y - boat.y);
+  SFX.step(true);
+}
+// Kuljettajan ohjaus: kx = ohjaus (-1 vasen … 1 oikea), ky = kaasu (-1 eteen … 1 taakse)
+function driveBoat(kx, ky) {
+  const b = boat;
+  b.th += (clamp(-ky, -1, 1) - b.th) * 0.08;
+  b.steer += (clamp(kx, -1, 1) - b.steer) * 0.15;
+}
+function updateBoat() {
+  const b = boat;
+  if (!b) return;
+  if (!(player.boat && b.rider === 'drive')) { b.th *= 0.9; b.steer *= 0.9; }
+  // Kaasu kiihdyttää, vesi jarruttaa; peruutus on hitaampaa
+  b.v += b.th > 0 ? b.th * 0.0009 : b.th * 0.0011;
+  b.v *= 0.985;
+  b.v = clamp(b.v, -BOAT_REV, BOAT_MAX);
+  if (Math.abs(b.v) < 0.0002 && Math.abs(b.th) < 0.05) b.v = 0;
+  // Kääntyminen: liikkeessä tehokkaampaa, paikallaan moottori kääntää venettä hitaasti
+  const turn = b.steer * 0.022 * clamp(Math.abs(b.v) / 0.02, 0.18, 1) * (b.v < -0.001 ? -1 : 1);
+  if (turn && hullFree(b.x, b.y, b.a + turn)) b.a += turn;
+  const nx = b.x + Math.cos(b.a) * b.v, ny = b.y + Math.sin(b.a) * b.v;
+  if (hullFree(nx, ny, b.a)) { b.x = nx; b.y = ny; }
+  else if (Math.abs(b.v) > 0.004) { b.v = -b.v * 0.3; SFX.thud(); }
+  else b.v = 0;
+  // Vanavesi perästä ja keulasta
+  if (Math.abs(b.v) > 0.005 && ++b.wakeT % 3 === 0) {
+    const sp = Math.min(0.04, Math.abs(b.v)), a = b.a, sx = b.x - Math.cos(a) * 1.6, sy = b.y - Math.sin(a) * 1.6;
+    for (const side of [-1, 1]) wakes.push({ x: sx + -Math.sin(a) * side * 0.45, y: sy + Math.cos(a) * side * 0.45, vx: (-Math.sin(a) * side * 0.5 - Math.cos(a) * 0.4) * sp, vy: (Math.cos(a) * side * 0.5 - Math.sin(a) * 0.4) * sp, t: 0, life: 110 });
+    if (b.wakeT % 12 === 0) ripples.push({ x: sx, y: sy, t: 0, life: 45, max: 3 + sp * 60, a: 0.45 });
+  }
+  if (player.boat) { player.x = b.x; player.y = b.y; }
+  updateEngineSound();
+}
+
+// Perämoottorin ääni: kaksi matalaa värähtelijää alipäästösuotimen läpi; kierrokset ja voimakkuus
+// seuraavat kaasua ja vauhtia. Moottori käy, kun kuljettaja on veneessä ajoasennossa.
+let engine = null;
+function updateEngineSound() {
+  if (!actx) return;
+  const on = player.boat && boat.rider === 'drive' && state === 'play';
+  if (!engine) {
+    if (!on) return;
+    const o1 = actx.createOscillator(), o2 = actx.createOscillator(), lp = actx.createBiquadFilter(), g = actx.createGain();
+    o1.type = 'sawtooth'; o2.type = 'square'; lp.type = 'lowpass'; lp.frequency.value = 520; g.gain.value = 0;
+    o1.connect(lp); o2.connect(lp); lp.connect(g).connect(master);
+    o1.start(); o2.start();
+    engine = { o1, o2, lp, g };
+  }
+  const t = actx.currentTime, rev = Math.abs(boat.th) * 0.6 + Math.abs(boat.v) / BOAT_MAX * 0.4;
+  engine.o1.frequency.setTargetAtTime(42 + rev * 70, t, 0.15);
+  engine.o2.frequency.setTargetAtTime(21 + rev * 35, t, 0.15);
+  engine.lp.frequency.setTargetAtTime(380 + rev * 700, t, 0.2);
+  engine.g.gain.setTargetAtTime(on ? 0.035 + rev * 0.05 : 0, t, on ? 0.2 : 0.4);
 }
 const boatBob = () => Math.round(Math.sin(time * 0.045) * 0.6);
 function drawBoat(camXr, camYr) {
@@ -3774,6 +3898,12 @@ function drawBoatRod(spr, x, y) {
 function drawBoatRider(spr, x, y) {
   const b = boat, [hx, hy] = screenDir(Math.cos(b.a), Math.sin(b.a));
   const av = Math.atan2(hy, Math.abs(hx)), view = VIEW_ORDER[clamp(Math.round((av + Math.PI / 2) / (Math.PI / 4)), 0, 4)], flip = hx < 0;
+  if (b.rider === 'stand' && player.boat && playerShown()) {
+    // Pelaaja seisoo veneessä: tavallinen hahmo onkineen ja siimoineen
+    const cr = Math.round(cam.x), cyr = Math.round(cam.y);
+    drawPlayer(isoX(player.x, player.y) - cr, isoY(player.x, player.y) - cyr, cr, cyr);
+    return;
+  }
   if (b.rider === 'stand') {
     const [px, py] = spr.P(0, 0, 1), img = PLAYER_SPR[view][0].img;
     drawImg(img, x + px - 8, y + py - 20, flip);
@@ -3840,7 +3970,7 @@ function drawBoatReflection(camXr, camYr) {
 // laiturilla ja lammen pohjoisrannalla, kun vettä on hahmon edessä ruudulla.
 const reflCanvas = makeCanvas(16, 21), reflCtx = reflCanvas.getContext('2d');
 function drawPlayerReflection(camXr, camYr) {
-  if (!water.show || !playerShown() || shoreDist(player.x, player.y) > 4) return;
+  if (!water.show || !playerShown() || player.boat || shoreDist(player.x, player.y) > 4) return;
   const p = player, spr = PLAYER_SPR[p.view][p.moving ? Math.floor(p.anim / 8) % 2 : 0].img;
   const sx = Math.round(isoX(p.x, p.y) - camXr), sy = Math.round(isoY(p.x, p.y) - camYr), lift = playerLift();
   // Peilikuva: kuvan rivi y siirtyy vedenpinnan (sy) alle samalle etäisyydelle
@@ -4145,7 +4275,7 @@ function tickSunShadows() {
 
 function drawShadows(camXr, camYr) {
   const night = nightAmt(), day = 1 - night;
-  const ents = playerShown() ? [{ sx: isoX(player.x, player.y) - camXr, sy: isoY(player.x, player.y) - camYr - playerLift(), sil: SIL.player, ax: 8, ay: 19 }] : [];
+  const ents = playerShown() && !player.boat ? [{ sx: isoX(player.x, player.y) - camXr, sy: isoY(player.x, player.y) - camYr - playerLift(), sil: SIL.player, ax: 8, ay: 19 }] : [];
   for (const a of animals) ents.push({ sx: isoX(a.x, a.y) - camXr, sy: isoY(a.x, a.y) - camYr, sil: ANIMAL[a.kind].sil, ax: ANIMAL[a.kind].w >> 1, ay: ANIMAL[a.kind].h - 1 });
   if (day > 0.05) {
     tickSunShadows();
@@ -4352,7 +4482,7 @@ function drawWorld() {
   for (const a of animals) list.push({ d: a.x + a.y, k: 4, a });
   if (water.show) for (const o of waterRocks) list.push({ d: o.x + o.y, k: 7, o });
   for (const dk of ducks) if (dk.z < 3) list.push({ d: dk.x + dk.y, k: 5, dk });
-  if (playerShown()) list.push({ d: player.x + player.y + 0.01, k: 6 });
+  if (playerShown() && !player.boat) list.push({ d: player.x + player.y + 0.01, k: 6 });
   list.sort((a, b) => a.d - b.d);
 
   const playerD = player.x + player.y;
@@ -4741,7 +4871,7 @@ function render() {
     text(help[0], W / 2, ty + 140, 4, '#94b0c2');
     text(help[1], W / 2, ty + 148, 4, '#94b0c2');
     if (!touch.on) {
-      text('Q lure · wheel hook / reel speed · C cut line · V cheat mode', W / 2, ty + 156, 4, '#94b0c2');
+      text('Q lure · wheel hook / reel speed · C cut line · E boat · V cheat', W / 2, ty + 156, 4, '#94b0c2');
       text('T time speed · L sync clock to local time · P pause · M sound', W / 2, ty + 164, 4, '#94b0c2');
     }
     text('stand still and the forest animals come closer', W / 2, ty + 175, 4, '#c0a070');
@@ -4777,6 +4907,7 @@ function render() {
       }
     }
     if (cast.lure && cast.lure.st === 'float') line('LINE ' + cast.lure.out.toFixed(1) + ' / ' + LINE_MAX + ' m', '#c8d8e0');
+    if (player.boat && boat.rider === 'drive') line('BOAT ' + (boat.v * 60).toFixed(1) + ' m/s', '#c8d8e0');
     if (catches.length) line('CATCH ' + catches.length + '  ' + fmtWeight(catches.reduce((s, c) => s + c.w, 0)), '#a7f070');
   }
   if (state === 'sleep') {
@@ -4788,11 +4919,16 @@ function render() {
   }
   if (muted) text('SOUND OFF', W - 6, 6, 4, '#94b0c2', 'right');
   if (!touch.on) {
+    const inBoat = player.boat, driving = inBoat && boat.rider === 'drive';
     if (canSleep()) text('E  SLEEP IN THE TENT', 6, H - 29, 4, blink ? '#ffcd75' : '#e0b060', 'left');
+    else if (canBoard()) text('E  BOARD THE BOAT', 6, H - 29, 4, blink ? '#ffcd75' : '#e0b060', 'left');
+    else if (driving) text('W / S  THROTTLE   A / D  STEER', 6, H - 29, 4, '#c8d8e0', 'left');
     else if (player.rod) text(cast.lure ? 'HOLD MOUSE  REEL IN' : 'HOLD MOUSE  CAST', 6, H - 29, 4, '#c8d8e0', 'left');
     if (cast.lure && cast.lure.st === 'float') text('C  CUT LINE', 6, H - 38, 4, '#e0a0a0', 'left');
     else if (player.rod && !cast.lure) text('Q  CHANGE LURE', 6, H - 38, 4, '#a8c0d8', 'left');
-    text((player.rod ? 'R  STOW ROD' : 'R  TAKE ROD'), 6, H - 20, 4, player.rod ? '#ffcd75' : '#94b0c2', 'left');
+    else if (inBoat && canLeave()) text('E  GO ASHORE', 6, H - 38, 4, blink ? '#ffcd75' : '#e0b060', 'left');
+    if (inBoat) text(player.rod ? 'R  DRIVE THE BOAT' : boatStopped() ? 'R  STAND UP AND FISH' : 'R  FISH (STOP FIRST)', 6, H - 20, 4, player.rod ? '#ffcd75' : '#94b0c2', 'left');
+    else text((player.rod ? 'R  STOW ROD' : 'R  TAKE ROD'), 6, H - 20, 4, player.rod ? '#ffcd75' : '#94b0c2', 'left');
     text((player.light ? 'F  LAMP ON' : 'F  LAMP OFF'), 6, H - 11, 4, player.light ? '#ffe9a0' : '#94b0c2', 'left');
   }
   if (banners.length) text(banners[0].text, W / 2, 34, 6, '#ffcd75');

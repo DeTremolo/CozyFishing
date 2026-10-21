@@ -130,6 +130,7 @@
   button('btn-sleep', () => { if (canSleep()) pressed.KeyE = true; });
   button('btn-cut', () => { if (state === 'play') pressed.KeyC = true; });
   button('btn-lure', () => { if (state === 'play') pressed.KeyQ = true; });
+  button('btn-boat', () => { if (state === 'play') pressed.KeyE = true; });
   // Heittonappia pidetään pohjassa: heitto lähtee sormen noustessa katsesuuntaan
   const castBtn = document.getElementById('btn-cast');
   castBtn.addEventListener('touchstart', (e) => {
@@ -156,6 +157,7 @@
     lightBtn.classList.toggle('on', !!(player && player.light));
     document.body.classList.toggle('menu', state !== 'play' && state !== 'pause');
     document.body.classList.toggle('can-sleep', canSleep());
+    document.body.classList.toggle('can-boat', !!player && (canBoard() || (player.boat && canLeave())));
     document.body.classList.toggle('can-lure', !!(player && player.rod) && !(cast && cast.lure) && state === 'play');
     document.body.classList.toggle('has-rod', !!(player && player.rod) && state === 'play');
     castBtn.textContent = cast && cast.lure ? 'REEL' : 'CAST';

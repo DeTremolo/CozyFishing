@@ -107,6 +107,8 @@ body.has-rod #btn-cast { display: block; }
 #btn-cut { display: none; color: #e0a0a0; }
 body.line-out #btn-cut { display: block; }
 #btn-lure { display: none; color: #a8c0d8; }
+#btn-boat { display: none; color: #ffcd75; }
+body.can-boat #btn-boat { display: block; }
 body.can-lure #btn-lure { display: block; }
 
 .stick {
