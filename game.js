@@ -15,7 +15,7 @@ const POND_RMAX = POND_R + 5.5;   // rantaviivan suurin etäisyys keskipisteest�
 const WALK = 0.042;        // kävelynopeus (ruutua / päivitys)
 
 const T_WATER = 0, T_BANK = 1, T_FOREST = 2, T_CLEAR = 3, T_TENT = 4, T_CAMP = 5;
-// Vuorokausi: koko kierto kestää 10 minuuttia. Kellonaika = 4.30 + osuus * 24 h
+// Vuorokausi: kellossa CYCLE yksikköä vuorokaudessa (ks. advanceClock). Kellonaika = 4.30 + osuus * 24 h
 const CYCLE = 10 * 60 * 60;
 const START_TOD = 0.12;    // peli alkaa aamulla noin kello 7
 // Aukea lammen vasemmalla rannalla. Se määritellään ruudun suuntaisilla koordinaateilla
@@ -1499,7 +1499,7 @@ const SFX = {
 // ---------------------------------------------------------------------------
 let state = 'title';
 let player, line, particles, ripples, wakes, drops, ducks, animals, skyBirds, banners;
-let time, clock, timeScale = 1, weather, wind, birdT, skyBirdT, duckT, animalT, phaseName, sleep, cast;
+let time, clock, timeScale = 1, clockSync = false, clockStep = 0, weather, wind, birdT, skyBirdT, duckT, animalT, phaseName, sleep, cast;
 const LINE_SEG = 1.6, BOB_I = 7;   // siiman nivelet: koho nivelessä BOB_I, koukku viimeisessä
 const HOOK_MIN = 0.1, HOOK_MAX = 1.5;   // koukun syvyyden säätöalue kohon alapuolella (metreinä)
 let fishes, catches;
@@ -1826,10 +1826,32 @@ const TOD_KEYS = [
   [0.96, [26, 32, 56], [18, 22, 42], [20, 30, 80, 0.14], 1],
   [1.00, [70, 66, 100], [40, 44, 72], [60, 50, 110, 0.16], 0.55],
 ];
-// Vuorokaudenaika lasketaan kellosta (clock), joka etenee timeScale-kertaisella nopeudella (1x–10x).
-// Animaatiot käyttävät edelleen tasaisesti etenevää time-laskuria.
+// Vuorokaudenaika lasketaan kellosta (clock; CYCLE yksikköä vuorokaudessa). Nopeudella 1x pelin kello
+// etenee todellisen ajan tahtia (vuorokausi kestää 24 tuntia), 10x kymmenen kertaa nopeammin.
+// Animaatiot käyttävät tasaisesti etenevää time-laskuria.
 const todNow = () => ((clock + START_TOD * CYCLE) % CYCLE) / CYCLE;
-const GAME_MIN = CYCLE / (24 * 60);   // päivityksiä pelin minuuttia kohden (1x nopeudella)
+const GAME_MIN = CYCLE / (24 * 60);             // kellon yksikköä pelin minuuttia kohden
+const CLOCK_REAL = CYCLE / (24 * 60 * 60 * 60); // kellon eteneminen päivitystä kohden nopeudella 1x
+const SYNC_STEP = GAME_MIN;                     // pikakelaus selaimen kellonaikaan: 60 min / s
+
+// Selaimen paikallinen kellonaika vuorokauden osuutena (pelin vuorokausi alkaa kello 4.30)
+function localTod() {
+  const d = new Date(), h = d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
+  return (((h - 4.5) / 24) % 1 + 1) % 1;
+}
+// Kellon eteneminen tällä päivityksellä: pikakelaus etenee kohti selaimen kellonaikaa ja pysähtyy
+// siihen, minkä jälkeen nopeus palaa arvoon 1x
+function advanceClock() {
+  if (clockSync) {
+    const left = ((localTod() - todNow() + 1) % 1) * CYCLE;
+    if (left <= SYNC_STEP || left > CYCLE - SYNC_STEP) {
+      clockStep = left <= SYNC_STEP ? left : 0;
+      clockSync = false; timeScale = 1;
+      banners.unshift({ text: 'Clock set to local time · time speed 1x', t: 150 });
+    } else clockStep = SYNC_STEP;
+  } else clockStep = timeScale * CLOCK_REAL;
+  clock += clockStep;
+}
 const phaseOf = (t) => (t < 0.03 || t >= 0.76 ? 'NIGHT' : t < 0.25 ? 'MORNING' : t < 0.58 ? 'DAY' : 'EVENING');
 // Ympäristön värit lasketaan kerran ruudunpäivityksessä (vuorokaudenaika + sää)
 let env = null;
@@ -1879,7 +1901,7 @@ const WEATHER = {
 
 function updateWeather() {
   const w = weather;
-  if ((w.t -= timeScale) <= 0) { nextWeather(); banners.push({ text: WEATHER[w.kind].msg, t: 200 }); }
+  if (--w.t <= 0) { nextWeather(); banners.push({ text: WEATHER[w.kind].msg, t: 200 }); }
   const target = WEATHER[w.kind];
   w.rain += (target.rain - w.rain) * 0.004;
   w.fog += (target.fog - w.fog) * 0.003;
@@ -2562,10 +2584,10 @@ function drawLoose(camXr, camYr) {
 }
 
 // Maalla kala sätkii: pomppaa satunnaiseen suuntaan; jos se pääsee veteen, uinti jatkuu
-const LAND_DEATH = 15 * GAME_MIN;   // kuivalla maalla yli 15 pelin minuuttia ollut kala lakkaa liikkumasta
+const LAND_DEATH = 15 * GAME_MIN;   // kuivalla maalla yli 15 minuuttia (pelin kellossa) ollut kala lakkaa liikkumasta
 function flopFish(f) {
   f.z = 0;
-  f.landT = (f.landT || 0) + timeScale;
+  f.landT = (f.landT || 0) + clockStep;
   if (f.landT > LAND_DEATH) { f.dead = true; f.hop = 0; f.hopT = 0; return; }
   if (f.hopT > 0) {
     f.hopT--;
@@ -3180,11 +3202,16 @@ function update() {
     banners.unshift({ text: 'Water murkiness ' + water.turb.toFixed(2), t: 100 });
   }
   if (keyHit('KeyT')) {
+    clockSync = false;
     timeScale = keyDown('ShiftLeft', 'ShiftRight') ? (timeScale > 1 ? timeScale - 1 : 10) : (timeScale < 10 ? timeScale + 1 : 1);
     banners.unshift({ text: 'Time speed ' + timeScale + 'x', t: 90 });
   }
+  if (keyHit('KeyL')) {
+    clockSync = !clockSync;
+    banners.unshift({ text: clockSync ? 'Fast-forwarding to local time…' : 'Fast-forward stopped', t: 90 });
+  }
   time++;
-  clock += timeScale;
+  advanceClock();
   updateEnv();
   updateDayPhase();
   updatePlayer();
@@ -3951,7 +3978,8 @@ function render() {
   }
 
   drawWatch(env.tod);
-  if (timeScale > 1) text(timeScale + 'x', WATCH.x + WATCH.size + 2, 6, 5, '#ffcd75', 'left');
+  if (clockSync) text('>>', WATCH.x + WATCH.size + 2, 6, 5, '#ffcd75', 'left');
+  else if (timeScale > 1) text(timeScale + 'x', WATCH.x + WATCH.size + 2, 6, 5, '#ffcd75', 'left');
   if (state !== 'sleep') {
     let ly = WATCH.y + WATCH.size + 4;
     const line = (str, col) => { text(str, 6, ly, 4, col, 'left'); ly += 8; };

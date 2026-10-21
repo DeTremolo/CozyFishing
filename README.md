@@ -18,7 +18,8 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 | hiiren oikea nappi pohjassa | – | vapauta siimaa kelalta (enintään 30 m ulkona) |
 | Q | LURE | vaihda viehe: koho ja mato / vaappu (vain kun siima on kelattu sisään) |
 | hiiren rulla tai - / + | – | koholla koukun syvyys 0,1–1,5 m (vain kun siima on kelattu sisään); vaapulla kelausnopeus 10–100 cm/s |
-| T / Shift+T | – | ajan nopeus 1x–10x (nopeampi / hitaampi) |
+| T / Shift+T | – | ajan nopeus 1x–10x todelliseen aikaan verrattuna (nopeampi / hitaampi) |
+| L | – | kelaa kello nopeasti (60 min/s) selaimen paikalliseen kellonaikaan; perillä nopeus palaa 1x:ään |
 | V | – | veden piirto päälle / pois (vesi on silti olemassa: kalat näkyvät "ilmassa") |
 | [ ja ] | – | veden sameus pienemmäksi / suuremmaksi |
 | B | – | syvyyskäyrät (1 m välein) päälle / pois |
@@ -56,9 +57,10 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
 - **Aukea** lammen vasemmalla rannalla: teltta, palava nuotio (savu kulkee tuulen mukana; välillä ritisten
   nousevat hehkuvat kipinät leijailevat savun mukana ja hohtavat pimeällä) ja
   noin 8 m pitkä laituri, jolle voi kävellä.
-- **Vuorokausi** (10 min): aamu, päivä, ilta ja yö. Kellonaika näkyy vasemmassa yläkulmassa rannekellosta
+- **Vuorokausi** (1x nopeudella 24 h, kuten oikea kello): aamu, päivä, ilta ja yö. Kellonaika näkyy vasemmassa yläkulmassa rannekellosta
   (pikseligrafiikkana piirretty kellotaulu `img/watch.png`, viisarit piirretään ohjelmallisesti). Kirkkaana yönä tähdet heijastuvat vedestä paikallaan pysyen; tuuli vain himmentää niitä. Ajan
-  nopeutta voi muuttaa 1x–10x (T), ja nopeus näkyy kellon vieressä. Yöllä valoa antavat nuotio ja hatussa oleva otsalamppu
+  nopeutta voi muuttaa 1x–10x (T), ja nopeus näkyy kellon vieressä. Kellon voi kelata nopeasti
+  selaimen kellonaikaan (L, 60 min sekunnissa), jonka jälkeen se kulkee oikeassa ajassa. Yöllä valoa antavat nuotio ja hatussa oleva otsalamppu
   (noin 10 m keila tähtäimen suuntaan pään korkeudelta; lampun valkoinen piste näkyy hatussa, kun hahmo
   ei katso poispäin). Hahmon ympäriltä ja katsesuuntaan keilan muotoiselta alueelta edessä olevat puut
   häivytetään pehmeästi ditheröiden, mutta vain penkereen, aukean ja lammen kohdalta: metsän pohjaa ei paljasteta.
