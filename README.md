@@ -49,7 +49,8 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   Rantavedessä on kiviä.
 - **Rantapenger**: noin 3–4 m leveä, kiertää koko lammen; penkereellä kasvaa ruohoa.
   Metsään ja veteen ei voi kävellä.
-- **Metsä**: enimmäkseen eri muotoisia kuusia, joukossa harvakseltaan mäntyjä ja koivuja. Puiden latvukset
+- **Metsä**: enimmäkseen eri muotoisia kuusia (kapea, suippo latvus yksittäisistä riippuvista oksista ja
+  niiden alta roikkuvista neulasverhoista), joukossa harvakseltaan mäntyjä ja koivuja. Puiden latvukset
   huojuvat tuulessa rauhallisesti, kukin puu omassa tahdissaan. Rantavedessä kasvavassa
   kaislikossa on järviruokoa,
   osmankäämiä ja saraa, jotka taipuvat tuulessa sulavasti. Kaislikon väleissä on avoimia
@@ -105,11 +106,13 @@ kelattu sisään. Vedessä syötti ja koukku riippuvat kohon alla tällä syvyyd
 
 Kalalajit ovat `SPECIES`-taulussa. Ensimmäinen laji on **ahven**: lampeen arvotaan 24 ahventa,
 joiden paino noudattaa lognormaalijakaumaa (mediaani noin 80 g, harvoin yli 300 g, enintään
-1,6 kg); pituus lasketaan painosta. Kalat uivat veden alla ja vaihtavat välillä uintisyvyyttä.
+1,6 kg); pituus lasketaan painosta. Kalat uivat veden alla ja vaihtavat välillä uintisyvyyttä. Ahvenet
+uivat vilkkaasti paikasta toiseen. Kalat piirretään kahdeksaan ruudun suuntaan (sivulta, viistosti ja
+ylhäältä lyhentyneenä).
 
 Toinen laji on **hauki** (5 kpl, mediaani noin 1,1 kg, enintään 12 kg). Hauki on pitkä ja kapea, ja sillä
-on vaaleita täpliä. Se lymyilee pitkiä aikoja paikallaan joko rantakaislikon reunassa (noin kaksi
-kolmesta) tai syvänteessä, jossa se ui syvällä. Hauki huomaa syötin kauempaa, hiipii lähemmäs ja
+on vaaleita täpliä. Kaislikon hauki (noin kaksi kolmesta) vaanii pienellä alueella pitkiä aikoja paikallaan
+ja palaa aina kaislikon suojaan. Syvänteen hauki partioi syvännettä koko ajan uiden. Hauki huomaa syötin kauempaa, hiipii lähemmäs ja
 iskee viimeiset puolitoista metriä nopealla syöksyllä. Se taistelee ahventa voimakkaammin.
 
 Syötin lähelle osuva ja suunnilleen samalla syvyydellä uiva kala voi kiinnostua syötistä
@@ -117,7 +120,7 @@ Syötin lähelle osuva ja suunnilleen samalla syvyydellä uiva kala voi kiinnost
 energiaansa (palkki hahmon yläpuolella); se voi vetää kohon veden alle, mikä vie enemmän voimia,
 ja se voi viedä siimaa vain ulkona olevan määrän verran. Väsynyt kala ui hetken rauhassa ja jatkaa
 taistelua, kun yli puolet voimista on palautunut. Ahvenella on nelinkertaiset voimat ja kaksinkertainen
-palautuminen. Pelaajan lähelle kelattu kala nousee
+palautuminen. Hauella on kolminkertaiset voimat ja nelinkertainen palautuminen. Pelaajan lähelle kelattu kala nousee
 roikkumaan ongen kärkeen ja kerätään talteen (saalis näkyy vasemmassa yläkulmassa). Kuivalle
 maalle vedetty kala sätkii satunnaisiin suuntiin, ja jos se pääsee veteen, se jatkaa uintia. Kuivalla
 maalla yli minuutin (1x nopeudella; nopeammalla ajalla vastaavasti lyhyemmän) ollut kala lakkaa liikkumasta. Kuivalla maalla olevan kalan

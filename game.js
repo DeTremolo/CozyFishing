@@ -378,8 +378,10 @@ function outlineSprite(c, col) {
   }
 }
 
-// Kuusi: kapeneva kartio, joka koostuu päällekkäisistä, kärjistään roikkuvista oksakerroksista.
-// Valo tulee vasemmalta ylhäältä: oksien yläpinta ja vasen puoli ovat vaaleampia, alapinta tumma.
+// Kuusi: kapea, suippo latvus, joka rakentuu yksittäisistä oksista. Oksat lähtevät rungolta epäsäännöllisin
+// välein vuorotellen kummallekin puolelle, taipuvat alas ja niiden kärki kääntyy hieman ylös. Oksien alta
+// roikkuu tummempi neulasverho, ja latvuksen sisäosa on varjossa. Ylempien oksien verhot peittävät
+// alempia oksia. Valo tulee vasemmalta ylhäältä. Latvassa on ohut kasvain ja lyhyet oksat.
 // Muunnelmia: kapea tai tuuhea, tiheä tai harva oksisto, vino latva, kuivia alaoksia ja aukkoja latvuksessa.
 const SPRUCE_PALS = [
   ['#07120b', '#0c1d13', '#13291b', '#1c3825', '#2a4d33'],
@@ -390,56 +392,69 @@ const SPRUCE_PALS = [
 ];
 function makeSpruce(rnd, big) {
   const h = big ? Math.round(50 + rnd() * 26) : Math.round(20 + rnd() * 14);
-  const slim = big ? 0.4 + rnd() * 0.16 : 0.45 + rnd() * 0.12;
-  const w = Math.round(h * slim) + 5;
-  const gap = 3.6 + rnd() * 1.4;                                      // oksakerrosten väli
-  const droopK = 0.15 + rnd() * 0.15;                                 // kuinka paljon oksat roikkuvat
+  const slim = big ? 0.34 + rnd() * 0.14 : 0.42 + rnd() * 0.12;
+  const w = Math.round(h * slim) + 7;
+  const step = big ? 1.5 + rnd() * 0.7 : 1.4 + rnd() * 0.5;           // oksien pystyväli
+  const droopK = 0.35 + rnd() * 0.3;                                  // kuinka paljon oksat roikkuvat
   const lean = big && rnd() < 0.4 ? (rnd() - 0.5) * 4 : 0;            // vino latva
   const bare = big && rnd() < 0.3 ? 4 + Math.floor(rnd() * 7) : 0;    // kuivunut alaosa (pikseleinä)
   const c = makeCanvas(w, h + 2), g = c.getContext('2d');
   const T = SPRUCE_PALS[Math.floor(rnd() * SPRUCE_PALS.length)];
   const ax = w >> 1, ay = h - 1;
+  const px = (x, y, col) => { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), 1, 1); };
   // Runko pilkistää alimpien oksien alta
   for (let y = ay - (big ? 7 : 4) - bare; y <= ay; y++) {
-    g.fillStyle = '#3a2616'; g.fillRect(ax - 1, y, 1, 1);
-    g.fillStyle = '#24170c'; g.fillRect(ax, y, 1, 1);
-    if (big) { g.fillStyle = '#4a3220'; g.fillRect(ax - 2, y, 1, 1); }
+    px(ax - 1, y, '#3a2616'); px(ax, y, '#24170c');
+    if (big) px(ax - 2, y, '#4a3220');
   }
   // Kuivat, harmaat oksantyngät rungon alaosassa
   for (let y = ay - 5; y > ay - 5 - bare; y -= 2 + Math.floor(rnd() * 2)) {
     for (const side of [-1, 1]) {
       if (rnd() < 0.3) continue;
       const len = 2 + Math.floor(rnd() * (w / 2 - 3));
-      for (let k = 1; k <= len; k++) { g.fillStyle = k === len ? '#3e3830' : '#5a5048'; g.fillRect(ax + side * (k + (side < 0 ? 1 : 0)), y + Math.floor(k * 0.35), 1, 1); }
+      for (let k = 1; k <= len; k++) px(ax + side * (k + (side < 0 ? 1 : 0)), y + Math.floor(k * 0.35), k === len ? '#3e3830' : '#5a5048');
     }
   }
-  const top = 4, bottom = ay - (big ? 5 : 3) - bare;
-  const nT = Math.max(4, Math.round((bottom - top) / gap));
-  const maxHW = w / 2 - 1.5;
-  // Alimmasta kerroksesta latvaan: ylemmät oksat roikkuvat alempien päällä
-  for (let k = 0; k < nT; k++) {
-    const f = k / (nT - 1);
-    if (big && f > 0.15 && f < 0.75 && rnd() < 0.07) continue;      // aukko oksistossa
-    const cy = bottom - (bottom - top) * f;
-    const cx = ax + Math.round(lean * f * f);
-    const hw = Math.max(1.2, maxHW * Math.pow(1 - f, 0.92) * (0.82 + rnd() * 0.26));
-    const droop = 1.4 + hw * droopK * 1.4;
-    for (let dx = -Math.ceil(hw); dx <= Math.ceil(hw); dx++) {
-      const t = Math.min(1, Math.abs(dx) / hw);
-      if (t >= 1 && rnd() < 0.5) continue;
-      const yTop = cy - 2.6 * (1 - t) - 0.6 + t * droop * 0.55;
-      const yBot = cy + 0.8 + t * droop + (rnd() < 0.35 ? 1 : 0);
-      for (let y = Math.round(yTop); y <= Math.round(yBot); y++) {
-        const v = (y - yTop) / Math.max(1, yBot - yTop);
-        const l = 0.55 - v * 1.1 - (dx / hw) * 0.45 + (rnd() - 0.5) * 0.45;
-        g.fillStyle = T[l > 0.45 ? 4 : l > 0.1 ? 3 : l > -0.25 ? 2 : l > -0.6 ? 1 : 0];
-        g.fillRect(cx + dx, y, 1, 1);
-      }
+  const top = 2, bottom = ay - (big ? 4 : 2) - bare, span = bottom - top;
+  const maxHW = w / 2 - 2;
+  const hwAt = (f) => Math.max(0.8, maxHW * Math.pow(1 - f, 0.9) * (f < 0.06 ? 0.85 + f * 2.5 : 1));
+  const cxAt = (f) => ax + lean * f * f;
+  // Latvuksen varjoisa sisäosa, jottei oksien väleistä näy läpi
+  for (let y = top + 3; y <= bottom + 1; y++) {
+    const f = (bottom - y) / span, ci = hwAt(f) * 0.42;
+    for (let dx = -Math.round(ci); dx <= Math.round(ci); dx++) px(cxAt(f) + dx, y, rnd() < 0.25 ? T[1] : T[0]);
+  }
+  // Oksat alhaalta ylös: ylempien oksien neulasverhot jäävät alempien päälle
+  let side = rnd() < 0.5 ? -1 : 1;
+  for (let y0 = bottom; y0 > top + span * 0.1; y0 -= step * (0.7 + rnd() * 0.6)) {
+    const f = (bottom - y0) / span;
+    side = rnd() < 0.8 ? -side : side;
+    if (big && f > 0.12 && f < 0.8 && rnd() < 0.05) continue;         // aukko oksistossa
+    const len = hwAt(f) * (0.75 + rnd() * 0.35), cx = cxAt(f) + side * 0.5;
+    const droop = (1 + len * droopK) * (0.7 + rnd() * 0.6);
+    const lit = side < 0;
+    for (let k = 0; k <= len; k++) {
+      const t = k / Math.max(1, len), x = cx + side * k;
+      const y = y0 + droop * Math.pow(t, 1.5) - (t > 0.82 ? 1 : 0);
+      // Yläpinta valossa, oksa ja sen alta roikkuva verho varjossa
+      px(x, y - 1, lit ? (rnd() < 0.55 ? T[4] : T[3]) : (rnd() < 0.5 ? T[3] : T[2]));
+      px(x, y, lit ? T[3] : T[2]);
+      const hang = Math.floor(rnd() * (1 + (big ? 3.2 : 2) * Math.sin(Math.PI * Math.min(1, t * 1.15))));
+      for (let q = 1; q <= hang; q++) px(x, y + q, q === hang ? T[0] : lit && q === 1 ? T[2] : T[1]);
+    }
+    // Lyhyt sivuoksa, joka tekee reunasta rosoisen
+    if (len > 3 && rnd() < 0.5) {
+      const k0 = Math.floor(len * (0.4 + rnd() * 0.4)), y = y0 + droop * Math.pow(k0 / len, 1.5);
+      px(cx + side * k0, y - 2, lit ? T[4] : T[3]); px(cx + side * (k0 + 1), y - 2, lit ? T[3] : T[2]);
     }
   }
-  // Latvakärki
+  // Latva: ohut kasvain ja muutama lyhyt oksa sen ympärillä
   const tx = ax + Math.round(lean);
-  for (let y = 0; y <= top; y++) { g.fillStyle = y < 2 ? T[3] : T[2]; g.fillRect(tx, y, 1, 1); }
+  for (let y = 0; y <= top + span * 0.12; y++) px(tx, y, y < 2 ? T[3] : T[2]);
+  for (let y = top + 2; y <= top + span * 0.12; y += 2) {
+    px(tx - 1, y + 1, T[3]);
+    if (rnd() < 0.8) px(tx + 1, y + 1, T[2]);
+  }
   outlineSprite(c, '#040a06');
   const spr = { full: c, ax, ay };
   spr.sil = silhouette(c);
@@ -1567,7 +1582,7 @@ function updatePlayer() {
   if (keyHit('KeyF')) toggleLight();
   if (keyHit('KeyE') && canSleep()) { startSleep(); return; }
   if (keyHit('KeyC')) cutLine();
-  if (keyHit('KeyH')) { ui.fishBar = !ui.fishBar; banners.unshift({ text: ui.fishBar ? 'Fish strength bar shown' : 'Fish strength bar hidden', t: 90 }); }
+  if (keyHit('KeyH')) { ui.fishBar = !ui.fishBar; notify(ui.fishBar ? 'Fish strength bar shown' : 'Fish strength bar hidden', 90, 'fishbar'); }
   if (keyHit('KeyQ')) switchLure();
   // Rulla ja -/+: koholla koukun syvyys, vaapulla kelausnopeus
   const adj = keyHit('Minus', 'NumpadSubtract', 'WheelDown') ? -1 : keyHit('Equal', 'NumpadAdd', 'WheelUp') ? 1 : 0;
@@ -1615,9 +1630,9 @@ const lampOn = () => player.light && (state === 'play' || state === 'pause');
 
 // Viehe vaihdetaan (koho ja mato / vaappu), kun siima on kelattu kokonaan sisään
 function switchLure() {
-  if (cast.lure) { banners.unshift({ text: 'Reel in fully to change the lure.', t: 100 }); return; }
+  if (cast.lure) { notify('Reel in fully to change the lure.', 100, 'hint'); return; }
   player.lure = player.lure === 'bobber' ? 'wobbler' : 'bobber';
-  banners.unshift({ text: player.lure === 'wobbler' ? 'Lure: wobbler' : 'Lure: bobber and worm', t: 100 });
+  notify(player.lure === 'wobbler' ? 'Lure: wobbler' : 'Lure: bobber and worm', 100, 'lure');
   if (player.rod) resetLine();
   SFX.click();
 }
@@ -1626,7 +1641,7 @@ function switchLure() {
 const REEL_MIN = 10, REEL_MAX = 100;
 function adjustReel(dv) {
   cast.reelSpeed = clamp(cast.reelSpeed + dv, REEL_MIN, REEL_MAX);
-  banners.unshift({ text: 'Reel speed ' + cast.reelSpeed + ' cm/s', t: 90 });
+  notify('Reel speed ' + cast.reelSpeed + ' cm/s', 90, 'reel');
   SFX.reel();
 }
 // Kelaus metreinä päivitystä kohden: koholla nopea vakio, vaapulla säädetty nopeus
@@ -1635,13 +1650,20 @@ const reelStep = (L) => (L.kind === 'wobbler' ? cast.reelSpeed / 100 / 60 : REEL
 
 function toggleRod() {
   const p = player;
-  if (cast.lure) { banners.unshift({ text: 'Reel in the line first.', t: 120 }); return; }
+  if (cast.lure) { notify('Reel in the line first.', 120, 'hint'); return; }
   p.rod = !p.rod;
   cast.charging = false;
   if (p.rod) {
     resetLine();
     SFX.rodOut();
   } else SFX.rodIn();
+}
+
+// Asetusviesti: saman asetuksen (key) aiempi viesti korvataan, jotta jonoon ei jää vanhoja arvoja,
+// jotka näkyisivät uusimman viestin jälkeen
+function notify(text, t, key) {
+  banners = banners.filter((b) => b.key !== key);
+  banners.unshift({ text, t, key });
 }
 
 function toggleLight() {
@@ -1767,9 +1789,9 @@ function resetLine() {
 
 // Koukun syvyyttä voi säätää vain, kun koko siima on kelattu sisään
 function adjustHook(dv) {
-  if (cast.lure) { banners.unshift({ text: 'Reel in fully to adjust the hook depth.', t: 100 }); return; }
+  if (cast.lure) { notify('Reel in fully to adjust the hook depth.', 100, 'hint'); return; }
   cast.hookDepth = clamp(Math.round((cast.hookDepth + dv) * 10) / 10, HOOK_MIN, HOOK_MAX);
-  banners.unshift({ text: 'Hook depth ' + cast.hookDepth.toFixed(1) + ' m', t: 90 });
+  notify('Hook depth ' + cast.hookDepth.toFixed(1) + ' m', 90, 'hook');
   if (player.rod) resetLine();
   SFX.reel();
 }
@@ -1847,7 +1869,7 @@ function advanceClock() {
     if (left <= SYNC_STEP || left > CYCLE - SYNC_STEP) {
       clockStep = left <= SYNC_STEP ? left : 0;
       clockSync = false; timeScale = 1;
-      banners.unshift({ text: 'Clock set to local time · time speed 1x', t: 150 });
+      notify('Clock set to local time · time speed 1x', 150, 'time');
     } else clockStep = SYNC_STEP;
   } else clockStep = timeScale * CLOCK_REAL;
   clock += clockStep;
@@ -2247,7 +2269,7 @@ const SPECIES = {
     weight: { median: 80, sigma: 0.75, min: 12, max: 1600 },   // paino grammoina (lognormaalijakauma)
     lenK: 0.0089, lenE: 3.1,          // paino = lenK * pituus^lenE (pituus senttimetreinä)
     depth: [0.4, 3.5],                // mieluisin uintisyvyys metreinä
-    speed: 0.008, fight: 0.034,       // uinti- ja pakonopeus (m / päivitys)
+    speed: 0.013, fight: 0.034,       // uinti- ja pakonopeus (m / päivitys)
     bite: 'instant',                  // ahven nielaisee syötin heti
     interest: 1 / (60 * 22),          // todennäköisyys kiinnostua lähellä olevasta syötistä päivitystä kohden
     lures: { bobber: 1, wobbler: 0.3 },   // kiinnostus vieheittäin: ahven pitää madosta
@@ -2264,7 +2286,7 @@ const SPECIES = {
     bite: 'instant',
     interest: 1 / (60 * 30), sight: 4.5,
     lures: { bobber: 0.35, wobbler: 1.6 },   // hauki iskee mieluummin vaappuun
-    energy: 1, regen: 1,
+    energy: 3, regen: 4,
     pal: { back: '#2a3a1c', body: '#5c7434', belly: '#d8d4b0', bar: '#c8c878', fin: '#8a6a2a', eye: '#101010' },
   },
 };
@@ -2275,9 +2297,9 @@ function pikeHome() {
   for (let k = 0; k < 40 && reeds.length; k++) {
     const o = pick(reeds), a = Math.atan2(o.y - C, o.x - C), r = Math.hypot(o.x - C, o.y - C) - rand(0.6, 1.6);
     const x = C + Math.cos(a) * r, y = C + Math.sin(a) * r;
-    if (depthAt(x, y) > 0.6 && fishFree(x, y, 0.3)) return { x, y, r: 2.5, deep: false };
+    if (depthAt(x, y) > 0.6 && fishFree(x, y, 0.3)) return { x, y, r: 1.2, deep: false };
   }
-  return { x: deepHole.x, y: deepHole.y, r: deepHole.r * 0.8, deep: true };
+  return { x: deepHole.x, y: deepHole.y, r: deepHole.r * 1.3, deep: true };
 }
 
 // Kala sivulta, pää oikealla. L = pituus pikseleinä, frame = pyrstön asento.
@@ -2327,7 +2349,66 @@ function makePikeSprite(pal, L, frame) {
   return c;
 }
 const FISH_PX_MAX = 22;
-const FISH_SPR = Object.fromEntries(Object.entries(SPECIES).map(([k, sp]) => [k, Array.from({ length: FISH_PX_MAX + 1 }, (_, L) => (L < 4 ? null : [makeFishSprite(sp.pal, L, 0, sp.shape), makeFishSprite(sp.pal, L, 1, sp.shape)]))]));
+// Kala muissa ruudun suunnissa: viistosti (kaakko/koillinen, 3/4-kuva, jossa näkyy selkä ja kylki) ja
+// pystysuunnassa (etelä/pohjoinen, kala näkyy lyhentyneenä ylhäältä). Länsipuoliset suunnat peilataan.
+// Kuva lasketaan pikseli kerrallaan: t = paikka pyrstöstä päähän, rel = etäisyys keskilinjasta.
+const FISH_DIRS = { se: [2, 1], ne: [2, -1], s: [0, 1], n: [0, -1] };
+function makeFishDirSprite(pal, L, frame, shape, key) {
+  const pike = shape === 'pike', vert = key === 's' || key === 'n';
+  const [vx, vy] = FISH_DIRS[key], vl = Math.hypot(vx, vy), ux = vx / vl, uy = vy / vl, nx = -uy, ny = ux;
+  const Lp = Math.max(3, Math.round(L * (vert ? 0.7 : 0.9)));
+  const hh = Math.max(2, L * (pike ? 0.2 : 0.36)) / 2, hw = Math.max(1, hh * (vert ? 0.6 : 0.85));
+  const size = Math.ceil(Lp + hw * 2 + 6), c = makeCanvas(size, size), g = c.getContext('2d');
+  const cx = size / 2, cy = size / 2, tx0 = cx - ux * Lp / 2, ty0 = cy - uy * Lp / 2;
+  const prof = (t) => pike ? (t > 0.85 ? (1 - t) / 0.15 * 0.8 + 0.2 : t < 0.12 ? 0.55 + t * 3.5 : 1)
+    : Math.sin(Math.PI * clamp((t + 0.05) / 1.02, 0, 1)) ** 0.6;
+  const wig = frame ? 0.8 : -0.8;
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const px = x + 0.5 - tx0, py = y + 0.5 - ty0, t = (px * ux + py * uy) / Lp, d = px * nx + py * ny;
+    let col = null;
+    if (t >= 0 && t <= 1) {
+      const wd = hw * prof(t) * (vert && t > 0.75 ? 1 - (t - 0.75) * 2 : 1) + 0.45, rel = d / wd;
+      if (Math.abs(rel) <= 1) {
+        if (vert) col = Math.abs(rel) < 0.45 ? pal.back : pal.body;
+        else col = rel < -0.3 ? pal.back : rel < 0.4 ? pal.body : pal.belly;
+        // Ahvenen poikkijuovat ja hauen vaaleat täplät
+        if (!pike && t > 0.2 && t < 0.8 && Math.floor(t * L) % 3 === 1 && rel < 0.4) col = pal.bar;
+        if (pike && t > 0.15 && t < 0.8 && rel > -0.6 && rel < 0.6 && (Math.floor(t * L * 1.3) * 7 + Math.floor(rel * 3 + 3) * 3) % 5 === 0) col = pal.bar;
+        // Silmät pään lähellä
+        if (t > 0.86 && t < 0.97 && (vert ? Math.abs(Math.abs(rel) - 0.75) < 0.3 : Math.abs(rel + 0.35) < 0.3)) col = pal.eye;
+      } else if (!vert && !pike && rel < -1 && rel > -1.9 && t > 0.35 && t < 0.7 && Math.floor(t * L) % 2 === 0) col = pal.back;   // selkäevä
+      else if (!vert && pike && rel < -1 && rel > -1.9 && t > 0.12 && t < 0.24) col = pal.fin;
+      else if (!vert && rel > 1 && rel < 1.9 && Math.abs(t - (pike ? 0.18 : 0.55)) < 0.06) col = pal.fin;   // vatsaevä
+      else if (vert && Math.abs(rel) > 1 && Math.abs(rel) < 2.2 && Math.abs(t - 0.7) < 0.07) col = pal.fin;   // rintaevät
+    } else if (t < 0 && t > -0.16) {
+      // Pyrstö: haarukka, joka heilahtaa sivulle uidessa
+      const dd = d - wig * (-t) * 6, spread = 0.7 + (-t) * L * 0.45;
+      if (Math.abs(dd) <= spread && !(t < -0.08 && Math.abs(dd) < spread * 0.35)) col = pal.fin;
+    }
+    if (col) { g.fillStyle = col; g.fillRect(x, y, 1, 1); }
+  }
+  return c;
+}
+const fishSet = (sp, L) => {
+  const o = { side: [makeFishSprite(sp.pal, L, 0, sp.shape), makeFishSprite(sp.pal, L, 1, sp.shape)] };
+  for (const k in FISH_DIRS) o[k] = [makeFishDirSprite(sp.pal, L, 0, sp.shape, k), makeFishDirSprite(sp.pal, L, 1, sp.shape, k)];
+  return o;
+};
+const FISH_SPR = Object.fromEntries(Object.entries(SPECIES).map(([k, sp]) => [k, Array.from({ length: FISH_PX_MAX + 1 }, (_, L) => (L < 4 ? null : fishSet(sp, L)))]));
+// Kalan suunta ruudulla kahdeksaan suuntaan: 0 = itä, 1 = kaakko, 2 = etelä, … 7 = koillinen
+function fishDir(f) {
+  const [sx, sy] = screenDir(Math.cos(f.a), Math.sin(f.a));
+  return ((Math.round(Math.atan2(sy, sx) / (Math.PI / 4)) % 8) + 8) % 8;
+}
+// Suunnan kuva, peilaus ja pään suunta ruudulla
+const DIR_VIEW = [['side', false, 1, 0], ['se', false, 2, 1], ['s', false, 0, 1], ['se', true, -2, 1], ['side', true, -1, 0], ['ne', true, -2, -1], ['n', false, 0, -1], ['ne', false, 2, -1]];
+// Suun paikka ruudulla kalan keskipisteestä (pikseleinä)
+function fishMouthScreen(f) {
+  const [, , vx, vy] = DIR_VIEW[fishDir(f)];
+  if (!vy) return [vx * ((f.px >> 1) + 1), 0];
+  const vl = Math.hypot(vx, vy), Lp = Math.max(3, Math.round(f.px * (vx ? 0.9 : 0.7)));
+  return [Math.round((vx / vl) * (Lp / 2 + 0.5)), Math.round((vy / vl) * (Lp / 2 + 0.5))];
+}
 
 const gauss = () => Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
 // Missä kala voi uida: vedessä, pohjan yläpuolella eikä kivien kohdalla
@@ -2386,21 +2467,23 @@ function updateFishes() {
     if (f.mode === 'roam') {
       // Uusi kohde muutaman metrin päästä ja välillä uusi uintisyvyys
       if (--f.t <= 0 || Math.hypot(f.tx - f.x, f.ty - f.y) < 0.5) {
-        // Hauki siirtyy vain vähän kotipaikkansa lähellä ja lymyilee välillä pitkään paikallaan
+        // Kaislikon hauki vaanii pienellä alueella ja palaa aina kaislikon suojaan; syvänteen hauki
+        // partioi syvännettä koko ajan uiden. Ahvenet uivat vilkkaasti paikasta toiseen.
         const H = f.home;
         for (let k = 0; k < 20; k++) {
-          const a = rand(0, Math.PI * 2), r = H ? rand(0, H.r) : rand(1.5, 7);
+          const a = rand(0, Math.PI * 2), r = H ? rand(H.deep ? H.r * 0.4 : 0, H.r) : rand(3, 10);
           const tx = (H ? H.x : f.x) + Math.cos(a) * r, ty = (H ? H.y : f.y) + Math.sin(a) * r;
           if (fishFree(tx, ty, 0.3)) { f.tx = tx; f.ty = ty; break; }
         }
         f.tz = Math.min(fishDepth(sp, H), depthAt(f.tx, f.ty) - 0.2);
-        f.t = rand(300, 900);
-        f.lurk = H ? rand(200, 900) : 0;
+        f.t = H && !H.deep ? rand(300, 900) : rand(200, 500);
+        f.lurk = H && !H.deep ? rand(400, 1400) : 0;
       }
       if (f.lurk > 0) { f.lurk--; f.sp *= 0.95; if (Math.random() < 0.01) f.a += rand(-0.3, 0.3); }
       else {
         f.a += angDiff(f.a, Math.atan2(f.ty - f.y, f.tx - f.x)) * 0.04 + rand(-0.02, 0.02);
-        moveFish(f, sp.speed * (0.6 + 0.4 * Math.sin(f.anim * 0.01)));
+        const patrol = f.home && f.home.deep ? 2.2 : 1;
+        moveFish(f, sp.speed * patrol * (0.7 + 0.3 * Math.sin(f.anim * 0.01)));
       }
       // Kala voi kiinnostua lähellä olevasta syötistä, jos se ui suunnilleen samalla syvyydellä
       if (bait && Math.hypot(f.x - bait.x, f.y - bait.y) < (sp.sight || 3) && Math.abs(f.z - bait.z) < 1.2
@@ -2428,8 +2511,8 @@ function updateFishes() {
 // Kalan suun paikka maailmassa. Kala piirretään sivulta, pää ruudulla menosuunnan puolella, joten suu
 // on puolen kuvan leveyden päässä keskipisteestä ruudun vaakasuunnassa (1 px vaakaan = 1/16 m x:ssä ja -y:ssä).
 function fishMouth(f) {
-  const [sx] = screenDir(Math.cos(f.a), Math.sin(f.a)), m = ((f.px >> 1) + 1) * (sx < 0 ? -1 : 1);
-  return [f.x + m / 16, f.y - m / 16];
+  const [dx, dy] = fishMouthScreen(f);
+  return [f.x + dx / 16 + dy / 8, f.y + dy / 8 - dx / 16];
 }
 
 function hookFish(f) {
@@ -2634,8 +2717,10 @@ function collectFish(f) {
 }
 
 // Kalan kuva (flip = pää vasemmalle); koukussa riuhtova kala vipattaa pyrstöään nopeammin
-function drawFishImg(f, x, y, flip, beat) {
-  const set = FISH_SPR[f.kind][f.px], img = set[(beat >> 2) % 2];
+function drawFishImg(f, x, y, flip, beat, dir) {
+  let set = FISH_SPR[f.kind][f.px].side;
+  if (dir !== undefined) { const v = DIR_VIEW[dir]; set = FISH_SPR[f.kind][f.px][v[0]]; flip = v[1]; }
+  const img = set[(beat >> 2) % 2];
   drawImg(img, x - (img.width >> 1), y - (img.height >> 1), flip);
 }
 
@@ -2658,14 +2743,14 @@ function drawUnderwater(camXr, camYr) {
     g.globalAlpha = underVis(f.z) * (f.fade === undefined ? 1 : f.fade);
     const [sx] = screenDir(Math.cos(f.a), Math.sin(f.a));
     const hooked = L && L.fish === f;
-    drawFishImg(f, x, y, sx < 0, f.anim * (hooked && f.mode === 'fight' ? 3 : 1));
+    drawFishImg(f, x, y, sx < 0, f.anim * (hooked && f.mode === 'fight' ? 3 : 1), fishDir(f));
   }
   if (L && L.st === 'float' && L.onWater) {
     const lx = Math.round(isoX(L.x, L.y) - camXr), ly = Math.round(isoY(L.x, L.y) - camYr);
     if (L.fish) {
       // Siima kohosta kalan suuhun ja pinnan alle vedetty koho
-      const f = L.fish, [sx] = screenDir(Math.cos(f.a), Math.sin(f.a));
-      const fx = Math.round(isoX(f.x, f.y) - camXr + (sx < 0 ? -1 : 1) * (f.px >> 1)), fy = Math.round(isoY(f.x, f.y) - camYr + f.z * Z_PX);
+      const f = L.fish, [mdx, mdy] = fishMouthScreen(f);
+      const fx = Math.round(isoX(f.x, f.y) - camXr + mdx), fy = Math.round(isoY(f.x, f.y) - camYr + mdy + f.z * Z_PX);
       const wl = wobblerLine(camXr, camYr);
       g.globalAlpha = underVis(f.z * 0.5);
       if (wl) plotLine(g, wl.wx, wl.wy, wl.ex, wl.ey, 'rgba(225, 230, 235, 0.6)');
@@ -3207,21 +3292,21 @@ function update() {
 
   if (keyHit('KeyV')) {
     water.show = !water.show;
-    banners.unshift({ text: water.show ? 'Water shown (murkiness ' + water.turb.toFixed(2) + ')' : 'Water hidden: fish and the bottom are fully visible', t: 150 });
+    notify(water.show ? 'Water shown (murkiness ' + water.turb.toFixed(2) + ')' : 'Water hidden: fish and the bottom are fully visible', 150, 'water');
   }
   if (keyHit('KeyB')) water.contours = !water.contours;
   if (keyHit('BracketLeft', 'BracketRight')) {
     water.turb = clamp(+(water.turb + (keyHit('BracketRight') ? 0.15 : -0.15)).toFixed(2), 0.05, 2.5);
-    banners.unshift({ text: 'Water murkiness ' + water.turb.toFixed(2), t: 100 });
+    notify('Water murkiness ' + water.turb.toFixed(2), 100, 'water');
   }
   if (keyHit('KeyT')) {
     clockSync = false;
     timeScale = keyDown('ShiftLeft', 'ShiftRight') ? (timeScale > 1 ? timeScale - 1 : 10) : (timeScale < 10 ? timeScale + 1 : 1);
-    banners.unshift({ text: 'Time speed ' + timeScale + 'x', t: 90 });
+    notify('Time speed ' + timeScale + 'x', 90, 'time');
   }
   if (keyHit('KeyL')) {
     clockSync = !clockSync;
-    banners.unshift({ text: clockSync ? 'Fast-forwarding to local time…' : 'Fast-forward stopped', t: 90 });
+    notify(clockSync ? 'Fast-forwarding to local time…' : 'Fast-forward stopped', 90, 'time');
   }
   time++;
   advanceClock();
@@ -3357,8 +3442,8 @@ function wobblerLine(camXr, camYr) {
   const g = rodGeom(), tx = g.tx - camXr, ty = g.ty - camYr, gy = isoY(player.x, player.y) - camYr;
   let sx, sy, ex, ey;
   if (f) {
-    const [dx] = screenDir(Math.cos(f.a), Math.sin(f.a));
-    sx = isoX(f.x, f.y) - camXr + (dx < 0 ? -1 : 1) * (f.px >> 1); sy = isoY(f.x, f.y) - camYr; ey = sy + f.z * Z_PX;
+    const [mdx, mdy] = fishMouthScreen(f);
+    sx = isoX(f.x, f.y) - camXr + mdx; sy = isoY(f.x, f.y) - camYr + mdy; ey = sy + f.z * Z_PX;
   } else { sx = isoX(L.x, L.y) - camXr; sy = isoY(L.x, L.y) - camYr; ey = sy + L.z * Z_PX; }
   ex = sx;
   const h = Math.max(1, gy - ty), dz = ey - sy, t = h / (h + dz);
@@ -3378,7 +3463,7 @@ function drawCastLine(g, camXr, camYr) {
   }
   if (L.fish && L.fish.mode === 'caught') {
     // Saalis roikkuu ilmassa ongen kärjestä pää ylöspäin ja sätkii
-    const f = L.fish, img = FISH_SPR[f.kind][f.px][(f.anim >> 2) % 2];
+    const f = L.fish, img = FISH_SPR[f.kind][f.px].side[(f.anim >> 2) % 2];
     plotLine(ctx, tx, ty, tx, ty + 6, col);
     if (L.kind !== 'wobbler') drawBobberAt(Math.round(tx), Math.round(ty + 4), false);
     ctx.save();
@@ -3887,24 +3972,47 @@ function drawReelReticle(x, y) {
   ctx.fillStyle = '#d8a850'; ctx.fillRect(x + ex - 1, y + ey - 1, 2, 2);
 }
 
-// Vaappu tähtäimenä: pieni kalan muotoinen uistin edestä katsottuna sivulta – tumma selkä, harmaansininen
-// kylki, vaalea vatsa, silmä, läpikuultava kieli nokan alla ja kaksi kolmihaarakoukkua vatsan alla.
-// Pyrstö heiluu puolelta toiselle kuin kelattaessa.
+// Vaappu tähtäimenä: realistinen, pikkukalaa muistuttava uistin sivulta. Kapea runko suippenee pyrstöä
+// kohti; tumma selkä suomukuvioineen, kiiltävä hopeansininen kylkiraita, vaalea vatsa, punainen
+// kiduskohta, iso silmä ja nokan alta viistosti alas sojottava läpinäkyvä kieli. Vatsan alla ja perässä
+// roikkuvat kolmihaarakoukut lenkkeineen. Takaosa heiluu puolelta toiselle kuin kelattaessa.
+const WOB_ICON = (() => {
+  // Rungon pystyprofiili x = -7…6: [ylin rivi, alin rivi]
+  const prof = { '-7': [-1, 0], '-6': [-1, 0], '-5': [-2, 0], '-4': [-2, 1], '-3': [-2, 1], '-2': [-3, 1], '-1': [-3, 1], 0: [-3, 1], 1: [-3, 1], 2: [-3, 1], 3: [-3, 1], 4: [-2, 1], 5: [-2, 0], 6: [-1, 0] };
+  const body = [];
+  for (const k in prof) {
+    const x = +k, [y0, y1] = prof[k];
+    for (let y = y0; y <= y1; y++) {
+      let col;
+      if (y === y0) col = (x & 1) ? '#24364a' : '#2e4560';             // selkä ja suomut
+      else if (y === y0 + 1 && y1 - y0 >= 3) col = (x & 1) ? '#4a6684' : '#41607c';
+      else if (y === y1) col = x > -5 && x < 4 ? '#e6eef4' : '#9fb8d0';     // vatsa
+      else col = (x + y) & 1 ? '#c4d6e6' : '#9fb8d0';                     // kiiltävä kylkiraita
+      body.push([x, y, col]);
+    }
+  }
+  const extra = [
+    [4, -1, '#0c1016'], [4, -2, '#d8c068'], [5, -1, '#2a3a4c'],         // silmä ja nokka
+    [3, 0, '#b8323a'], [3, -1, '#c84a4a'],                              // kiduskohta
+    [6, 1, 'rgba(200, 220, 235, 0.55)'], [7, 1, 'rgba(200, 220, 235, 0.45)'], [7, 2, 'rgba(235, 245, 255, 0.7)'],   // kieli
+    [6, -1, '#8a9098'],                                                   // siimalenkki nokassa
+  ];
+  // Kolmihaarakoukut: lenkki, varsi ja kaksi näkyvää kärkeä väkäsineen
+  const hook = (x, y) => [[x, y, '#6a7078'], [x, y + 1, '#a8aeb4'], [x - 1, y + 2, '#8a9098'], [x, y + 2, '#c0c6cc'], [x + 1, y + 2, '#8a9098'], [x - 1, y + 1, '#5a6068'], [x + 1, y + 1, '#5a6068']];
+  return { body, extra, hooks: [...hook(0, 2), ...hook(-6, 1)] };
+})();
 function drawWobblerReticle(x, y) {
-  const w = Math.round(Math.sin(time * 0.18));
-  const px = [];
-  const add = (dx, dy, col) => px.push([dx, dy, col]);
-  for (let dx = -3; dx <= 2; dx++) add(dx, -3, '#3e5266');
-  for (let dx = -4; dx <= 3; dx++) { add(dx, -2, '#7890a8'); add(dx, -1, '#9ab0c4'); }
-  for (let dx = -3; dx <= 2; dx++) add(dx, 0, '#dce6ee');
-  add(4, -2, '#7890a8'); add(4, -1, '#9ab0c4');
-  add(2, -2, '#101418'); add(-1, -2, '#5c7490'); add(-2, -1, '#86a0b8');      // silmä ja kyljen kuviointi
-  add(-5, -2 + w, '#3e5266'); add(-6, -3 + w, '#3e5266'); add(-6, -1 + w, '#3e5266');   // pyrstö
-  add(5, 0, 'rgba(220, 235, 245, 0.8)'); add(6, 1, 'rgba(220, 235, 245, 0.8)'); add(5, 1, 'rgba(220, 235, 245, 0.6)');   // kieli
-  for (const hx of [1, -3]) { add(hx, 1, '#b8bcc0'); add(hx - 1, 2, '#9aa0a8'); add(hx + 1, 2, '#9aa0a8'); }   // koukut
-  ctx.fillStyle = 'rgba(10, 14, 12, 0.5)';
-  for (const [dx, dy] of px) ctx.fillRect(x + dx + 1, y + dy + 1, 1, 1);
-  for (const [dx, dy, col] of px) { ctx.fillStyle = col; ctx.fillRect(x + dx, y + dy, 1, 1); }
+  const sw = Math.sin(time * 0.2), w = Math.round(sw);
+  const shift = (px, py) => (px <= -3 ? py + (px <= -5 ? w : Math.round(sw * 0.5)) : py);   // takaosan heilunta
+  const all = [...WOB_ICON.hooks.map(([px, py, c]) => [px, px < -3 ? shift(px, py) : py, c]), ...WOB_ICON.body.map(([px, py, c]) => [px, shift(px, py), c]), ...WOB_ICON.extra];
+  // Pyrstöevä
+  all.push([-8, shift(-8, -2), '#2e4560'], [-8, shift(-8, 1), '#2e4560'], [-9, shift(-9, -3), 'rgba(46, 69, 96, 0.8)'], [-9, shift(-9, 2), 'rgba(46, 69, 96, 0.8)']);
+  ctx.fillStyle = 'rgba(8, 12, 10, 0.5)';
+  for (const [px, py] of all) ctx.fillRect(x + px + 1, y + py + 1, 1, 1);
+  for (const [px, py, c] of all) { ctx.fillStyle = c; ctx.fillRect(x + px, y + py, 1, 1); }
+  // Kiiltävä heijastus kyljessä vaihtelee heilunnan mukana
+  ctx.fillStyle = `rgba(255, 255, 255, ${(0.35 + 0.35 * Math.max(0, sw)).toFixed(2)})`;
+  ctx.fillRect(x - 1, y - 1, 2, 1);
 }
 
 // Pieni keinuva koho. Sen alla oleva rengas on vaaleansininen veden päällä ja harmaa maalla.
