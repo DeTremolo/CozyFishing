@@ -815,7 +815,7 @@ function inClearing(x, y) {
 }
 // Laituri aukean kohdalla: lähtee penkereeltä suoraan kohti lammen keskustaa (ruudulla oikealle).
 // Paikallinen koordinaatisto: t = matka rannasta laiturin suuntaan, s = poikittainen etäisyys keskilinjasta.
-const DOCK_LEN = 8, DOCK_W = 1.6, DOCK_Z = 2;
+const DOCK_LEN = 8, DOCK_W = 1.6, DOCK_Z = 4, DOCK_BEAM = 2;   // kannen korkeus ja reunapalkin paksuus (px)
 const dock = { x0: 0, y0: 0, ux: 0, uy: 0, px: 0, py: 0 };
 function dockLocal(x, y) {
   const dx = x - dock.x0, dy = y - dock.y0;
@@ -1121,17 +1121,22 @@ function buildDock() {
   const g = dockImg.getContext('2d');
   const P = (t, s, z) => { const [x, y] = P0(t, s, z); return [x - dockBX, y - dockBY]; };
   const L = (a, b, col) => plotLine(g, a[0], a[1], b[0], b[1], col);
-  // s < 0 on katsojaa kohti oleva kylki, laiturin pää on ruudulla oikealla
-  // Paalut kyljen alla ulottuvat lammen pohjaan asti
+  // s < 0 on katsojaa kohti oleva kylki, laiturin pää on ruudulla oikealla.
+  // Paalujen pinnan yläpuolinen osa (reunapalkin alta vedenpintaan) kuuluu laiturin kuvaan; veden alla
+  // oleva osa piirretään vedenalaiselle kerrokselle ja häivytetään syvyyden mukaan (drawDockPosts).
+  dock.posts = [];
+  const zb = DOCK_Z - DOCK_BEAM;
   for (const t of [1.6, 3.8, 6, DOCK_LEN - 0.15]) {
     const [x, y] = P(t, -w2 + 0.08, 0);
     const wx = dock.x0 + dock.ux * t + dock.px * (-w2 + 0.08), wy = dock.y0 + dock.uy * t + dock.py * (-w2 + 0.08);
-    const len = 2 + Math.round(depthAt(wx, wy) * Z_PX);
-    g.fillStyle = '#2e2216'; g.fillRect(Math.round(x), Math.round(y), 1, len);
-    g.fillStyle = '#4a3826'; g.fillRect(Math.round(x) - 1, Math.round(y), 1, len - 1);
+    const xr = Math.round(x), yr = Math.round(y);
+    g.fillStyle = '#3a2a1a'; g.fillRect(xr, yr - zb, 1, zb + 1);
+    g.fillStyle = '#5a442c'; g.fillRect(xr - 1, yr - zb, 1, zb + 1);
+    dock.posts.push({ ax: xr + dockBX, ay: yr + dockBY, len: Math.round(depthAt(wx, wy) * Z_PX) });
   }
-  polyFill(g, [P(0, -w2, DOCK_Z), P(DOCK_LEN, -w2, DOCK_Z), P(DOCK_LEN, -w2, 0), P(0, -w2, 0)], '#4a3420');
-  polyFill(g, [P(DOCK_LEN, -w2, DOCK_Z), P(DOCK_LEN, w2, DOCK_Z), P(DOCK_LEN, w2, 0), P(DOCK_LEN, -w2, 0)], '#5e4228');
+  // Reunapalkit: kylki ja pää ovat kannen alla vain palkin paksuiset, joten paalut näkyvät niiden alla
+  polyFill(g, [P(0, -w2, DOCK_Z), P(DOCK_LEN, -w2, DOCK_Z), P(DOCK_LEN, -w2, zb), P(0, -w2, zb)], '#4a3420');
+  polyFill(g, [P(DOCK_LEN, -w2, DOCK_Z), P(DOCK_LEN, w2, DOCK_Z), P(DOCK_LEN, w2, zb), P(DOCK_LEN, -w2, zb)], '#5e4228');
   polyFill(g, [P(0, -w2, DOCK_Z), P(DOCK_LEN, -w2, DOCK_Z), P(DOCK_LEN, w2, DOCK_Z), P(0, w2, DOCK_Z)], '#8a6a44');
   // Lankut poikittain, niiden väleissä tummat raot; osa lankuista vaaleampia ja haalistuneita
   const rnd = mulberry32(55);
@@ -1142,7 +1147,21 @@ function buildDock() {
   // Reunojen kantopuut
   L(P(0, -w2, DOCK_Z), P(DOCK_LEN, -w2, DOCK_Z), '#a88660');
   L(P(0, w2, DOCK_Z), P(DOCK_LEN, w2, DOCK_Z), '#6a4e30');
-  L(P(0, -w2, 0), P(DOCK_LEN, -w2, 0), '#2a1c10');
+  L(P(0, -w2, zb), P(DOCK_LEN, -w2, zb), '#2a1c10');
+}
+
+// Laiturin paalujen vedenalainen osa: häipyy syvyyden ja sameuden mukaan (vedenalaiselle kerrokselle)
+function drawDockPosts(g, camXr, camYr) {
+  for (const o of dock.posts || []) {
+    const x = o.ax - camXr, y = o.ay - camYr;
+    if (x < -2 || x > W + 2 || y > H || y + o.len < 0) continue;
+    for (let k = 1; k <= o.len; k++) {
+      g.globalAlpha = underVis(k / Z_PX);
+      g.fillStyle = '#2e2216'; g.fillRect(x, y + k, 1, 1);
+      g.fillStyle = '#4a3826'; g.fillRect(x - 1, y + k, 1, 1);
+    }
+  }
+  g.globalAlpha = 1;
 }
 
 // Lumpeet (valkoinen kukka) ja ulpukat (keltainen kukka) kelluvat rannan tuntumassa matalassa
@@ -2965,6 +2984,7 @@ function drawUnderwater(camXr, camYr) {
     }
   }
   drawStems(g, camXr, camYr);
+  drawDockPosts(g, camXr, camYr);
   g.globalAlpha = 1;
   ctx = mainCtx;
   g.globalCompositeOperation = 'destination-in';
@@ -3636,6 +3656,29 @@ function drawHookBait(kx, ky) {
   dot(kx - 1, ky + 1, '#c86a78'); dot(kx, ky + 1, '#e08a96'); dot(kx - 1 - w, ky + 2, '#b85a68');
 }
 
+// Pelaajan heijastus vedenpinnasta: hahmon kuva peilataan vedenpinnan tasossa (laiturilla kannen alta)
+// ja rajataan lammen alueelle. Heijastus on tumma ja läpikuultava ja väreilee tuulessa; se näkyy esim.
+// laiturilla ja lammen pohjoisrannalla, kun vettä on hahmon edessä ruudulla.
+const reflCanvas = makeCanvas(16, 21), reflCtx = reflCanvas.getContext('2d');
+function drawPlayerReflection(camXr, camYr) {
+  if (!water.show || !playerShown() || shoreDist(player.x, player.y) > 4) return;
+  const p = player, spr = PLAYER_SPR[p.view][p.moving ? Math.floor(p.anim / 8) % 2 : 0].img;
+  const sx = Math.round(isoX(p.x, p.y) - camXr), sy = Math.round(isoY(p.x, p.y) - camYr), lift = playerLift();
+  // Peilikuva: kuvan rivi y siirtyy vedenpinnan (sy) alle samalle etäisyydelle
+  const rx = sx - 8 + Math.round(Math.sin(time * 0.05) * wind.gust), ry = sy + lift - 2;
+  const g = reflCtx;
+  g.globalCompositeOperation = 'source-over';
+  g.clearRect(0, 0, 16, 21);
+  g.save(); g.translate(p.flip ? 16 : 0, 21); g.scale(p.flip ? -1 : 1, -1); g.drawImage(spr, 0, 0); g.restore();
+  g.globalCompositeOperation = 'source-atop';
+  g.fillStyle = 'rgba(16, 26, 34, 0.45)'; g.fillRect(0, 0, 16, 21);
+  g.globalCompositeOperation = 'destination-in';
+  g.drawImage(pondMaskCanvas, PB.x0 - camXr - rx, PB.y0 - camYr - ry);
+  ctx.globalAlpha = 0.42;
+  ctx.drawImage(reflCanvas, rx, ry);
+  ctx.globalAlpha = 1;
+}
+
 // Pelaajan viimeksi piirretty kuva ja pään paikka ruudulla (otsalampun valo lasketaan niiden mukaan)
 const shownPlayer = { img: null, x: 0, y: 0, flip: false, hx: 0, hy: 0 };
 
@@ -4092,6 +4135,7 @@ function drawWorld() {
     drawRipples(camXr, camYr);
   }
   drawUnderwater(camXr, camYr);
+  drawPlayerReflection(camXr, camYr);
   snapStars('a');
   if (!water.show) drawDebugLines(camXr, camYr);
   drawLilies(camXr, camYr);

@@ -63,7 +63,9 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   Lumpeiden varret ja kaislojen vedenalaiset varret ulottuvat lammen pohjaan asti; kaislikko huojuu rauhallisesti.
 - **Aukea** lammen vasemmalla rannalla: teltta, palava nuotio (savu kulkee tuulen mukana; välillä ritisten
   nousevat hehkuvat kipinät leijailevat savun mukana ja hohtavat pimeällä) ja
-  noin 8 m pitkä laituri, jolle voi kävellä.
+  noin 8 m pitkä laituri, jolle voi kävellä. Laiturin paalujen vedenpäällinen osa näkyy reunapalkin alla, ja veden alla
+  oleva osa häipyy syvyyden ja sameuden mukaan.
+- **Heijastus**: pelaajan hahmo heijastuu vedenpinnasta (esim. laiturilla ja lammen pohjoisrannalla).
 - **Aurinko ja valo**: aurinko nousee koillisesta, on keskipäivällä etelässä ja laskee luoteeseen, ja puiden,
   hahmon ja eläinten varjot kääntyvät ja pitenevät sen mukaan (varjojen suunta päivitetään kerran tunnissa
   pelin kellon mukaan ja vaihdetaan pehmeästi). Aamurusko, kultainen aamu, kultainen hetki ja auringonlasku
