@@ -3928,6 +3928,13 @@ function drawBoatRod(spr, x, y) {
   dot(x + tip[0], y + tip[1], '#f4f4ec');
 }
 
+// Istuvan hahmon yläruumis (hahmon kuvan ylimmät rivit) omana kuvanaan
+const seatedCache = new Map();
+function seatedImg(img, h) {
+  if (!seatedCache.has(img)) { const c = makeCanvas(img.width, h); c.getContext('2d').drawImage(img, 0, 0); seatedCache.set(img, c); }
+  return seatedCache.get(img);
+}
+
 // Kyydissä oleva hahmo. Seisova hahmo on veneen keskellä; kuljettaja istuu perässä kasvot menosuuntaan
 // ja pitää oikealla kädellä perämoottorin ohjauskahvasta.
 function drawBoatRider(spr, x, y) {
@@ -3961,9 +3968,23 @@ function drawBoatRider(spr, x, y) {
   };
   const legsFront = spr.P(seatU + 0.55, 0, 0)[1] > spr.P(seatU, 0, 0)[1];   // polvet katsojaa kohti
   if (!legsFront) legs();
-  if (flip) { ctx.save(); ctx.translate(dx + img.width, dy); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0, img.width, h, 0, 0, img.width, h); ctx.restore(); }
-  else ctx.drawImage(img, 0, 0, img.width, h, dx, dy, img.width, h);
+  const top = seatedImg(img, h);
+  drawImg(top, dx, dy, flip);
   if (legsFront) legs();
+  // Otsalamppu ja sen valo lähtevät istuvan kuljettajan päästä; valosta leikataan hahmon yläruumis
+  if (b === boat && player.boat) {
+    Object.assign(shownPlayer, { img: top, x: dx, y: dy, flip, hx: dx + 8, hy: dy + 3 });
+    const V = VIEW_INFO[view];
+    if (player.light && V.lamp >= 0) {
+      const lx = dx + 1 + (flip ? 13 - V.lamp : V.lamp), ly = dy + 2;
+      shownPlayer.hx = lx; shownPlayer.hy = ly;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = `rgba(255, 245, 210, ${(0.06 + nightAmt() * 0.12).toFixed(3)})`;
+      ctx.fillRect(lx - 1, ly - 1, 3, 3);
+      ctx.globalCompositeOperation = 'source-over';
+      dot(lx, ly, '#ffffff');
+    }
+  }
   // Oikea käsi ohjauskahvalla: hihasta kahvaan
   const [gx, gy] = spr.P(-1.15, 0.12, boatH(-1.5) + 2), sh = [x + px + (flip ? -3 : 3), y + py - 8];
   plotLine(ctx, sh[0], sh[1], x + gx, y + gy, '#6c8c40');
