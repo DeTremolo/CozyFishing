@@ -3759,15 +3759,14 @@ function makeBoatSprites(a) {
   plotLine(gu, px0, py0, px1, py1, '#3a3e44');
   gu.fillStyle = '#5a6068'; gu.fillRect(Math.round(px1) - 1, Math.round(py1), 3, 1);
   // Heijastus: jokainen vedenpäällinen piste peilataan vedenpinnan alle omassa kohdassaan (z -> -z).
-  // Näkyvissä ovat laitojen ulkopinnat ja moottori; heijastus tummennetaan piirrettäessä.
+  // Näkyvissä ovat vain laitojen ulkopinnat ja moottori (veneen sisäpuolta ei näe alhaalta); kauimmat
+  // laidat piirretään ensin kuten itse veneessä. Heijastus tummennetaan piirrettäessä.
   const [refl, gp] = mk(), R = (u, v, z) => P(u, v, -z);
-  const rfaces = faces.slice().sort((p, q) => q.depth - p.depth);
-  for (const f of rfaces) {
+  for (const f of faces) {
     const t0 = R(f.u0, f.v0, boatH(f.u0)), t1 = R(f.u1, f.v1, boatH(f.u1)), b0 = R(f.u0 * wl, f.v0 * wl, 0), b1 = R(f.u1 * wl, f.v1 * wl, 0);
     polyFill(gp, [t0, t1, b1, b0], sideCol(f.l));
     plotLine(gp, t0[0], t0[1] - 1, t1[0], t1[1] - 1, '#3a6a9a');
   }
-  polyFill(gp, BOAT_HULL.map(([u, v]) => R(u, v, boatH(u))), '#cfcabb');
   const [rmx, rmy] = R(-1.66, 0, boatH(-1.5) + 3), [rs0x, rs0y] = R(-1.66, 0, 0);
   plotLine(gp, rs0x, rs0y, rmx, rmy, '#3a3e44');
   gp.fillStyle = '#26292e'; gp.fillRect(Math.round(rmx) - 2, Math.round(rmy) - 1, 5, 5);
@@ -3967,7 +3966,7 @@ function drawBoatReflection(camXr, camYr) {
   if (rx > W || ry > H || rx + 72 < 0 || ry + 72 < 0) return;
   g.globalCompositeOperation = 'source-over';
   g.clearRect(0, 0, 72, 72);
-  g.drawImage(spr.refl, 0, 0);
+  // Ensin kyydissä olevan hahmon heijastus, jonka päälle veneen laitojen heijastus piirretään
   if (boat.rider) {
     // Kyydissä olevan hahmon heijastus: kuva käännetään ylösalaisin vedenpinnan kohdalla
     const [hx, hy] = screenDir(Math.cos(boat.a), Math.sin(boat.a));
@@ -3980,6 +3979,7 @@ function drawBoatReflection(camXr, camYr) {
     g.drawImage(img, 0, 0, 16, h, 0, 0, 16, h);
     g.restore();
   }
+  g.drawImage(spr.refl, 0, 0);
   g.globalCompositeOperation = 'source-atop';
   g.fillStyle = 'rgba(16, 26, 34, 0.45)'; g.fillRect(0, 0, 72, 72);
   g.globalCompositeOperation = 'destination-in';
