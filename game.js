@@ -3764,11 +3764,25 @@ function drawBoatRider(spr, x, y) {
     drawImg(img, x + px - 8, y + py - 20, flip);
     return;
   }
-  // Istuva kuljettaja: hahmon kuvasta vain yläosa (jalat jäävät laidan taakse)
-  const [px, py] = spr.P(-1.0, 0, boatH(-1.1) - 1), img = PLAYER_SPR[view][0].img, h = 15;
+  // Istuva kuljettaja peräistuimella: hahmon kuvasta yläruumis, ja jalat piirretään erikseen veneen
+  // suunnassa: reidet istuimelta eteenpäin hieman koholla oleviin polviin ja sääret polvista pohjalle.
+  const seatU = -1.1, seatZ = boatH(seatU) - 1;
+  const [px, py] = spr.P(seatU + 0.08, 0, seatZ), img = PLAYER_SPR[view][0].img, h = 15;
   const dx = Math.round(x + px - 8), dy = Math.round(y + py - h);
+  const legs = () => {
+    for (const side of [-0.14, 0.14]) {
+      const hip = spr.P(seatU + 0.1, side, seatZ + 1), knee = spr.P(seatU + 0.55, side, seatZ + 2.5), foot = spr.P(seatU + 0.7, side, 1);
+      const L = (a, c, col) => { plotLine(ctx, x + a[0], y + a[1], x + c[0], y + c[1], col); plotLine(ctx, x + a[0], y + a[1] + 1, x + c[0], y + c[1] + 1, col); };
+      L(hip, knee, side < 0 ? '#6a523a' : '#5a4632');
+      L(knee, foot, side < 0 ? '#5a4632' : '#4a3a2a');
+      ctx.fillStyle = '#22180e'; ctx.fillRect(Math.round(x + foot[0]) - 1, Math.round(y + foot[1]), 3, 1);   // saapas
+    }
+  };
+  const legsFront = spr.P(seatU + 0.55, 0, 0)[1] > spr.P(seatU, 0, 0)[1];   // polvet katsojaa kohti
+  if (!legsFront) legs();
   if (flip) { ctx.save(); ctx.translate(dx + img.width, dy); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0, img.width, h, 0, 0, img.width, h); ctx.restore(); }
   else ctx.drawImage(img, 0, 0, img.width, h, dx, dy, img.width, h);
+  if (legsFront) legs();
   // Oikea käsi ohjauskahvalla: hihasta kahvaan
   const [gx, gy] = spr.P(-1.15, 0.12, boatH(-1.5) + 2), sh = [x + px + (flip ? -3 : 3), y + py - 8];
   plotLine(ctx, sh[0], sh[1], x + gx, y + gy, '#6c8c40');
