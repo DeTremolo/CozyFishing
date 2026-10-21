@@ -120,7 +120,7 @@ taistelua, kun yli puolet voimista on palautunut. Ahvenella on nelinkertaiset vo
 palautuminen. Pelaajan lähelle kelattu kala nousee
 roikkumaan ongen kärkeen ja kerätään talteen (saalis näkyy vasemmassa yläkulmassa). Kuivalle
 maalle vedetty kala sätkii satunnaisiin suuntiin, ja jos se pääsee veteen, se jatkaa uintia. Kuivalla
-maalla yli 15 minuuttia (pelin kellossa) ollut kala lakkaa liikkumasta. Kuivalla maalla olevan kalan
+maalla yli minuutin (1x nopeudella; nopeammalla ajalla vastaavasti lyhyemmän) ollut kala lakkaa liikkumasta. Kuivalla maalla olevan kalan
 voi kerätä talteen kävelemällä sen päälle (myös siiman katkaisun jälkeen maalle jääneen).
 
 ### Vieheet

@@ -2584,7 +2584,7 @@ function drawLoose(camXr, camYr) {
 }
 
 // Maalla kala sätkii: pomppaa satunnaiseen suuntaan; jos se pääsee veteen, uinti jatkuu
-const LAND_DEATH = 15 * GAME_MIN;   // kuivalla maalla yli 15 minuuttia (pelin kellossa) ollut kala lakkaa liikkumasta
+const LAND_DEATH = 60 * 60 * CLOCK_REAL;   // kuivalla maalla yli minuutin (1x nopeudella) ollut kala lakkaa liikkumasta
 function flopFish(f) {
   f.z = 0;
   f.landT = (f.landT || 0) + clockStep;
