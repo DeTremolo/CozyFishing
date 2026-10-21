@@ -24,9 +24,9 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 | hiiren rulla tai - / + | – | koholla koukun syvyys 0,1–1,5 m (vain kun siima on kelattu sisään); vaapulla kelausnopeus 10–100 cm/s |
 | T / Shift+T | – | ajan nopeus 1x–10x todelliseen aikaan verrattuna (nopeampi / hitaampi) |
 | L | – | kelaa kello nopeasti (60 min/s) selaimen paikalliseen kellonaikaan; perillä nopeus palaa 1x:ään |
-| V | – | veden piirto päälle / pois (vesi on silti olemassa: kalat näkyvät "ilmassa") |
-| [ ja ] | – | veden sameus pienemmäksi / suuremmaksi |
-| B | – | syvyyskäyrät (1 m välein) päälle / pois |
+| V | – | huijaustila (cheat mode) päälle / pois: vesi piilotetaan, kalat ja pohja näkyvät, debug-viivat |
+| [ ja ] | – | veden sameus pienemmäksi / suuremmaksi (vain huijaustilassa) |
+| B | – | syvyyskäyrät (1 m välein) päälle / pois (vain huijaustilassa) |
 | C | CUT | katkaise siima (kun siima on ulkona) |
 | H | – | kalan voimapalkki näkyviin / piiloon |
 | P | II | tauko |
@@ -65,7 +65,7 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   nousevat hehkuvat kipinät leijailevat savun mukana ja hohtavat pimeällä) ja
   noin 8 m pitkä laituri, jolle voi kävellä.
 - **Vuorokausi** (1x nopeudella 24 h, kuten oikea kello): aamu, päivä, ilta ja yö. Kellonaika näkyy vasemmassa yläkulmassa rannekellosta
-  (pikseligrafiikkana piirretty kellotaulu `img/watch.png`, viisarit piirretään ohjelmallisesti). Kirkkaana yönä tähdet heijastuvat vedestä paikallaan pysyen; tuuli vain himmentää niitä. Ajan
+  (pikseligrafiikkana piirretty kellotaulu `img/watch.png`, viisarit piirretään ohjelmallisesti). Kirkkaana yönä tähdet heijastuvat vedestä; tyynellä ne vain tuikkivat, aallokossa ne heiluvat pikselin tai kaksi. Ajan
   nopeutta voi muuttaa 1x–10x (T), ja nopeus näkyy kellon vieressä. Kellon voi kelata nopeasti
   selaimen kellonaikaan (L, 60 min sekunnissa), jonka jälkeen se kulkee oikeassa ajassa. Yöllä valoa antavat nuotio ja hatussa oleva otsalamppu
   (noin 10 m keila tähtäimen suuntaan pään korkeudelta; lampun valkoinen piste näkyy hatussa, kun hahmo
@@ -77,7 +77,7 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   sataa kerran (0,7–4 tuntia), muina päivinä ei lainkaan. Usvaa voi olla vain aamulla 3.30–9.30 ja illalla
   19.30–23.30, ja se on todennäköisempää sateen jälkeen. Sadepisarat jättävät lammen pintaan renkaita.
   Tuulen suunta ja voimakkuus vaihtelevat ja kallistavat sadetta. Sään ja ajan vaihtumisesta ei tule
-  ilmoituksia; oikeassa yläkulmassa on sääkuvake (aurinko tai yöllä kuu, pilvi ja pisarat, usvajuovat),
+  ilmoituksia; kellon vieressä on sääkuvake (aurinko tai yöllä kuu, pilvi ja pisarat, usvajuovat),
   sen alla kompassi, jonka nuoli näyttää tuulen suunnan, ja palkit tuulen voimakkuudelle (0–3).
 - **Eläimet**: oravat, jänikset ja hiiret liikkuvat metsän laidassa ja tulevat välillä penkereelle.
   Ne pakenevat, jos pelaaja tulee liian lähelle; paikallaan pysyvän pelaajan luo ne uskaltautuvat lähemmäs.
@@ -106,7 +106,7 @@ Vesi piirretään läpinäkyvänä kerroksena pohjan päälle. Jokaisen kohdan l
 syvyys tiedetään, ja sameus (`water.turb`, valon vaimeneminen metriä kohden, oletuksena 2,5) ratkaisee, kuinka
 paljon pohjaa näkyy: matalikolla pohja näkyy, syvässä ja sameassa vedessä ei. Pintaan heijastuvat
 taivas ja rannan puut. Veden piirron voi piilottaa (V), jolloin pohja, kalat ja syötti näkyvät
-täysin ja sorsat uivat näkymättömällä pinnalla. Tällöin peli on debug-tilassa: jokaisesta kalasta piirretään
+täysin ja sorsat uivat näkymättömällä pinnalla. Tämä on huijaustila (cheat mode): jokaisesta kalasta piirretään
 pystyviiva pintaan ja pohjaan (pinnalla rengas; ahvenet keltaisella, hauet vihreällä, vedessä oleva
 vaappu violetilla), ja tähtäimen kohdalta
 viiva lammen pohjaan. Vesi piilotettuna tähtäimen vieressä näytetään veden syvyys siinä pinnan kohdassa, johon tähtäin osuu.

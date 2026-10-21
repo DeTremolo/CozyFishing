@@ -1207,7 +1207,7 @@ function drawLilies(camXr, camYr) {
 }
 
 // Tähtien heijastukset piirretään yön pimennyksen jälkeen omalta kerrokseltaan, josta leikataan pois
-// lammen edessä olevat puut ja laituri. Ne näkyvät vain kirkkaana yönä; tuuli himmentää niitä.
+// lammen edessä olevat puut ja laituri. Ne näkyvät vain kirkkaana yönä; tuuli himmentää ja heiluttaa niitä.
 let stars = [];
 const starCanvas = makeCanvas(W, H), starCtx = starCanvas.getContext('2d');
 function drawStarReflections(camXr, camYr) {
@@ -1219,7 +1219,9 @@ function drawStarReflections(camXr, camYr) {
   for (const st of stars) {
     const y = st.y - camYr;
     if (y < 0 || y >= H) continue;
-    const x = st.x - camXr;
+    // Aallokossa heijastus heiluu pikselin tai kaksi; tyynellä vain tuikkii
+    const amp = wind.gust < 0.1 ? 0 : Math.min(2, (wind.gust - 0.1) * 3);
+    const x = st.x - camXr + Math.round(Math.sin(st.y * 0.55 + time * 0.07) * amp);
     if (x < 1 || x >= W - 1) continue;
     // Tähti pysyy paikallaan; väreilevä pinta vain himmentää ja kirkastaa sitä
     const a = vis * st.b * (0.6 + 0.4 * Math.sin(time * 0.05 * st.sp + st.ph)) * (1 - wind.gust * 0.5 * (0.5 + 0.5 * Math.sin(time * 0.11 + st.ph * 3)));
@@ -3387,12 +3389,16 @@ function update() {
   if (state === 'sleep') { updateSleep(); pressed = {}; return; }
   if (keyHit('KeyP', 'Escape')) { state = 'pause'; pressed = {}; return; }
 
+  // Huijaustila (V): vesi piilotetaan, jolloin kalat, pohja ja debug-viivat näkyvät. Vain huijaustilassa
+  // voi säätää veden sameutta ([ ja ]) ja näyttää syvyyskäyrät (B).
   if (keyHit('KeyV')) {
     water.show = !water.show;
-    notify(water.show ? 'Water shown (murkiness ' + water.turb.toFixed(2) + ')' : 'Water hidden: fish and the bottom are fully visible', 150, 'water');
+    if (water.show) water.contours = false;
+    notify(water.show ? 'Cheat mode off' : 'Cheat mode on: fish and the bottom are fully visible', 150, 'water');
   }
-  if (keyHit('KeyB')) water.contours = !water.contours;
-  if (keyHit('BracketLeft', 'BracketRight')) {
+  const cheat = !water.show;
+  if (cheat && keyHit('KeyB')) water.contours = !water.contours;
+  if (cheat && keyHit('BracketLeft', 'BracketRight')) {
     water.turb = clamp(+(water.turb + (keyHit('BracketRight') ? 0.15 : -0.15)).toFixed(2), 0.05, 2.5);
     notify('Water murkiness ' + water.turb.toFixed(2), 100, 'water');
   }
@@ -4145,97 +4151,115 @@ function drawBobberReticle(x, y) {
   ctx.fillRect(x - 1 + Math.round(sway * 4 / 3), top + 2, 1, 1);
 }
 
-// Sää- ja tuulikuvakkeet oikeassa yläkulmassa (korvaavat säätekstit).
-// Sää: aurinko (yöllä kuu ja tähti), tihkusade (vaalea pilvi ja muutama pisara), kova sade (tumma pilvi
-// ja vinot sadeviirut) tai usva (ajelehtivat usvajuovat). Tuuli: kompassirengas, jonka sisällä nuoli
-// näyttää tuulen kulkusuunnan ruudulla, ja vieressä kolme palkkia tuulen voimakkuudelle
-// (tyyni = ei palkkeja eikä nuolta, heikko 1, kohtalainen 2, kova 3).
-function drawWeatherIcon(cx, cy) {
-  const k = weather.kind, night = env.dark > 0.5, t = time;
-  const shadowed = (fn) => { const c = ctx; c.save(); c.translate(1, 1); fn(true); c.restore(); fn(false); };
-  const cloud = (dark, sh) => {
-    const top = sh ? 'rgba(6, 10, 14, 0.5)' : dark ? '#6c7380' : '#d4d8e0', low = sh ? 'rgba(6, 10, 14, 0.5)' : dark ? '#4c525e' : '#a0a8b4';
-    ctx.fillStyle = low; disc(ctx, cx - 4, cy + 1, 3); disc(ctx, cx + 4, cy + 1, 3); ctx.fillRect(cx - 4, cy + 1, 9, 3);
-    ctx.fillStyle = top; disc(ctx, cx - 1, cy - 1, 4); disc(ctx, cx - 4, cy, 2); disc(ctx, cx + 3, cy, 3);
-    if (!sh) { ctx.fillStyle = dark ? '#8a92a0' : '#f4f6fa'; ctx.fillRect(cx - 3, cy - 4, 3, 1); ctx.fillRect(cx - 5, cy - 2, 1, 1); }
+// Sää- ja tuulikuvakkeet kellon vieressä. Kuvakkeet piirretään ensin pienelle apukankaalle, jolle tehdään
+// tumma ääriviiva, jotta ne erottuvat maisemasta selvästi.
+// Sää: aurinko (yöllä kuunsirppi ja tähti), tihkusade (vaalea pilvi ja muutama pisara), kova sade (tumma
+// pilvi ja vinot sadeviirut) tai usva (kolme juovaa). Tuuli: kompassirengas, jonka sisällä nuoli näyttää
+// tuulen kulkusuunnan ruudulla, ja sen vieressä kolme palkkia tuulen voimakkuudelle
+// (tyyni = piste eikä palkkeja, heikko 1, kohtalainen 2, kova 3).
+const ICON_N = 34;
+const iconCanvas = makeCanvas(ICON_N, ICON_N), iconCtx = iconCanvas.getContext('2d', { willReadFrequently: true });
+function iconBegin() { iconCtx.clearRect(0, 0, ICON_N, ICON_N); return iconCtx; }
+function iconEnd(x, y) {
+  outlineSprite(iconCanvas, 'rgba(8, 12, 16, 0.9)');
+  ctx.drawImage(iconCanvas, Math.round(x - ICON_N / 2), Math.round(y - ICON_N / 2));
+}
+
+function drawWeatherIcon(x, y) {
+  const g = iconBegin(), c = ICON_N / 2, k = weather.kind, night = env.dark > 0.5, t = time;
+  const fill = (col, fn) => { g.fillStyle = col; fn(); };
+  const cloud = (dark) => {
+    // Pilvi kolmesta pyöreästä möykystä ja tasaisesta pohjasta
+    fill(dark ? '#5c6370' : '#aab2be', () => { disc(g, c - 5, c + 1, 4); disc(g, c + 5, c + 1, 4); g.fillRect(c - 5, c + 1, 11, 4); });
+    fill(dark ? '#7a828f' : '#e6eaf0', () => { disc(g, c - 1, c - 2, 5); disc(g, c - 5, c, 3); disc(g, c + 4, c - 1, 4); });
+    fill(dark ? '#99a1ad' : '#ffffff', () => { g.fillRect(c - 4, c - 6, 4, 1); g.fillRect(c - 6, c - 3, 1, 2); });
   };
-  if (k === 'clear') {
-    if (night) {
-      // Kuunsirppi: kiekko, josta puuttuu siirretyn kiekon kohta
-      shadowed((sh) => {
-        ctx.fillStyle = sh ? 'rgba(6, 10, 14, 0.5)' : '#ece6c4';
-        for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) {
-          if (dx * dx + dy * dy <= 25 && (dx - 3) ** 2 + (dy + 2) ** 2 > 16) ctx.fillRect(cx - 1 + dx, cy + dy, 1, 1);
-        }
-      });
-      ctx.fillStyle = '#fff8dc'; ctx.fillRect(cx - 5, cy - 1, 1, 2);
-      const tw = Math.sin(t * 0.06) > 0;
-      ctx.fillStyle = '#f0f0ff'; ctx.fillRect(cx + 5, cy - 4, 1, 1);
-      if (tw) { ctx.fillRect(cx + 4, cy - 4, 3, 1); ctx.fillRect(cx + 5, cy - 5, 1, 3); }
-      ctx.fillRect(cx + 3, cy + 3, 1, 1);
-    } else {
-      shadowed((sh) => {
-        const ray = sh ? 'rgba(6, 10, 14, 0.5)' : '#ffb840';
-        for (let a = 0; a < 8; a++) {
-          const ang = a * Math.PI / 4 + t * 0.004, ux = Math.cos(ang), uy = Math.sin(ang);
-          ctx.fillStyle = ray; ctx.fillRect(Math.round(cx + ux * 5.5), Math.round(cy + uy * 5.5), 1, 1); ctx.fillRect(Math.round(cx + ux * 6.6), Math.round(cy + uy * 6.6), 1, 1);
-        }
-        ctx.fillStyle = sh ? 'rgba(6, 10, 14, 0.5)' : '#ffd860'; disc(ctx, cx, cy, 3);
-      });
-      ctx.fillStyle = '#fff2b0'; ctx.fillRect(cx - 2, cy - 2, 2, 1); ctx.fillRect(cx - 2, cy - 1, 1, 1);
-    }
+  if (k === 'clear' && night) {
+    fill('#efe8c4', () => {
+      for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) {
+        if (dx * dx + dy * dy <= 36 && (dx - 3) ** 2 + (dy + 2) ** 2 > 22) g.fillRect(c - 1 + dx, c + dy, 1, 1);
+      }
+    });
+    fill('#fffbe8', () => g.fillRect(c - 6, c - 1, 1, 3));
+    const big = Math.sin(t * 0.05) > 0.3;
+    fill('#f4f4ff', () => { g.fillRect(c + 6, c - 5, 1, 1); if (big) { g.fillRect(c + 5, c - 5, 3, 1); g.fillRect(c + 6, c - 6, 1, 3); } });
+  } else if (k === 'clear') {
+    fill('#ffb63c', () => {
+      for (let a = 0; a < 8; a++) {
+        const ux = Math.cos(a * Math.PI / 4), uy = Math.sin(a * Math.PI / 4);
+        for (const r of [7, 8]) g.fillRect(Math.round(c + ux * r), Math.round(c + uy * r), 1, 1);
+      }
+    });
+    fill('#ffd23f', () => disc(g, c, c, 4));
+    fill('#fff1a8', () => { g.fillRect(c - 2, c - 3, 3, 1); g.fillRect(c - 3, c - 2, 1, 2); });
   } else if (k === 'drizzle' || k === 'rain') {
     const heavy = k === 'rain';
-    shadowed((sh) => cloud(heavy, sh));
-    const n = heavy ? 5 : 3, sp = heavy ? 0.25 : 0.12;
+    cloud(heavy);
+    // Pisarat putoavat hitaasti pilven alla
+    const n = heavy ? 4 : 3;
     for (let i = 0; i < n; i++) {
-      const x = cx - 5 + i * (heavy ? 2.5 : 4) + 1, y0 = cy + 5, ph = ((t * sp + i * 1.7) % 4);
-      const y = Math.round(y0 + ph);
-      ctx.fillStyle = heavy ? '#7ab4e8' : '#a8d4f4';
-      ctx.fillRect(Math.round(x - ph * (heavy ? 0.5 : 0)), y, 1, 1);
-      if (heavy) ctx.fillRect(Math.round(x - ph * 0.5) + 1, y - 1, 1, 1);
+      const px = c - (heavy ? 6 : 5) + i * (heavy ? 4 : 5), ph = Math.floor((t * (heavy ? 0.09 : 0.05) + i * 0.6) % 3);
+      fill(heavy ? '#5aa0e6' : '#8cc8f4', () => {
+        if (heavy) { for (let q = 0; q < 3; q++) g.fillRect(px - q + 1, c + 7 + ph + q, 1, 1); }
+        else g.fillRect(px, c + 7 + ph, 1, 2);
+      });
     }
   } else {
-    // Usva: kolme vaakasuoraa, hitaasti ajelehtivaa juovaa
     for (let r = 0; r < 3; r++) {
-      const off = Math.round(Math.sin(t * 0.02 + r * 1.9) * 1.5), y = cy - 3 + r * 3, w = r === 1 ? 12 : 10;
-      ctx.fillStyle = 'rgba(6, 10, 14, 0.5)'; ctx.fillRect(cx - (w >> 1) + off + 1, y + 1, w, 1);
-      ctx.fillStyle = r === 1 ? '#dce2e6' : '#b4bec4'; ctx.fillRect(cx - (w >> 1) + off, y, w, 1);
-      ctx.fillStyle = 'rgba(220, 226, 230, 0.45)'; ctx.fillRect(cx - (w >> 1) + off - 1, y, 1, 1); ctx.fillRect(cx + (w >> 1) + off, y, 1, 1);
+      const off = Math.round(Math.sin(t * 0.015 + r * 1.9)), w = r === 1 ? 14 : 11, yy = c - 4 + r * 4;
+      fill(r === 1 ? '#e2e8ec' : '#c2ccd2', () => g.fillRect(c - (w >> 1) + off, yy, w, 2));
     }
+  }
+  iconEnd(x, y);
+}
+
+function drawWindIcon(x, y) {
+  const gst = wind.gust, level = gst < 0.08 ? 0 : gst < 0.3 ? 1 : gst < 0.6 ? 2 : 3;
+  const col = ['#9aa8ae', '#d8e4ea', '#ffffff', '#ffcd75'][level];
+  // Kompassin pohja ja rengas (ilman ääriviivaa), pääilmansuunnat pidempinä merkkeinä
+  ctx.fillStyle = 'rgba(8, 14, 18, 0.5)'; disc(ctx, x, y, 10);
+  for (let a = 0; a < 32; a++) {
+    const ang = (a / 32) * Math.PI * 2;
+    ctx.fillStyle = a % 8 === 0 ? '#c8d4da' : 'rgba(140, 158, 168, 0.75)';
+    ctx.fillRect(Math.round(x + Math.cos(ang) * 10), Math.round(y + Math.sin(ang) * 10), 1, 1);
+  }
+  const g = iconBegin(), c = ICON_N / 2;
+  if (level === 0) { g.fillStyle = col; g.fillRect(c - 1, c - 1, 3, 3); }
+  else {
+    // Nuoli: paksu varsi ja täytetty kärki. Suunta pyöristetään kahdeksaan ilmansuuntaan, jolloin
+    // nuolen pikselit pysyvät siisteinä (vinot nuolet kulkevat tarkalleen 45 asteen kulmassa).
+    const d = ((Math.round(Math.atan2(wind.sy, wind.sx) / (Math.PI / 4)) % 8) + 8) % 8;
+    const dx = Math.round(Math.cos(d * Math.PI / 4)), dy = Math.round(Math.sin(d * Math.PI / 4)), nx = -dy, ny = dx;
+    const L = dx && dy ? 5 : 7;   // vinossa askel on pidempi, joten pikselimäärä pienempi
+    g.fillStyle = col;
+    for (let k = -L; k <= 1; k++) {
+      g.fillRect(c + dx * k, c + dy * k, 1, 1);
+      g.fillRect(c + dx * k + (dx && dy ? dx : nx), c + dy * k + (dx && dy ? 0 : ny), 1, 1);
+    }
+    // Kärki: suorilla nuolilla kolmio, vinoilla suorakulmainen kolmio, jonka kateetit osoittavat taaksepäin
+    if (dx && dy) {
+      for (let yy = 0; yy <= 5; yy++) for (let xx = 0; xx <= 5; xx++) if (xx + yy >= 5) g.fillRect(c + xx * dx, c + yy * dy, 1, 1);
+    } else {
+      for (let k = 0; k <= 4; k++) {
+        const half = 4 - k;
+        for (let s = -half; s <= half + 1; s++) g.fillRect(c + dx * (2 + k) + nx * s, c + dy * (2 + k) + ny * s, 1, 1);
+      }
+    }
+  }
+  iconEnd(x, y);
+  // Voimakkuuspalkit kompassin oikealla puolella
+  for (let b = 0; b < 3; b++) {
+    const h = 4 + b * 2, bx = x + 13 + b * 4, by = y + 7 - h;
+    ctx.fillStyle = 'rgba(8, 12, 16, 0.85)'; ctx.fillRect(bx - 1, by - 1, 4, h + 2);
+    ctx.fillStyle = b < level ? col : 'rgba(150, 165, 175, 0.4)'; ctx.fillRect(bx, by, 2, h);
   }
 }
 
+// Kuvakkeet kellon oikealla puolella: sää ylempänä, tuuli sen alla
 function drawWindVane() {
-  const cx = W - 12, cy = 28, g = wind.gust;
-  const level = g < 0.08 ? 0 : g < 0.3 ? 1 : g < 0.6 ? 2 : 3;
-  // Kompassirengas tummalla pohjalla
-  ctx.fillStyle = 'rgba(8, 14, 18, 0.45)'; disc(ctx, cx, cy, 8);
-  for (let k = 0; k < 24; k++) {
-    const a = (k / 24) * Math.PI * 2;
-    ctx.fillStyle = k % 6 === 0 ? '#a8b8c0' : 'rgba(120, 140, 150, 0.7)';
-    ctx.fillRect(Math.round(cx + Math.cos(a) * 8), Math.round(cy + Math.sin(a) * 8), 1, 1);
-  }
-  const col = ['#7a8a90', '#c8d8e0', '#eef4f8', '#ffcd75'][level];
-  if (level === 0) { ctx.fillStyle = col; ctx.fillRect(cx - 1, cy - 1, 3, 3); ctx.fillStyle = 'rgba(8, 14, 18, 0.8)'; ctx.fillRect(cx, cy, 1, 1); }
-  else {
-    // Nuoli: varsi, sulat perässä ja täytetty kärki; puuskassa nuoli värähtää hieman
-    const a = Math.atan2(wind.sy, wind.sx) + Math.sin(time * 0.15) * 0.04 * level, ux = Math.cos(a), uy = Math.sin(a), nx = -uy, ny = ux;
-    const P = (along, side) => [cx + ux * along + nx * side, cy + uy * along + ny * side];
-    for (const sh of [1, 0]) {
-      const o = sh ? 1 : 0, c = sh ? 'rgba(4, 8, 10, 0.6)' : col;
-      plotLine(ctx, P(-6, 0)[0] + o, P(-6, 0)[1] + o, P(2, 0)[0] + o, P(2, 0)[1] + o, c);
-      for (const sd of [-1, 1]) plotLine(ctx, P(-6, 0)[0] + o, P(-6, 0)[1] + o, P(-7.5, sd * 1.8)[0] + o, P(-7.5, sd * 1.8)[1] + o, c);
-      polyFill(ctx, [P(6.5, 0), P(1.5, -3), P(1.5, 3)].map(([x, y]) => [x + o, y + o]), c);
-    }
-  }
-  // Voimakkuuspalkit
-  for (let b = 0; b < 3; b++) {
-    const h = 3 + b * 2, x = cx - 17 + b * 3, y = cy + 6 - h;
-    ctx.fillStyle = 'rgba(4, 8, 10, 0.5)'; ctx.fillRect(x + 1, y + 1, 2, h);
-    ctx.fillStyle = b < level ? col : 'rgba(150, 165, 175, 0.35)'; ctx.fillRect(x, y, 2, h);
-  }
-  drawWeatherIcon(W - 12, 9);
+  const x = WATCH.x + WATCH.size + 14;
+  drawWeatherIcon(x, WATCH.y + 11);
+  drawWindIcon(x, WATCH.y + 36);
 }
 
 // Teksti piirretään isolle kankaalle, jotta pikselifontti pysyy terävänä
@@ -4311,7 +4335,7 @@ function render() {
     text(help[0], W / 2, ty + 140, 4, '#94b0c2');
     text(help[1], W / 2, ty + 148, 4, '#94b0c2');
     if (!touch.on) {
-      text('Q lure · wheel hook / reel speed · C cut line · V water', W / 2, ty + 156, 4, '#94b0c2');
+      text('Q lure · wheel hook / reel speed · C cut line · V cheat mode', W / 2, ty + 156, 4, '#94b0c2');
       text('T time speed · L sync clock to local time · P pause · M sound', W / 2, ty + 164, 4, '#94b0c2');
     }
     text('stand still and the forest animals come closer', W / 2, ty + 175, 4, '#c0a070');
@@ -4322,8 +4346,8 @@ function render() {
   }
 
   drawWatch(env.tod);
-  if (clockSync) text('>>', WATCH.x + WATCH.size + 2, 6, 5, '#ffcd75', 'left');
-  else if (timeScale > 1) text(timeScale + 'x', WATCH.x + WATCH.size + 2, 6, 5, '#ffcd75', 'left');
+  if (clockSync) text('>>', WATCH.x + WATCH.size + 28, 8, 5, '#ffcd75', 'left');
+  else if (timeScale > 1) text(timeScale + 'x', WATCH.x + WATCH.size + 28, 8, 5, '#ffcd75', 'left');
   if (state !== 'sleep') {
     let ly = WATCH.y + WATCH.size + 4;
     const line = (str, col) => { text(str, 6, ly, 4, col, 'left'); ly += 8; };
@@ -4346,7 +4370,7 @@ function render() {
     if (sleep.phase !== 'out') text(touch.on ? 'TAP TO WAKE UP' : 'PRESS ANY KEY TO WAKE UP', 6, H - 11, 4, '#94b0c2', 'left');
     return;
   }
-  if (muted) text('SOUND OFF', W - 6, 42, 4, '#94b0c2', 'right');
+  if (muted) text('SOUND OFF', W - 6, 6, 4, '#94b0c2', 'right');
   if (!touch.on) {
     if (canSleep()) text('E  SLEEP IN THE TENT', 6, H - 29, 4, blink ? '#ffcd75' : '#e0b060', 'left');
     else if (player.rod) text(cast.lure ? 'HOLD MOUSE  REEL IN' : 'HOLD MOUSE  CAST', 6, H - 29, 4, '#c8d8e0', 'left');
@@ -4364,7 +4388,8 @@ function render() {
       const [wx, wy] = absToWorld(Math.round(mouseX) + Math.round(cam.x), Math.round(mouseY) + Math.round(cam.y));
       text(depthAt(wx, wy).toFixed(1) + ' m', Math.round(mouseX) + 9, Math.round(mouseY) - 9, 4, '#e8dca0', 'left');
     }
-    text((water.show ? 'V HIDE WATER' : 'V SHOW WATER') + '  [ ] MURK ' + water.turb.toFixed(2) + '  B LINES', W - 6, H - 9, 4, '#94b0c2', 'right');
+    if (water.show) text('V CHEAT MODE', W - 6, H - 9, 4, '#94b0c2', 'right');
+    else text('V CHEAT MODE ON  [ ] MURK ' + water.turb.toFixed(2) + '  B LINES', W - 6, H - 9, 4, '#e0a0a0', 'right');
   }
 
   if (state === 'pause') {
