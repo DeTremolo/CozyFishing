@@ -2257,24 +2257,45 @@ function drawWeather(camXr, camYr) {
 }
 
 // Kohon valopisteen hehku: pimeällä pieni vihreä kehä, päivällä vain kirkas piste
+// Hahmon takana olevien kohojen hehku piirretään omalle kerrokselleen, josta leikataan hahmon kuva pois
+const glowCanvas = makeCanvas(1, 1), glowCtx = glowCanvas.getContext('2d');
 function drawGlows() {
-  const night = nightAmt();
+  const back = glows.filter((o) => o.behind), front = glows.filter((o) => !o.behind);
+  if (back.length && shownPlayer.img && playerShown()) {
+    if (glowCanvas.width !== W || glowCanvas.height !== H) { glowCanvas.width = W; glowCanvas.height = H; }
+    const g = glowCtx;
+    g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, W, H);
+    paintGlows(g, back);
+    g.globalCompositeOperation = 'destination-out';
+    const P = shownPlayer;
+    if (P.flip) { g.save(); g.translate(P.x + P.img.width, P.y); g.scale(-1, 1); g.drawImage(P.img, 0, 0); g.restore(); }
+    else g.drawImage(P.img, P.x, P.y);
+    g.globalCompositeOperation = 'source-over';
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(glowCanvas, 0, 0);
+    ctx.globalCompositeOperation = 'source-over';
+  } else front.push(...back);
   ctx.globalCompositeOperation = 'lighter';
-  for (const o of glows) {
-    const a = o.a * (0.85 + 0.15 * Math.sin(time * 0.1));
-    if (night > 0.05) {
-      ctx.fillStyle = `rgba(70, 255, 60, ${(0.1 * night * a).toFixed(3)})`;
-      disc(ctx, o.x, o.y, 5);
-      ctx.fillStyle = `rgba(70, 255, 60, ${(0.16 * night * a).toFixed(3)})`;
-      disc(ctx, o.x, o.y, 3);
-      ctx.fillStyle = `rgba(90, 255, 70, ${(0.5 * night * a).toFixed(3)})`;
-      ctx.fillRect(o.x - 1, o.y, 3, 1); ctx.fillRect(o.x, o.y - 1, 1, 3);
-    }
-    ctx.fillStyle = `rgba(190, 255, 160, ${(0.9 * a).toFixed(3)})`;
-    ctx.fillRect(o.x, o.y, 1, 1);
-  }
+  paintGlows(ctx, front);
   ctx.globalCompositeOperation = 'source-over';
   glows = [];
+}
+function paintGlows(c, list) {
+  const night = nightAmt();
+  for (const o of list) {
+    const a = o.a * (0.85 + 0.15 * Math.sin(time * 0.1));
+    if (night > 0.05) {
+      c.fillStyle = `rgba(70, 255, 60, ${(0.1 * night * a).toFixed(3)})`;
+      disc(c, o.x, o.y, 5);
+      c.fillStyle = `rgba(70, 255, 60, ${(0.16 * night * a).toFixed(3)})`;
+      disc(c, o.x, o.y, 3);
+      c.fillStyle = `rgba(90, 255, 70, ${(0.5 * night * a).toFixed(3)})`;
+      c.fillRect(o.x - 1, o.y, 3, 1); c.fillRect(o.x, o.y - 1, 1, 3);
+    }
+    c.fillStyle = `rgba(190, 255, 160, ${(0.9 * a).toFixed(3)})`;
+    c.fillRect(o.x, o.y, 1, 1);
+  }
 }
 
 // Kipinät piirretään yön pimennyksen päälle, joten ne hehkuvat pimeässä. Kipinän väri kulkee
@@ -2904,7 +2925,7 @@ function drawLoose(camXr, camYr) {
     const [ux, uy] = screenDir(-Math.cos(o.a), -Math.sin(o.a));
     if (o.onWater) plotLine(ctx, x, y, x + ux * 8, y + uy * 8 + 1, 'rgba(225, 230, 235, 0.45)');
     if (o.kind === 'wobbler') { if (!f) drawWobblerAt(x, y - 1, 1, false); }
-    else drawBobberAt(x, y, o.onWater, !o.onWater, ctx.globalAlpha);
+    else { bobberBehind = behindPlayer(o.x, o.y); drawBobberAt(x, y, o.onWater, !o.onWater, ctx.globalAlpha); }
     ctx.globalAlpha = 1;
   }
 }
@@ -2989,7 +3010,7 @@ function drawUnderwater(camXr, camYr) {
       g.globalAlpha = underVis(f.z * 0.5);
       if (wl) plotLine(g, wl.wx, wl.wy, wl.ex, wl.ey, 'rgba(225, 230, 235, 0.6)');
       else plotLine(g, lx, ly + L.sub * Z_PX, fx, fy, 'rgba(225, 230, 235, 0.6)');
-      if (L.sub > 0.05) { g.globalAlpha = underVis(L.sub); drawBobberAt(lx, Math.round(ly + L.sub * Z_PX), false, false, underVis(L.sub) * 0.6); }
+      if (L.sub > 0.05) { g.globalAlpha = underVis(L.sub); bobberBehind = behindPlayer(L.x, L.y); drawBobberAt(lx, Math.round(ly + L.sub * Z_PX), false, false, underVis(L.sub) * 0.6); }
     } else if (L.kind === 'wobbler') {
       // Pinnan alle sukeltanut vaappu ja siima pinnasta vaappuun
       const wl = wobblerLine(camXr, camYr);
@@ -3643,6 +3664,7 @@ function drawBackRod(sx, sy, flip, rodX) {
 // Kädessä oleva onki ja siima: kärjestä roikkuu siima, jossa puna-valkoinen koho ja koukku
 function drawHeldRod(camXr, camYr) {
   const g = rodGeom();
+  bobberBehind = VIEW_INFO[player.view].away;   // poispäin katsottaessa onki ja siima ovat hahmon takana
   const hx = g.hx - camXr, hy = g.hy - camYr, tx = g.tx - camXr, ty = g.ty - camYr;
   const dx = tx - hx, dy = ty - hy, l = Math.hypot(dx, dy), ux = dx / l, uy = dy / l;
   // Vapa on vaalea, ja sen alla kulkee tumma reunaviiva, jotta se erottuu sekä metsästä että vedestä
@@ -3667,7 +3689,7 @@ function drawHeldRod(camXr, camYr) {
   }
   // Koho: punainen yläosa, valkoinen alaosa ja ohut tikku päällä
   const bx = Math.round(line[BOB_I].x - camXr), by = Math.round(line[BOB_I].y - camYr);
-  dot(bx, by - 3, '#7dff5a'); glows.push({ x: bx, y: by - 3, a: 1 });
+  dot(bx, by - 3, '#7dff5a'); glows.push({ x: bx, y: by - 3, a: 1, behind: bobberBehind });
   ctx.fillStyle = '#d8241c'; ctx.fillRect(bx - 1, by - 2, 2, 2);
   ctx.fillStyle = '#ff6a50'; ctx.fillRect(bx - 1, by - 2, 1, 1);
   ctx.fillStyle = '#f0f0ea'; ctx.fillRect(bx - 1, by, 2, 1);
@@ -4132,14 +4154,17 @@ const lureLift = (L) => (!L.onWater && onDock(L.x, L.y) ? DOCK_Z : 0);
 // Kohon kärjessä on neonvihreä valopiste. Sen hehku piirretään yön pimennyksen päälle (drawGlows),
 // jotta koho näkyy myös pimeällä; pinnan alle vedetyn kohon valo himmenee (glow = voimakkuus 0–1).
 let glows = [];
+// Onko seuraavaksi piirrettävä koho hahmon takana (silloin hahmo peittää valon hehkun)
+let bobberBehind = false;
+const behindPlayer = (x, y) => playerShown() && x + y < player.x + player.y;
 function drawBobberAt(x, y, floating, lying, glow = 1) {
   if (lying) {
-    dot(x - 2, y - 1, '#7dff5a'); glows.push({ x: x - 2, y: y - 1, a: glow * 0.8 });
+    dot(x - 2, y - 1, '#7dff5a'); glows.push({ x: x - 2, y: y - 1, a: glow * 0.8, behind: bobberBehind });
     ctx.fillStyle = '#d8241c'; ctx.fillRect(x - 1, y - 1, 2, 1);
     ctx.fillStyle = '#f0f0ea'; ctx.fillRect(x + 1, y - 1, 2, 1);
     return;
   }
-  dot(x, y - 4, '#7dff5a'); glows.push({ x, y: y - 4, a: glow });
+  dot(x, y - 4, '#7dff5a'); glows.push({ x, y: y - 4, a: glow, behind: bobberBehind });
   ctx.fillStyle = '#d8241c'; ctx.fillRect(x - 1, y - 3, 2, 2);
   ctx.fillStyle = '#ff6a50'; ctx.fillRect(x - 1, y - 3, 1, 1);
   ctx.fillStyle = '#f0f0ea'; ctx.fillRect(x - 1, y - 1, 2, floating ? 1 : 2);
@@ -4187,6 +4212,7 @@ function drawLure(camXr, camYr) {
   }
   // Kalan riuhtoessa koho nykii pinnalla
   const jerk = f && f.mode === 'fight' ? Math.round(rand(-1, 1)) : 0;
+  bobberBehind = behindPlayer(L.x, L.y);
   if (L.onWater) drawBobberAt(x + jerk, y + Math.round(Math.sin(time * 0.08 + 1) * 0.6) + (jerk ? 1 : 0), true);
   else drawBobberAt(x, y, false, true);
 }
