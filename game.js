@@ -3767,10 +3767,11 @@ function makeBoatSprites(a) {
     polyFill(gp, [t0, t1, b1, b0], sideCol(f.l));
     plotLine(gp, t0[0], t0[1] - 1, t1[0], t1[1] - 1, '#3a6a9a');
   }
-  const [rmx, rmy] = R(-1.66, 0, boatH(-1.5) + 3), [rs0x, rs0y] = R(-1.66, 0, 0);
-  plotLine(gp, rs0x, rs0y, rmx, rmy, '#3a3e44');
-  gp.fillStyle = '#26292e'; gp.fillRect(Math.round(rmx) - 2, Math.round(rmy) - 1, 5, 5);
-  return { full, front, under, refl, ax, ay, P };
+  // Perämoottorin heijastus omalla kuvallaan: se jää sekä veneen että hahmon heijastuksen alle
+  const [reflMotor, gm] = mk(), [rmx, rmy] = R(-1.66, 0, boatH(-1.5) + 3), [rs0x, rs0y] = R(-1.66, 0, 0);
+  plotLine(gm, rs0x, rs0y, rmx, rmy, '#3a3e44');
+  gm.fillStyle = '#26292e'; gm.fillRect(Math.round(rmx) - 2, Math.round(rmy) - 1, 5, 5);
+  return { full, front, under, refl, reflMotor, ax, ay, P };
 }
 const BOAT_SPR = Array.from({ length: BOAT_N }, (_, i) => makeBoatSprites((i / BOAT_N) * Math.PI * 2));
 const boatIdx = (a) => ((Math.round(a / (Math.PI * 2 / BOAT_N)) % BOAT_N) + BOAT_N) % BOAT_N;
@@ -3966,7 +3967,8 @@ function drawBoatReflection(camXr, camYr) {
   if (rx > W || ry > H || rx + 72 < 0 || ry + 72 < 0) return;
   g.globalCompositeOperation = 'source-over';
   g.clearRect(0, 0, 72, 72);
-  // Ensin kyydissä olevan hahmon heijastus, jonka päälle veneen laitojen heijastus piirretään
+  // Alimmaisena perämoottori, sen päällä kyydissä olevan hahmon heijastus ja päällimmäisenä veneen laidat
+  g.drawImage(spr.reflMotor, 0, 0);
   if (boat.rider) {
     // Kyydissä olevan hahmon heijastus: kuva käännetään ylösalaisin vedenpinnan kohdalla
     const [hx, hy] = screenDir(Math.cos(boat.a), Math.sin(boat.a));
