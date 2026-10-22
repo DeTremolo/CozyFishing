@@ -4604,6 +4604,9 @@ function drawWorld() {
   if (!water.show) drawDebugLines(camXr, camYr);
   drawLilies(camXr, camYr);
   drawWaterMist(camXr, camYr);
+  // Laiturin takana (kaukaisemmalla puolella) oleva vene piirretään ennen laituria, jolloin laituri peittää sen
+  const boatBehindDock = boat && (() => { const [t, sd] = dockLocal(boat.x, boat.y); return sd > 0 && t > -2 && t < DOCK_LEN + 2; })();
+  if (boatBehindDock) drawBoat(camXr, camYr);
   ctx.drawImage(dockImg, dockBX - camXr, dockBY - camYr);
   drawLure(camXr, camYr);
   drawLoose(camXr, camYr);
@@ -4631,7 +4634,7 @@ function drawWorld() {
     list.push({ d: o.x + o.y, k: 1, o, sx, sy });
   }
   list.push({ d: TENT.cx + TENT.cy + 2, k: 2 });
-  if (boat) list.push({ d: boat.x + boat.y, k: 8 });
+  if (boat && !boatBehindDock) list.push({ d: boat.x + boat.y, k: 8 });
   list.push({ d: CAMP.cx + CAMP.cy + 1, k: 3 });
   for (const a of animals) list.push({ d: a.x + a.y, k: 4, a });
   if (water.show) for (const o of waterRocks) list.push({ d: o.x + o.y, k: 7, o });
