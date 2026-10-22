@@ -4517,9 +4517,11 @@ function drawWorld() {
     drawRipples(camXr, camYr);
   }
   drawUnderwater(camXr, camYr);
+  // Tähtien vertailukuva otetaan ennen heijastuksia, jolloin tähdet eivät näy hahmon, veneen eivätkä
+  // perämoottorin heijastuksen kohdalla
+  snapStars('a');
   drawPlayerReflection(camXr, camYr);
   drawBoatReflection(camXr, camYr);
-  snapStars('a');
   if (!water.show) drawDebugLines(camXr, camYr);
   drawLilies(camXr, camYr);
   drawWaterMist(camXr, camYr);
