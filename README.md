@@ -38,10 +38,10 @@ Kun koho kelluu vedessä, tähtäimenä on ongen kela, jonka kampi pyörii kelat
 satunnaisesti muulloinkin.
 
 **Koho-ongen heitto** (hiirellä): tähtäin osoittaa paikan vedenpinnalla, johon koho laskeutuu. Kun nappia
-pidetään pohjassa, hahmon yläpuolella oleva ajoituspalkki pitenee ja lyhenee; sen keskellä on paras ajoitus.
-Palkki pysähtyy napin vapautuessa: osuessa keskikohtaan koho laskeutuu täsmälleen tähtäimen kohdalle, ja
-mitä kauempana keskeltä palkki pysähtyy, sitä suuremmalle ympyräkehälle tähtäimen ympärille koho osuu
-(halkaisija enintään 5 m; kehä näkyy tähtäimen ympärillä). Tähtäimen vieressä näkyy etäisyys metreinä.
+pidetään pohjassa, tähtäimen ympärillä oleva tarkkuuskehä pienenee suurimmasta koostaan (halkaisija 5 m)
+pisteeksi ja kasvaa taas, vuorotellen. Napin vapautuessa koho laskeutuu kehän kokoiselle ympyrälle
+tähtäimen ympärille: pienimmällä kehällä täsmälleen tähtäimen kohdalle, epätarkimmillaan 2,5 m ohi. Kehän
+väri kertoo tarkkuuden (vihreä, keltainen, punainen). Tähtäimen vieressä näkyy etäisyys metreinä.
 Heiton enimmäispituus on 15 m: kauempana tähtäimen päällä on kieltomerkki ja teksti TOO FAR, ja napin
 vapauttaminen peruu heiton.
 

@@ -1834,7 +1834,8 @@ function updateCast() {
   const L = c.lure;
   if (!L) {
     if (held && !c.needRelease) {
-      if (!c.charging) { c.charging = true; c.power = 0; c.pdir = 1; }
+      // Tähdätyssä heitossa kehä alkaa suurimmasta koosta ja pienenee; muuten voima alkaa nollasta
+      if (!c.charging) { c.charging = true; if (aimCast()) { c.power = 1; c.pdir = -1; } else { c.power = 0; c.pdir = 1; } }
       c.power += c.pdir / 70;
       if (c.power >= 1) { c.power = 1; c.pdir = -1; } else if (c.power <= 0) { c.power = 0; c.pdir = 1; }
     } else if (c.charging) {
@@ -1936,9 +1937,9 @@ function adjustHook(dv) {
   SFX.reel();
 }
 
-// Koho-ongen tähdätty heitto: tähtäin osoittaa paikan vedenpinnalla. Hahmon yläpuolella olevan
-// ajoituspalkin keskikohta on paras ajoitus; mitä kauempana keskeltä palkki pysähtyy, sitä
-// suuremmalle ympyräkehälle tähtäimen ympärille koho laskeutuu (halkaisija enintään 5 m).
+// Koho-ongen tähdätty heitto: tähtäin osoittaa paikan vedenpinnalla. Napin ollessa pohjassa tähtäimen
+// ympärillä oleva kehä pienenee ja kasvaa vuorotellen (halkaisija 0–5 m); napin vapautuessa koho
+// laskeutuu kehän kokoiselle ympyrälle tähtäimen ympärille, eli epätarkin heitto menee 2,5 m ohi.
 // Heiton enimmäispituus on 15 m. Kosketusohjauksessa ja muilla vieheillä heitto toimii kuten ennen.
 const CAST_AIM_MAX = 15, CAST_SPREAD = 2.5;   // heiton enimmäispituus ja kehän suurin säde (m)
 const aimCast = () => player.lure === 'bobber' && aiming();
@@ -1946,7 +1947,7 @@ function castTarget() {
   const [tx, ty] = absToWorld(mouseX + Math.round(cam.x), mouseY + Math.round(cam.y));
   return [tx, ty, Math.hypot(tx - player.x, ty - player.y)];
 }
-const castError = (power) => Math.min(1, Math.abs(power - 0.5) * 2);
+const castError = (power) => clamp(power, 0, 1);
 function castLureAt(tx, ty, power) {
   const p = player, g = rodGeom(), r = castError(power) * CAST_SPREAD, a = rand(0, Math.PI * 2);
   const x = tx + Math.cos(a) * r, y = ty + Math.sin(a) * r, dist = Math.max(1, Math.hypot(x - p.x, y - p.y));
@@ -4865,17 +4866,8 @@ function drawWorld() {
     ctx.fillStyle = tn > 0.75 ? (Math.floor(time / 6) % 2 ? '#ff4030' : '#c82818') : tn > 0.45 ? '#ffcd75' : '#a7f070';
     ctx.fillRect(x + 1, y + 1, Math.round(16 * tn), 2);
   }
-  // Koho-ongen ajoituspalkki hahmon yläpuolella: keskellä paras ajoitus
-  if (cast.charging && aimCast()) {
-    const x = Math.round(isoX(player.x, player.y) - camXr) - 13, y = Math.round(isoY(player.x, player.y) - camYr) - playerLift() - 27;
-    const e = castError(cast.power), fill = Math.round(24 * cast.power);
-    ctx.fillStyle = '#1a1c2c'; ctx.fillRect(x, y, 26, 5);
-    ctx.fillStyle = e < 0.15 ? '#a7f070' : e < 0.5 ? '#ffcd75' : '#ef7d57'; ctx.fillRect(x + 1, y + 1, fill, 3);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'; ctx.fillRect(x + 1, y + 1, fill, 1);
-    ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 13, y - 1, 1, 7);   // paras ajoitus
-  }
-  // Heiton voimapalkki hahmon alla (muut vieheet ja kosketusohjaus)
-  else if (cast.charging) {
+  // Heiton voimapalkki hahmon alla (muut vieheet ja kosketusohjaus; koho-ongen tarkkuus näkyy tähtäimessä)
+  if (cast.charging && !aimCast()) {
     const x = Math.round(isoX(player.x, player.y) - camXr) - 9, y = Math.round(isoY(player.x, player.y) - camYr) + 4;
     ctx.fillStyle = '#1a1c2c'; ctx.fillRect(x, y, 18, 4);
     ctx.fillStyle = cast.power > 0.9 ? '#ff8c1a' : '#ffcd75'; ctx.fillRect(x + 1, y + 1, Math.round(16 * cast.power), 2);
@@ -4905,10 +4897,10 @@ function drawReticle() {
       plotLine(ctx, x - 4, y - 6, x + 4, y + 2, '#e83a2a');
       return;
     }
-    // Ajoituksen mukainen osumakehä tähtäimen ympärillä (maan pinnan suuntainen ellipsi)
-    const r = castError(cast.power) * CAST_SPREAD;
+    // Tarkkuuskehä tähtäimen ympärillä (maan pinnan suuntainen ellipsi): pienenee ja kasvaa vuorotellen
+    const e = castError(cast.power), r = e * CAST_SPREAD;
     if (r > 0.1) {
-      ctx.fillStyle = 'rgba(255, 220, 140, 0.8)';
+      ctx.fillStyle = e < 0.2 ? 'rgba(167, 240, 112, 0.9)' : e < 0.55 ? 'rgba(255, 220, 140, 0.85)' : 'rgba(239, 125, 87, 0.85)';
       const n = Math.max(12, Math.round(r * 18));
       for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2; ctx.fillRect(Math.round(x + Math.cos(a) * r * 11.3), Math.round(y + Math.sin(a) * r * 5.66), 1, 1); }
     }
