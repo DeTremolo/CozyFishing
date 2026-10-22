@@ -1609,7 +1609,7 @@ let time, clock, timeScale = 1, clockSync = false, clockStep = 0, weather, wind,
 const LINE_SEG = 1.6, BOB_I = 7;   // siiman nivelet: koho nivelessä BOB_I, koukku viimeisessä
 const HOOK_MIN = 0.1, HOOK_MAX = 1.5;   // koukun syvyyden säätöalue kohon alapuolella (metreinä)
 let fishes, catches;
-const ui = { fishBar: true };   // käyttöliittymän asetukset (kalan voimapalkin näkyvyys)
+const ui = { fishBar: false };  // kalan voimapalkki (vain huijaustilassa, H)
 const cam = { x: 0, y: 0 };
 
 function setupWorld() {
@@ -1680,7 +1680,8 @@ function updatePlayer() {
     else if (p.boat && canLeave()) leaveBoat();
   }
   if (keyHit('KeyC')) cutLine();
-  if (keyHit('KeyH')) { ui.fishBar = !ui.fishBar; notify(ui.fishBar ? 'Fish strength bar shown' : 'Fish strength bar hidden', 90, 'fishbar'); }
+  // Kalan voimapalkin voi näyttää vain huijaustilassa (vesi piilotettuna)
+  if (keyHit('KeyH') && !water.show) { ui.fishBar = !ui.fishBar; notify(ui.fishBar ? 'Fish strength bar shown' : 'Fish strength bar hidden', 90, 'fishbar'); }
   if (keyHit('KeyQ')) switchLure();
   // Rulla ja -/+: koholla koukun syvyys, vaapulla kelausnopeus
   const adj = keyHit('Minus', 'NumpadSubtract', 'WheelDown') ? -1 : keyHit('Equal', 'NumpadAdd', 'WheelUp') ? 1 : 0;
@@ -4709,7 +4710,7 @@ function drawWorld() {
   // Kalan voimapalkki veden pinnalla kalan kohdalla; siiman kestopalkki hahmon yläpuolella
   const hf = cast.lure && cast.lure.fish;
   if (hf && hf.mode !== 'caught') {
-    if (ui.fishBar) {
+    if (ui.fishBar && !water.show) {
       const x = Math.round(isoX(hf.x, hf.y) - camXr) - 9, y = Math.round(isoY(hf.x, hf.y) - camYr) - 7;
       ctx.fillStyle = '#1a1c2c'; ctx.fillRect(x, y, 18, 4);
       ctx.fillStyle = hf.mode === 'tired' ? '#94b0c2' : '#ef7d57'; ctx.fillRect(x + 1, y + 1, Math.round(16 * hf.energy / hf.maxE), 2);
@@ -5124,7 +5125,7 @@ function render() {
       text(depthAt(wx, wy).toFixed(1) + ' m', Math.round(mouseX) + 9, Math.round(mouseY) - 9, 4, '#e8dca0', 'left');
     }
     if (water.show) text('V CHEAT MODE', W - 6, H - 9, 4, '#94b0c2', 'right');
-    else text('V CHEAT MODE ON  [ ] MURK ' + water.turb.toFixed(2) + '  B LINES', W - 6, H - 9, 4, '#e0a0a0', 'right');
+    else text('V CHEAT MODE ON  [ ] MURK ' + water.turb.toFixed(2) + '  B LINES  H FISH BAR' + (ui.fishBar ? ' ON' : ''), W - 6, H - 9, 4, '#e0a0a0', 'right');
   }
 
   if (state === 'pause') {

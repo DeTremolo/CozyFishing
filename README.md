@@ -28,7 +28,7 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 | [ ja ] | – | veden sameus pienemmäksi / suuremmaksi (vain huijaustilassa) |
 | B | – | syvyyskäyrät (1 m välein) päälle / pois (vain huijaustilassa) |
 | C | CUT | katkaise siima (kun siima on ulkona) |
-| H | – | kalan voimapalkki näkyviin / piiloon |
+| H | – | kalan voimapalkki näkyviin / piiloon (vain huijaustilassa) |
 | P | II | tauko |
 | M | ♪ | äänet päälle / pois |
 
