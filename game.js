@@ -1470,7 +1470,7 @@ function updateAmbientAudio() {
   amb.wlp.frequency.setTargetAtTime(300 + wind.gust * 500, t, 0.5);
   // Nuotion rätinä kuuluu lähellä
   const dc = Math.hypot(player.x - CAMP.cx - 0.5, player.y - CAMP.cy - 0.5);
-  if (dc < 10 && Math.random() < 0.18) noiseBurst(rand(0.01, 0.04), rand(1800, 5000), 'bandpass', 0.09 * (1 - dc / 10), 4);
+  if (dc < 10 && Math.random() < 0.18 * fireLevel()) noiseBurst(rand(0.01, 0.04), rand(1800, 5000), 'bandpass', 0.09 * (1 - dc / 10), 4);
   // Laineiden liplatus rannassa tuulella
   if (shoreDist(player.x, player.y) < 1.6 && wind.gust > 0.3 && Math.random() < 0.012 * wind.gust) noiseBurst(rand(0.25, 0.45), rand(350, 600), 'lowpass', 0.05 * wind.gust, 1);
 }
@@ -1609,7 +1609,7 @@ let player, line, particles, ripples, wakes, drops, ducks, animals, skyBirds, ba
 let time, clock, timeScale = 1, clockSync = false, clockStep = 0, weather, wind, birdT, skyBirdT, duckT, animalT, phaseName, sleep, cast;
 const LINE_SEG = 1.6, BOB_I = 7;   // siiman nivelet: koho nivelessä BOB_I, koukku viimeisessä
 const HOOK_MIN = 0.1, HOOK_MAX = 1.5;   // koukun syvyyden säätöalue kohon alapuolella (metreinä)
-let fishes, catches;
+let fishes, catches, fire;
 const ui = { fishBar: false };  // kalan voimapalkki (vain huijaustilassa, H)
 const cam = { x: 0, y: 0 };
 
@@ -1628,6 +1628,7 @@ function setupWorld() {
   particles = []; ripples = []; wakes = []; drops = []; animals = []; skyBirds = []; banners = []; loose = [];
   spawnFish();
   catches = [];
+  fire = { wood: 3, emb: 1, lit: true, barT: 0 };
   ducks = [makeDuck(C + rand(-8, 8), C + rand(-8, 8), true, false), makeDuck(C + rand(-8, 8), C + rand(-8, 8), false, false)];
   weatherSeed = Math.floor(Math.random() * 1e9); weatherPlans.clear();
   weather = { kind: 'clear', rain: 0, fog: 0 };
@@ -1676,10 +1677,14 @@ function updatePlayer() {
   if (keyHit('KeyR')) toggleRod();
   if (keyHit('KeyF')) toggleLight();
   if (keyHit('KeyE')) {
-    if (canSleep()) { startSleep(); return; }
-    if (canBoard()) boardBoat();
+    // Teltan ja nuotion välissä valitaan lähempi
+    const dt = Math.hypot(p.x - TENT_DOOR.x, p.y - TENT_DOOR.y), df = Math.hypot(p.x - CAMP.cx - 0.5, p.y - CAMP.cy - 0.5);
+    if (canSleep() && !(nearFire() && df < dt)) { startSleep(); return; }
+    if (nearFire()) addFirewood();
+    else if (canBoard()) boardBoat();
     else if (p.boat && canLeave()) leaveBoat();
   }
+  if (keyHit('KeyZ') && canLightFire()) lightFire();
   if (keyHit('KeyC')) cutLine();
   // Kalan voimapalkin voi näyttää vain huijaustilassa (vesi piilotettuna)
   if (keyHit('KeyH') && !water.show) { ui.fishBar = !ui.fishBar; notify(ui.fishBar ? 'Fish strength bar shown' : 'Fish strength bar hidden', 90, 'fishbar'); }
@@ -2390,7 +2395,8 @@ function collectLights(camXr, camYr) {
   const L = [];
   const add = (x, y, r, a, col) => { if (x > -r && x < W + r && y > -r && y < H + r) L.push({ x, y, r, a, col }); };
   const flick = Math.sin(time * 0.31) * 2.5 + Math.sin(time * 0.73) * 1.5 + Math.random() * 2;
-  add(isoX(CAMP.cx + 0.5, CAMP.cy + 0.5) - camXr, isoY(CAMP.cx + 0.5, CAMP.cy + 0.5) - camYr - 3, 62 + flick, 0.95, [255, 140, 50]);
+  const fg = fireGlow();   // nuotion valo seuraa palavan puun määrää; hiillos hohtaa heikosti
+  if (fg > 0.01) add(isoX(CAMP.cx + 0.5, CAMP.cy + 0.5) - camXr, isoY(CAMP.cx + 0.5, CAMP.cy + 0.5) - camYr - 3, 14 + 50 * fg + flick * fg, 0.95 * Math.min(1, fg * 1.15), [255, 140, 50]);
   // Pelaajan oma hahmo erottuu hämärästi; päällä oleva otsalamppu valaisee myös hattua ja kasvoja
   add(isoX(player.x, player.y) - camXr, isoY(player.x, player.y) - camYr - 9, 16, 0.35, null);
   if (lampOn()) add(isoX(player.x, player.y) - camXr, isoY(player.x, player.y) - camYr - 16, 7, 0.3, null);
@@ -2510,18 +2516,70 @@ function drawNight(camXr, camYr) {
 }
 
 // ---------------------------------------------------------------------------
-// Nuotio ja sen savu
+// Nuotio ja sen savu. Nuotioon lisätään klapeja yksi kerrallaan (E nuotion vieressä), enintään 5.
+// Täysi nuotio (5 klapia) palaa loppuun tunnissa pelin aikaa, ja sen liekit ovat 20 % tavallista
+// korkeammat; liekit pienenevät puiden kuluessa. Kun puut loppuvat, jää hehkuva hiillos, joka sammuu
+// 30 minuutissa. Hiillokseen lisätty klapi syttyy itsestään, mutta sammunut nuotio sytytetään erikseen
+// (Z). Pelaajalla on toistaiseksi loputtomasti klapeja.
 // ---------------------------------------------------------------------------
+const FIRE_MAX = 5, FIRE_BURN = 5 / (60 * GAME_MIN), EMBER_FADE = 1 / (30 * GAME_MIN);
+// Liekkien koko (0 = ei liekkejä, 1,2 = täysi nuotio) ja valon voimakkuus (0–1)
+const fireLevel = () => (fire.lit && fire.wood > 0 ? Math.max(0.35, 1.2 * Math.sqrt(fire.wood / FIRE_MAX)) : 0);
+const fireGlow = () => (fire.lit && fire.wood > 0 ? 0.45 + 0.55 * Math.sqrt(fire.wood / FIRE_MAX) : fire.lit ? 0.3 * fire.emb : 0);
+// Puiden palaminen ja hiilloksen hiipuminen; dt kellon yksikköinä (pelin aika)
+function burnFire(dt) {
+  if (!fire.lit) return;
+  if (fire.wood > 0) {
+    fire.wood -= dt * FIRE_BURN;
+    if (fire.wood <= 0) { fire.wood = 0; fire.emb = 1; }
+  } else {
+    fire.emb -= dt * EMBER_FADE;
+    if (fire.emb <= 0) { fire.emb = 0; fire.lit = false; }
+  }
+}
+const FIRE_REACH = 1.6;
+const nearFire = () => state === 'play' && !player.boat && Math.hypot(player.x - CAMP.cx - 0.5, player.y - CAMP.cy - 0.5) < FIRE_REACH;
+const canLightFire = () => nearFire() && !fire.lit && fire.wood > 0;
+function fireSparks(n) {
+  const a = { x: isoX(CAMP.cx + 0.5, CAMP.cy + 0.5), y: isoY(CAMP.cx + 0.5, CAMP.cy + 0.5) - 6 };
+  for (let k = 0; k < n; k++) {
+    const life = rand(60, 170);
+    particles.push({ x: a.x + rand(-3, 3), y: a.y + rand(0, 4), vx: rand(-0.35, 0.35), vy: rand(-1.3, -0.5), g: 0, life, max: life, ember: true, ph: rand(0, 6.28) });
+  }
+}
+function addFirewood() {
+  const burning = fire.lit;
+  fire.wood = Math.min(FIRE_MAX, fire.wood + 1);
+  fire.barT = 150;
+  SFX.thud();
+  if (burning) {
+    // Hehkuva hiillos sytyttää klapin; lisäys pöllähtää kipinöinä
+    fire.emb = 1;
+    fireSparks(14);
+    SFX.crackle(1);
+  } else notify('Z  light the fire', 120, 'hint');
+}
+function lightFire() {
+  fire.lit = true; fire.emb = 1;
+  fireSparks(6);
+  noiseBurst(0.12, 3200, 'highpass', 0.08, 1);   // tulitikun raapaisu
+  setTimeout(() => SFX.crackle(0.7), 250);
+}
+
 function updateCampfire() {
+  const lvl = fireLevel();
   const a = { x: isoX(CAMP.cx + 0.5, CAMP.cy + 0.5), y: isoY(CAMP.cx + 0.5, CAMP.cy + 0.5) - 9 };
-  // Nouseva savupatsas: ohut alhaalla, levenee ja haalistuu noustessaan, tuuli kuljettaa sitä
-  if (particles.length < 1500 && Math.random() < 0.3) {
+  // Nouseva savupatsas: ohut alhaalla, levenee ja haalistuu noustessaan, tuuli kuljettaa sitä.
+  // Savua tulee sitä enemmän, mitä enemmän puuta palaa; hiillos savuaa vain vähän.
+  const smokeP = lvl > 0 ? 0.12 + 0.18 * lvl : fire.lit ? 0.06 * fire.emb : 0;
+  if (particles.length < 1500 && Math.random() < smokeP) {
     const life = rand(170, 250);
     particles.push({ x: a.x + rand(-1, 1), y: a.y, vx: rand(-0.03, 0.03), vy: rand(-0.4, -0.28), g: 0, life, max: life, color: pick(['#8a8f96', '#9aa0a8', '#6f747c']), smoke: true, big: Math.random() < 0.6 });
   }
   // Hehkuvat kipinät: yksittäisiä silloin tällöin ja välillä ritisevä ryöppy. Ne nousevat savun mukana.
-  const burst = Math.random() < 0.008;
-  for (let n = burst ? Math.floor(rand(4, 11)) : Math.random() < 0.05 ? 1 : 0; n > 0; n--) {
+  if (lvl <= 0) return;
+  const burst = Math.random() < 0.008 * lvl;
+  for (let n = burst ? Math.floor(rand(4, 11)) : Math.random() < 0.05 * lvl ? 1 : 0; n > 0; n--) {
     const life = rand(70, 190);
     particles.push({ x: a.x + rand(-2, 2), y: a.y + rand(2, 5), vx: rand(-0.25, 0.25), vy: rand(-0.9, -0.45), g: 0, life, max: life, ember: true, ph: rand(0, 6.28) });
   }
@@ -3577,6 +3635,7 @@ function framesToWake() {
 // Aika kuluu n päivitystä kerralla: sää ja tuuli vaihtuvat taustalla ilman ilmoituksia
 function fastForward(n) {
   time += n; clock += n;
+  burnFire(n);
   setWeatherKind(weatherKindNow());
   wind.t -= n;
   if (wind.t <= 0) nextWind();
@@ -3669,6 +3728,8 @@ function update() {
   updatePlayer();
   if (state === 'sleep') { pressed = {}; return; }
   updateWeather();
+  burnFire(clockStep);
+  if (fire.barT > 0) fire.barT--;
   updateSway();
   updateCampfire();
   updateBoat();
@@ -4462,9 +4523,11 @@ function drawCampfire(sx, sy) {
   const t = time;
   ctx.fillStyle = '#2a2420'; ctx.fillRect(sx - 5, sy - 1, 11, 3); ctx.fillRect(sx - 4, sy - 2, 9, 5);
   ctx.fillStyle = '#4a4440'; ctx.fillRect(sx - 3, sy, 2, 1); ctx.fillRect(sx + 2, sy + 1, 2, 1);
-  for (let k = 0; k < 6; k++) {
-    const glow = 0.5 + 0.5 * Math.sin(t * 0.13 + k * 2.1);
-    ctx.fillStyle = glow > 0.6 ? '#ffb340' : glow > 0.3 ? '#e0501c' : '#7a2010';
+  // Hiillos: hehkuu palaessa ja hiipuessa, sammuneena harmaata tuhkaa ja hiiltä
+  const lvl = fireLevel(), heat = lvl > 0 ? 1 : fire.lit ? fire.emb : 0;
+  for (let k = 0; k < 9; k++) {
+    const glow = (0.5 + 0.5 * Math.sin(t * 0.13 + k * 2.1)) * heat;
+    ctx.fillStyle = heat <= 0 ? (k % 3 ? '#3a3632' : '#5a5650') : glow > 0.6 ? '#ffb340' : glow > 0.3 ? '#e0501c' : glow > 0.08 ? '#7a2010' : '#3a2a22';
     ctx.fillRect(sx - 3 + ((k * 5) % 7), sy - 1 + (k % 3), 1, 1);
   }
   const stones = CAMP_STONES.map((st) => ({ ...st, x: sx + Math.cos(st.a) * 6, y: sy + Math.sin(st.a) * 2.8 })).sort((p, q) => p.y - q.y);
@@ -4474,12 +4537,26 @@ function drawCampfire(sx, sy) {
     ctx.fillStyle = '#8d939b'; ctx.fillRect(x, y, st.w, 1);
     ctx.fillStyle = Math.sin(st.a) < 0 ? '#c49a6a' : '#b4b9c0'; ctx.fillRect(x + (Math.cos(st.a) > 0 ? 0 : st.w - 1), y, 1, 1);
   }
-  for (const [x0, y0, x1, y1] of [[-4, 1, 4, -1], [-4, -1, 4, 1], [-1, 2, 1, -2]]) {
-    plotLine(ctx, sx + x0, sy + y0, sx + x1, sy + y1, '#5a3b22');
+  // Klapit: jokainen nuotiossa oleva (osittainenkin) klapi näkyy, viimeiset palavat hiiltyneinä
+  const LOGS = [[-4, 1, 4, -1], [-4, -1, 4, 1], [-1, 2, 1, -2], [-4, 0, 3, 2], [-3, -2, 4, 0]];
+  const nLogs = Math.ceil(fire.wood - 0.01);
+  for (let k = 0; k < Math.min(nLogs, LOGS.length); k++) {
+    const [x0, y0, x1, y1] = LOGS[k];
+    plotLine(ctx, sx + x0, sy + y0, sx + x1, sy + y1, fire.lit ? '#5a3b22' : '#6a4a2c');
     dot(sx + x0, sy + y0, '#1a1410'); dot(sx + x1, sy + y1, '#1a1410');
   }
+  if (lvl <= 0) {
+    // Hiipuva hiillos hohtaa vain heikosti
+    if (heat > 0.02) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = `rgba(255, 90, 20, ${(0.22 * heat * (0.85 + 0.15 * Math.sin(t * 0.07))).toFixed(3)})`;
+      disc(ctx, sx, sy, 3);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    return;
+  }
   ctx.globalCompositeOperation = 'lighter';
-  const f = fireFlicker(7);
+  const f = fireFlicker(7) * lvl;
   ctx.fillStyle = `rgba(255, 120, 30, ${0.25 + f * 0.15})`;
   disc(ctx, sx, sy - 2, 3 + Math.round(f));
   ctx.globalCompositeOperation = 'source-over';
@@ -4500,9 +4577,9 @@ function drawCampfire(sx, sy) {
       ctx.fillRect(sx + dx + sway, sy - 1 - y, 1, 1);
     }
   }
-  if (Math.random() < 0.35) {
+  if (Math.random() < 0.35 * lvl) {
     ctx.fillStyle = Math.random() < 0.5 ? '#ff8c1a' : '#ef5a20';
-    ctx.fillRect(sx + Math.round(rand(-2, 2) + lean), sy - 11 - Math.round(Math.random() * 3), 1, 1);
+    ctx.fillRect(sx + Math.round(rand(-2, 2) + lean), sy - Math.round(11 * lvl) - Math.round(Math.random() * 3), 1, 1);
   }
 }
 
@@ -4586,7 +4663,8 @@ function drawShadows(camXr, camYr) {
     ctx.globalAlpha = 1;
   }
   // Nuotio heittää hahmoista varjot poispäin tulesta; pituus ja tummuus elävät liekin mukana
-  if (night > 0.05) {
+  const fg = fireGlow();
+  if (night > 0.05 && fg > 0.05) {
     const fx = isoX(CAMP.cx + 0.5, CAMP.cy + 0.5) - camXr, fy = isoY(CAMP.cx + 0.5, CAMP.cy + 0.5) - camYr;
     const flick = 0.9 + Math.sin(time * 0.31) * 0.06 + Math.sin(time * 0.73) * 0.04, reach = 130;
     for (const e of ents) {
@@ -4594,7 +4672,7 @@ function drawShadows(camXr, camYr) {
       if (d < 6 || d > reach) continue;
       const ux = dx / d, uy = dy / d, L = clamp((40 / d) * (0.85 + flick * 0.25), 0.5, 2.4);
       ctx.save();
-      ctx.globalAlpha = clamp(0.6 * night * flick * (1 - d / reach), 0, 0.7);
+      ctx.globalAlpha = clamp(0.6 * night * flick * fg * (1 - d / reach), 0, 0.7);
       ctx.setTransform(1, 0, -L * ux, -L * uy * 0.5, e.sx, e.sy);
       ctx.drawImage(e.sil, -e.ax, -e.ay);
       ctx.restore();
@@ -4853,6 +4931,15 @@ function drawWorld() {
   drawWindVane();
   if (state === 'play' && aiming()) drawReticle();
   // Koukussa olevan kalan voimat hahmon yläpuolella
+  // Nuotion puumäärä (0–5) näkyy hetken klapin lisäämisen jälkeen
+  if (fire.barT > 0) {
+    const x = Math.round(isoX(CAMP.cx + 0.5, CAMP.cy + 0.5) - camXr) - 9, y = Math.round(isoY(CAMP.cx + 0.5, CAMP.cy + 0.5) - camYr) - 24;
+    ctx.globalAlpha = Math.min(1, fire.barT / 30);
+    ctx.fillStyle = '#1a1c2c'; ctx.fillRect(x, y, 18, 4);
+    ctx.fillStyle = '#ff8c1a'; ctx.fillRect(x + 1, y + 1, Math.round(16 * fire.wood / FIRE_MAX), 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'; ctx.fillRect(x + 1, y + 1, Math.round(16 * fire.wood / FIRE_MAX), 1);
+    ctx.globalAlpha = 1;
+  }
   // Kalan voimapalkki veden pinnalla kalan kohdalla; siiman kestopalkki hahmon yläpuolella
   const hf = cast.lure && cast.lure.fish;
   if (hf && hf.mode !== 'caught') {
@@ -5220,7 +5307,7 @@ function render() {
     text(help[1], W / 2, ty + 148, 4, '#94b0c2');
     if (!touch.on) {
       text('Q lure · wheel hook / reel speed · C cut line · E boat · V cheat', W / 2, ty + 156, 4, '#94b0c2');
-      text('T time speed · L sync clock to local time · P pause · M sound', W / 2, ty + 164, 4, '#94b0c2');
+      text('E firewood · Z light fire · T time speed · L sync clock · P pause · M sound', W / 2, ty + 164, 4, '#94b0c2');
     }
     text('stand still and the forest animals come closer', W / 2, ty + 175, 4, '#c0a070');
     text(CREDITS.copyright, W / 2, ty + 188, 5, '#a7f070');
@@ -5268,7 +5355,10 @@ function render() {
   if (muted) text('SOUND OFF', W - 6, 6, 4, '#94b0c2', 'right');
   if (!touch.on) {
     const inBoat = player.boat, driving = inBoat && boat.rider === 'drive';
-    if (canSleep()) text('E  SLEEP IN THE TENT', 6, H - 29, 4, blink ? '#ffcd75' : '#e0b060', 'left');
+    const dtt = Math.hypot(player.x - TENT_DOOR.x, player.y - TENT_DOOR.y), dff = Math.hypot(player.x - CAMP.cx - 0.5, player.y - CAMP.cy - 0.5);
+    if (canLightFire()) text('Z  LIGHT THE FIRE', 6, H - 47, 4, blink ? '#ffcd75' : '#e0b060', 'left');
+    if (nearFire() && !(canSleep() && dtt < dff)) text('E  ADD FIREWOOD', 6, H - 29, 4, blink ? '#ffcd75' : '#e0b060', 'left');
+    else if (canSleep()) text('E  SLEEP IN THE TENT', 6, H - 29, 4, blink ? '#ffcd75' : '#e0b060', 'left');
     else if (canBoard()) text('E  BOARD THE BOAT', 6, H - 29, 4, blink ? '#ffcd75' : '#e0b060', 'left');
     else if (driving) text('W / S  THROTTLE   A / D  STEER', 6, H - 29, 4, '#c8d8e0', 'left');
     else if (player.rod) text(cast.lure ? 'HOLD MOUSE  REEL IN' : 'HOLD MOUSE  CAST', 6, H - 29, 4, '#c8d8e0', 'left');

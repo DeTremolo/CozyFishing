@@ -19,6 +19,8 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 | R | ROD | onki käteen / takaisin repun kylkeen |
 | F | LAMP | otsalamppu päälle / pois |
 | E (teltan ovella) | SLEEP | nukkumaan aamuun kello 7.00 asti; mikä tahansa näppäin herättää |
+| E (nuotion vieressä) | WOOD | lisää nuotioon klapi (enintään 5) |
+| Z (nuotion vieressä) | LIGHT | sytytä sammunut nuotio (kun siinä on puita) |
 | hiiren oikea nappi pohjassa | – | vapauta siimaa kelalta (enintään 30 m ulkona) |
 | Q | LURE | vaihda viehe: koho ja mato / vaappu (vain kun siima on kelattu sisään) |
 | hiiren rulla tai - / + | – | koholla koukun syvyys 0,1–1,5 m (vain kun siima on kelattu sisään); vaapulla kelausnopeus 10–100 cm/s |
@@ -69,6 +71,12 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   osmankäämiä ja saraa, jotka taipuvat tuulessa sulavasti. Kaislikon väleissä on avoimia
   rantakohtia, joista pääsee kalastamaan vapaasti. Matalassa rantavedessä kelluu lumpeita ja ulpukoita.
   Lumpeiden varret ja kaislojen vedenalaiset varret ulottuvat lammen pohjaan asti; kaislikko huojuu rauhallisesti.
+- **Nuotio**: nuotioon lisätään klapeja yksi kerrallaan (E), enintään 5; pelaajalla on toistaiseksi
+  loputtomasti klapeja. Täysi nuotio palaa loppuun tunnissa pelin aikaa ja sen liekit ovat tavallista 20 %
+  korkeammat; liekit, valo, savu ja kipinät pienenevät puiden kuluessa. Kun puut loppuvat, jää hehkuva
+  hiillos, joka sammuu 30 minuutissa; sen jälkeen nuotio on täysin pimeä. Hiillokseen lisätty klapi syttyy
+  itsestään ja nostaa kipinöitä, mutta sammunut nuotio pitää sytyttää erikseen (Z). Klapin lisäämisen jälkeen
+  nuotion yläpuolella näkyy hetken puumäärän palkki (0–5).
 - **Aukea** lammen vasemmalla rannalla: teltta, palava nuotio (savu kulkee tuulen mukana; välillä ritisten
   nousevat hehkuvat kipinät leijailevat savun mukana ja hohtavat pimeällä) ja
   noin 8 m pitkä laituri, jolle voi kävellä. Aukean takareunassa lähes teltan takana (hieman oikealla) on vanha polttopuukatos,

@@ -108,6 +108,9 @@ body.has-rod #btn-cast { display: block; }
 body.line-out #btn-cut { display: block; }
 #btn-lure { display: none; color: #a8c0d8; }
 #btn-boat { display: none; color: #ffcd75; }
+#btn-wood, #btn-ignite { display: none; color: #ff8c1a; }
+body.near-fire #btn-wood { display: block; }
+body.can-ignite #btn-ignite { display: block; }
 body.can-boat #btn-boat { display: block; }
 body.can-lure #btn-lure { display: block; }
 
