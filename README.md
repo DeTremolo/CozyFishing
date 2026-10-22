@@ -19,7 +19,7 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 | R | ROD | onki käteen / takaisin repun kylkeen |
 | F | LAMP | otsalamppu päälle / pois |
 | E (teltan ovella) | SLEEP | nukkumaan aamuun kello 7.00 asti; mikä tahansa näppäin herättää |
-| E (nuotion vieressä) | WOOD | lisää nuotioon klapi (enintään 5) |
+| E (nuotion vieressä) | WOOD | lisää nuotioon klapi (kun nuotio ei ole täynnä) |
 | Z (nuotion vieressä) | LIGHT | sytytä sammunut nuotio (kun siinä on puita) |
 | hiiren oikea nappi pohjassa | – | vapauta siimaa kelalta (enintään 30 m ulkona) |
 | Q | LURE | vaihda viehe: koho ja mato / vaappu (vain kun siima on kelattu sisään) |
@@ -71,9 +71,10 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   osmankäämiä ja saraa, jotka taipuvat tuulessa sulavasti. Kaislikon väleissä on avoimia
   rantakohtia, joista pääsee kalastamaan vapaasti. Matalassa rantavedessä kelluu lumpeita ja ulpukoita.
   Lumpeiden varret ja kaislojen vedenalaiset varret ulottuvat lammen pohjaan asti; kaislikko huojuu rauhallisesti.
-- **Nuotio**: nuotioon lisätään klapeja yksi kerrallaan (E), enintään 5; pelaajalla on toistaiseksi
+- **Nuotio**: nuotioon lisätään klapeja yksi kerrallaan (E), enintään 5; uuden klapin voi lisätä vain, kun
+  puuta on enintään 4,2 (täyteen nuotioon lisääminen ei tee mitään); pelaajalla on toistaiseksi
   loputtomasti klapeja. Täysi nuotio palaa loppuun tunnissa pelin aikaa ja sen liekit ovat tavallista 20 %
-  korkeammat; liekit, valo, savu ja kipinät pienenevät puiden kuluessa. Kun puut loppuvat, jää hehkuva
+  korkeammat; liekit, valo, savu ja kipinät pienenevät puiden kuluessa. Kun puut loppuvat, jää punaisena hehkuva
   hiillos, joka sammuu 30 minuutissa; sen jälkeen nuotio on täysin pimeä. Hiillokseen lisätty klapi syttyy
   itsestään ja nostaa kipinöitä, mutta sammunut nuotio pitää sytyttää erikseen (Z). Klapin lisäämisen jälkeen
   nuotion yläpuolella näkyy hetken puumäärän palkki (0–5).

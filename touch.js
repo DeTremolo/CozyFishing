@@ -159,7 +159,7 @@
     lightBtn.classList.toggle('on', !!(player && player.light));
     document.body.classList.toggle('menu', state !== 'play' && state !== 'pause');
     document.body.classList.toggle('can-sleep', canSleep());
-    document.body.classList.toggle('near-fire', !!player && nearFire());
+    document.body.classList.toggle('near-fire', !!player && nearFire() && !fireFull());
     document.body.classList.toggle('can-ignite', !!player && canLightFire());
     document.body.classList.toggle('can-boat', !!player && (canBoard() || (player.boat && canLeave())));
     document.body.classList.toggle('can-lure', !!(player && player.rod) && !(cast && cast.lure) && state === 'play');
