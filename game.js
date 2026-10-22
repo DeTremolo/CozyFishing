@@ -1836,7 +1836,15 @@ function updateCast() {
       if (!c.charging) { c.charging = true; c.power = 0; c.pdir = 1; }
       c.power += c.pdir / 70;
       if (c.power >= 1) { c.power = 1; c.pdir = -1; } else if (c.power <= 0) { c.power = 0; c.pdir = 1; }
-    } else if (c.charging) { c.charging = false; castLure(c.power); }
+    } else if (c.charging) {
+      c.charging = false;
+      if (aimCast()) {
+        // Tähdätty koho-ongen heitto: liian pitkä heitto perutaan
+        const [tx, ty, d] = castTarget();
+        if (d > CAST_AIM_MAX) { notify('Too far to cast.', 90, 'hint'); SFX.click(); }
+        else castLureAt(tx, ty, c.power);
+      } else castLure(c.power);
+    }
     return;
   }
   if (L.st === 'fly') {
@@ -1925,6 +1933,29 @@ function adjustHook(dv) {
   notify('Hook depth ' + cast.hookDepth.toFixed(1) + ' m', 90, 'hook');
   if (player.rod) resetLine();
   SFX.reel();
+}
+
+// Koho-ongen tähdätty heitto: tähtäin osoittaa paikan vedenpinnalla. Hahmon yläpuolella olevan
+// ajoituspalkin keskikohta on paras ajoitus; mitä kauempana keskeltä palkki pysähtyy, sitä
+// suuremmalle ympyräkehälle tähtäimen ympärille koho laskeutuu (halkaisija enintään 5 m).
+// Heiton enimmäispituus on 15 m. Kosketusohjauksessa ja muilla vieheillä heitto toimii kuten ennen.
+const CAST_AIM_MAX = 15, CAST_SPREAD = 2.5;   // heiton enimmäispituus ja kehän suurin säde (m)
+const aimCast = () => player.lure === 'bobber' && aiming();
+function castTarget() {
+  const [tx, ty] = absToWorld(mouseX + Math.round(cam.x), mouseY + Math.round(cam.y));
+  return [tx, ty, Math.hypot(tx - player.x, ty - player.y)];
+}
+const castError = (power) => Math.min(1, Math.abs(power - 0.5) * 2);
+function castLureAt(tx, ty, power) {
+  const p = player, g = rodGeom(), r = castError(power) * CAST_SPREAD, a = rand(0, Math.PI * 2);
+  const x = tx + Math.cos(a) * r, y = ty + Math.sin(a) * r, dist = Math.max(1, Math.hypot(x - p.x, y - p.y));
+  cast.lure = {
+    st: 'fly', ax0: g.tx, ay0: g.ty, ax: g.tx, ay: g.ty, t: 0, T: Math.round(18 + dist * 2), h: 10 + dist * 2.2,
+    x, y, out: 0, onWater: false, wakeT: 0, sub: 0, fish: null, clickT: 0,
+    kind: p.lure, z: 0, moving: false,
+  };
+  cast.flick = 12;
+  SFX.cast(clamp(dist / CAST_AIM_MAX, 0, 1));
 }
 
 function castLure(power) {
@@ -4723,8 +4754,17 @@ function drawWorld() {
     ctx.fillStyle = tn > 0.75 ? (Math.floor(time / 6) % 2 ? '#ff4030' : '#c82818') : tn > 0.45 ? '#ffcd75' : '#a7f070';
     ctx.fillRect(x + 1, y + 1, Math.round(16 * tn), 2);
   }
-  // Heiton voimapalkki hahmon alla
-  if (cast.charging) {
+  // Koho-ongen ajoituspalkki hahmon yläpuolella: keskellä paras ajoitus
+  if (cast.charging && aimCast()) {
+    const x = Math.round(isoX(player.x, player.y) - camXr) - 13, y = Math.round(isoY(player.x, player.y) - camYr) - playerLift() - 27;
+    const e = castError(cast.power), fill = Math.round(24 * cast.power);
+    ctx.fillStyle = '#1a1c2c'; ctx.fillRect(x, y, 26, 5);
+    ctx.fillStyle = e < 0.15 ? '#a7f070' : e < 0.5 ? '#ffcd75' : '#ef7d57'; ctx.fillRect(x + 1, y + 1, fill, 3);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'; ctx.fillRect(x + 1, y + 1, fill, 1);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 13, y - 1, 1, 7);   // paras ajoitus
+  }
+  // Heiton voimapalkki hahmon alla (muut vieheet ja kosketusohjaus)
+  else if (cast.charging) {
     const x = Math.round(isoX(player.x, player.y) - camXr) - 9, y = Math.round(isoY(player.x, player.y) - camYr) + 4;
     ctx.fillStyle = '#1a1c2c'; ctx.fillRect(x, y, 18, 4);
     ctx.fillStyle = cast.power > 0.9 ? '#ff8c1a' : '#ffcd75'; ctx.fillRect(x + 1, y + 1, Math.round(16 * cast.power), 2);
@@ -4744,6 +4784,24 @@ const LURES = {
 
 function drawReticle() {
   const x = Math.round(mouseX), y = Math.round(mouseY);
+  if (player.rod && !cast.lure && cast.charging && aimCast()) {
+    const d = castTarget()[2];
+    if (d > CAST_AIM_MAX) {
+      // Liian pitkä heitto: kieltomerkki tähtäimen päällä
+      LURES[player.lure].reticle(x, y);
+      ctx.fillStyle = '#e83a2a';
+      for (let k = 0; k < 20; k++) { const a = (k / 20) * Math.PI * 2; ctx.fillRect(Math.round(x + Math.cos(a) * 6), Math.round(y - 2 + Math.sin(a) * 6), 1, 1); }
+      plotLine(ctx, x - 4, y - 6, x + 4, y + 2, '#e83a2a');
+      return;
+    }
+    // Ajoituksen mukainen osumakehä tähtäimen ympärillä (maan pinnan suuntainen ellipsi)
+    const r = castError(cast.power) * CAST_SPREAD;
+    if (r > 0.1) {
+      ctx.fillStyle = 'rgba(255, 220, 140, 0.8)';
+      const n = Math.max(12, Math.round(r * 18));
+      for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2; ctx.fillRect(Math.round(x + Math.cos(a) * r * 11.3), Math.round(y + Math.sin(a) * r * 5.66), 1, 1); }
+    }
+  }
   if (player.rod && cast.lure && cast.lure.st === 'float' && cast.lure.onWater) drawReelReticle(x, y);
   else if (player.rod) LURES[player.lure].reticle(x, y);
   else drawCrossReticle(x, y);
@@ -5119,6 +5177,11 @@ function render() {
     text((player.light ? 'F  LAMP ON' : 'F  LAMP OFF'), 6, H - 11, 4, player.light ? '#ffe9a0' : '#94b0c2', 'left');
   }
   if (banners.length) text(banners[0].text, W / 2, 34, 6, '#ffcd75');
+  // Tähdätyn heiton etäisyys tähtäimen vieressä
+  if (state === 'play' && player.rod && !cast.lure && cast.charging && aimCast()) {
+    const d = castTarget()[2];
+    text(d > CAST_AIM_MAX ? 'TOO FAR' : d.toFixed(1) + ' m', Math.round(mouseX) + 9, Math.round(mouseY) + 3, 4, d > CAST_AIM_MAX ? '#ff6a50' : '#ffe9a0', 'left');
+  }
   // Debug-tilassa (vesi piilotettuna) tähtäimen vieressä veden syvyys siinä pinnan kohdassa, johon
   // tähtäin osuu; lisäksi veden kehitysnäppäimet
   if (state === 'play' && aiming() && !touch.on) {

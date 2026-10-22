@@ -37,8 +37,17 @@ siimassa olevan vieheen muotoinen (nyt keinuva koho, jonka alla oleva rengas sin
 Kun koho kelluu vedessä, tähtäimenä on ongen kela, jonka kampi pyörii kelattaessa ja välillä
 satunnaisesti muulloinkin.
 
-**Heitto**: kun nappia pidetään pohjassa, hahmon alle tulee voimapalkki. Voima nousee täyteen, laskee
-nollaan ja nousee taas. Heitto (2,5–16 m) lähtee tähtäimen suuntaan napin vapautuessa. Veteen osuva
+**Koho-ongen heitto** (hiirellä): tähtäin osoittaa paikan vedenpinnalla, johon koho laskeutuu. Kun nappia
+pidetään pohjassa, hahmon yläpuolella oleva ajoituspalkki pitenee ja lyhenee; sen keskellä on paras ajoitus.
+Palkki pysähtyy napin vapautuessa: osuessa keskikohtaan koho laskeutuu täsmälleen tähtäimen kohdalle, ja
+mitä kauempana keskeltä palkki pysähtyy, sitä suuremmalle ympyräkehälle tähtäimen ympärille koho osuu
+(halkaisija enintään 5 m; kehä näkyy tähtäimen ympärillä). Tähtäimen vieressä näkyy etäisyys metreinä.
+Heiton enimmäispituus on 15 m: kauempana tähtäimen päällä on kieltomerkki ja teksti TOO FAR, ja napin
+vapauttaminen peruu heiton.
+
+**Muiden vieheiden heitto** (ja kosketusohjaus): kun nappia pidetään pohjassa, hahmon alle tulee voimapalkki.
+Voima nousee täyteen, laskee nollaan ja nousee taas. Heitto (2,5–16 m) lähtee tähtäimen suuntaan napin
+vapautuessa. Veteen osuva
 koho jättää renkaan ja jää kellumaan. Jos pelaaja loittonee, siima kiristyy ja vetää kohoa perässään;
 lähestyessä siima jää löysälle kasalle. Nappi pohjassa siima kelataan sisään (kelattava koho jättää
 vanaveden), ja koko heitetty siima pitää kelata ennen kuin onkea voi laittaa selkään tai heittää uudelleen.
