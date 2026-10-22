@@ -4352,7 +4352,7 @@ function drawLure(camXr, camYr) {
 
 // ---------------------------------------------------------------------------
 // Polttopuukatos aukean takareunassa teltan oikealla puolella. Katos on 2,6 m pitkä ja 1,2 m syvä, ja sen
-// avoin puoli osoittaa ruudulla oikealle eteen. Puu on vuosien säässä harmaantunutta ja halkeillutta,
+// avoin puoli osoittaa ruudulla oikealle eteen. Puu on vuosien säässä haalistunutta ja halkeillutta,
 // pellissä on ruostetta ja reunoilla sammalta. Tolpat ovat suoraan maassa. Klapit pinotaan 5 klapin
 // riveihin (4 riviä, enintään 20 klapia) ja jokainen klapi piirretään omana kuvanaan, joten katoksen kuva
 // muuttuu klapien määrän mukaan.
@@ -4369,16 +4369,16 @@ function placeShed() {
       if (type[cy * N + cx] !== T_CLEAR || !inClearing(cx + 0.5, cy + 0.5)) ok = false;
     }
     const mx = x0 + 0.6, my = y0 + 1.3;
-    if (!ok || mx - my < tu + 1.8 || Math.hypot(mx - CAMP.cx - 0.5, my - CAMP.cy - 0.5) < 3 || Math.hypot(mx - TENT.cx - 1, my - TENT.cy - 1) < 2.6) continue;
-    const score = (mx + my) + Math.abs(mx - my - tu - 2.4) * 0.6;   // takareuna (pieni x + y) ja lähellä telttaa
+    if (!ok || mx - my < tu + 0.5 || Math.hypot(mx - CAMP.cx - 0.5, my - CAMP.cy - 0.5) < 3 || Math.hypot(mx - TENT.cx - 1, my - TENT.cy - 1) < 2.6) continue;
+    const score = (mx + my) + Math.abs(mx - my - tu - 1.5) * 0.6;   // takareuna (pieni x + y) ja lähellä telttaa
     if (!best || score < best.score) best = { x0, y0, score };
   }
   if (!best) best = { x0: TENT.cx + 2, y0: TENT.cy - 4 };
-  SHED.x0 = best.x0; SHED.y0 = best.y0 + 0.4;   // ruutujen vasempaan reunaan (ruudulla vasemmalle)
+  SHED.x0 = best.x0 + 0.4; SHED.y0 = best.y0 + 0.2;
   for (let cy = best.y0; cy < best.y0 + 3; cy++) for (let cx = best.x0; cx < best.x0 + 2; cx++) type[cy * N + cx] = T_SHED;
 }
-// Haalistunut, harmaantunut puu
-const OLD = { lit: '#9a917f', mid: '#837a69', dark: '#655d4f', gap: '#2e2a24', inner: '#5c5447', floor: '#7a7060', floorLine: '#554d41', post: '#8c8371', postLit: '#a39985' };
+// Vanha, haalistunut puu: sävy on harmaantuneen puun ja laiturin ruskean puun välimaastossa
+const OLD = { lit: '#a18c70', mid: '#877257', dark: '#62513f', gap: '#2e2418', inner: '#5a4a38', floor: '#826d52', floorLine: '#57452f', post: '#8a7458', postLit: '#a68e6c' };
 const shedCache = new Map();
 function shedSprite(logs) {
   if (shedCache.has(logs)) return shedCache.get(logs);
