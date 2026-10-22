@@ -4351,77 +4351,97 @@ function drawLure(camXr, camYr) {
 }
 
 // ---------------------------------------------------------------------------
-// Polttopuukatos aukean takareunassa teltan oikealla puolella. Katos on 2,6 m pitkä ja 1,2 m syvä,
-// avoin puoli katsojaan päin. Siinä on harvalaudoitettu takaseinä ja vasen kylki, umpinainen oikea
-// kylki, lautalattia betoniharkkojen päällä ja tumma, eteen kallistuva peltikatto. Klapit pinotaan
-// 5 klapin riveihin (4 riviä, enintään 20 klapia) ja jokainen klapi piirretään omana kuvanaan, joten
-// katoksen kuva muuttuu klapien määrän mukaan.
+// Polttopuukatos aukean takareunassa teltan oikealla puolella. Katos on 2,6 m pitkä ja 1,2 m syvä, ja sen
+// avoin puoli osoittaa ruudulla oikealle eteen. Puu on vuosien säässä harmaantunutta ja halkeillutta,
+// pellissä on ruostetta ja reunoilla sammalta. Tolpat ovat suoraan maassa. Klapit pinotaan 5 klapin
+// riveihin (4 riviä, enintään 20 klapia) ja jokainen klapi piirretään omana kuvanaan, joten katoksen kuva
+// muuttuu klapien määrän mukaan.
 // ---------------------------------------------------------------------------
+// Paikalliset koordinaatit: a = pituussuunta (maailman y), b = syvyys (maailman x, avoin puoli b = D).
 const SHED = { x0: 0, y0: 0, L: 2.6, D: 1.2, logs: 10, cap: 20, cols: 5 };
 function placeShed() {
-  // Haetaan aukean takaosasta paikka teltan oikealta puolelta (ruudulla oikealla, kauempana kuin nuotio)
+  // Haetaan aukean takaosasta paikka teltan oikealta puolelta, lähempää telttaa
   const tu = TENT.cx - TENT.cy;
   let best = null;
-  for (let y0 = TENT.cy - 6; y0 <= TENT.cy + 2; y0++) for (let x0 = TENT.cx; x0 <= TENT.cx + 8; x0++) {
+  for (let y0 = TENT.cy - 7; y0 <= TENT.cy + 1; y0++) for (let x0 = TENT.cx - 2; x0 <= TENT.cx + 7; x0++) {
     let ok = true;
-    for (let cy = y0; cy < y0 + 2 && ok; cy++) for (let cx = x0; cx < x0 + 3 && ok; cx++) {
+    for (let cy = y0; cy < y0 + 3 && ok; cy++) for (let cx = x0; cx < x0 + 2 && ok; cx++) {
       if (type[cy * N + cx] !== T_CLEAR || !inClearing(cx + 0.5, cy + 0.5)) ok = false;
     }
-    const mx = x0 + 1.3, my = y0 + 0.6;
-    if (!ok || mx - my < tu + 2.5 || Math.hypot(mx - CAMP.cx - 0.5, my - CAMP.cy - 0.5) < 3 || Math.hypot(mx - TENT.cx - 1, my - TENT.cy - 1) < 2.5) continue;
-    const score = (mx + my) + Math.abs(mx - my - tu - 5) * 0.5;   // takareuna (pieni x + y) ja lähellä telttaa
+    const mx = x0 + 0.6, my = y0 + 1.3;
+    if (!ok || mx - my < tu + 1.8 || Math.hypot(mx - CAMP.cx - 0.5, my - CAMP.cy - 0.5) < 3 || Math.hypot(mx - TENT.cx - 1, my - TENT.cy - 1) < 2.6) continue;
+    const score = (mx + my) + Math.abs(mx - my - tu - 2.4) * 0.6;   // takareuna (pieni x + y) ja lähellä telttaa
     if (!best || score < best.score) best = { x0, y0, score };
   }
-  if (!best) best = { x0: TENT.cx + 3, y0: TENT.cy - 3 };
-  SHED.x0 = best.x0 + 0.2; SHED.y0 = best.y0 + 0.4;
-  for (let cy = best.y0; cy < best.y0 + 2; cy++) for (let cx = best.x0; cx < best.x0 + 3; cx++) type[cy * N + cx] = T_SHED;
+  if (!best) best = { x0: TENT.cx + 2, y0: TENT.cy - 4 };
+  SHED.x0 = best.x0; SHED.y0 = best.y0 + 0.4;   // ruutujen vasempaan reunaan (ruudulla vasemmalle)
+  for (let cy = best.y0; cy < best.y0 + 3; cy++) for (let cx = best.x0; cx < best.x0 + 2; cx++) type[cy * N + cx] = T_SHED;
 }
+// Haalistunut, harmaantunut puu
+const OLD = { lit: '#9a917f', mid: '#837a69', dark: '#655d4f', gap: '#2e2a24', inner: '#5c5447', floor: '#7a7060', floorLine: '#554d41', post: '#8c8371', postLit: '#a39985' };
 const shedCache = new Map();
 function shedSprite(logs) {
   if (shedCache.has(logs)) return shedCache.get(logs);
-  const { L, D } = SHED, ox = Math.ceil(D * 8) + 6, oy = 36, w = Math.ceil((L + D) * 8) + 14, h = Math.ceil((L + D) * 4) + oy + 6;
+  const { L, D } = SHED, ox = Math.ceil(L * 8) + 7, oy = 36, w = Math.ceil((L + D) * 8) + 14, h = Math.ceil((L + D) * 4) + oy + 6;
   const c = makeCanvas(w, h), g = c.getContext('2d');
-  const P = (a, b, z) => [ox + (a - b) * 8, oy + (a + b) * 4 - z];
+  const P = (a, b, z) => [ox + (b - a) * 8, oy + (a + b) * 4 - z];
   const quad = (pts, col) => polyFill(g, pts, col);
   const ln = (p0, p1, col) => plotLine(g, p0[0], p0[1], p1[0], p1[1], col);
-  const FLOOR = 4, WALL = 22, RF = 27, RB = 23;
-  // Betoniharkot kulmissa
-  for (const [a, b] of [[0, 0], [L, 0], [L / 2, 0], [0, D], [L / 2, D], [L, D]]) quad([P(a - 0.12, b, 0), P(a + 0.12, b, 0), P(a + 0.12, b, FLOOR), P(a - 0.12, b, FLOOR)], b === 0 ? '#5a5e66' : '#8a8e96');
-  // Takaseinä (varjossa): vaakalaudat, joiden välissä raot
-  quad([P(0, 0, FLOOR), P(L, 0, FLOOR), P(L, 0, WALL), P(0, 0, WALL)], '#3a2a1a');
-  for (let z = FLOOR + 1; z < WALL; z += 3) quad([P(0, 0, z), P(L, 0, z), P(L, 0, z + 2), P(0, 0, z + 2)], '#8a6a40');
-  // Lautalattia
-  quad([P(0, 0, FLOOR), P(L, 0, FLOOR), P(L, D, FLOOR), P(0, D, FLOOR)], '#c8a46a');
-  for (let a = 0.18; a < L; a += 0.22) ln(P(a, 0, FLOOR), P(a, D, FLOOR), '#9a7848');
-  // Klapit: päädyt katsojaan päin, alimmasta rivistä ylöspäin vasemmalta oikealle
+  const FLOOR = 3, WALL = 22, RF = 27, RB = 23;
+  const post = (a, b, top) => { const p0 = P(a, b, 0), p1 = P(a, b, top); g.fillStyle = OLD.post; g.fillRect(Math.round(p0[0]) - 1, Math.round(p1[1]), 2, Math.round(p0[1] - p1[1]) + 1); g.fillStyle = OLD.postLit; g.fillRect(Math.round(p0[0]) - 1, Math.round(p1[1]), 1, Math.round(p0[1] - p1[1]) + 1); };
+  // Takimmaiset tolpat ja takaseinä (sisäpuoli varjossa): vaakalaudat, joiden välissä raot
+  post(0, 0, RB - 1);
+  quad([P(0, 0, FLOOR), P(L, 0, FLOOR), P(L, 0, WALL), P(0, 0, WALL)], OLD.gap);
+  for (let z = FLOOR + 1; z < WALL; z += 3) quad([P(0, 0, z), P(L, 0, z), P(L, 0, z + 2), P(0, 0, z + 2)], OLD.inner);
+  // Kaukaisempi kylki (harvalaudoitus)
+  for (let z = FLOOR + 1; z < WALL; z += 3) quad([P(0, 0, z), P(0, D, z), P(0, D, z + 2), P(0, 0, z + 2)], OLD.dark);
+  // Lattia tolppien varassa vähän maan yläpuolella
+  quad([P(0, 0, FLOOR), P(L, 0, FLOOR), P(L, D, FLOOR), P(0, D, FLOOR)], OLD.floor);
+  for (let a = 0.18; a < L; a += 0.22) ln(P(a, 0, FLOOR), P(a, D, FLOOR), OLD.floorLine);
+  // Klapit: päädyt avoimelle puolelle, alimmasta rivistä ylöspäin
   const rnd = mulberry32(91);
   for (let i = 0; i < Math.min(logs, SHED.cap); i++) {
     const col = i % SHED.cols, row = Math.floor(i / SHED.cols), sh = rnd();
-    const [x, y] = P(0.34 + col * 0.48, D - 0.12, FLOOR + 2 + row * 4);
-    const bark = sh < 0.5 ? '#4a3020' : '#5a3a24', end = sh < 0.3 ? '#d4a86c' : sh < 0.7 ? '#c89a62' : '#b8884e';
-    // Klapin pääty: kuoren reunustama soikio (5 x 4 px), halkaistun puun pinta ja vuosirenkaiden keskus
+    const [x, y] = P(0.34 + col * 0.48, D - 0.12, FLOOR + 3 + row * 4);
+    const bark = sh < 0.5 ? '#4a3020' : '#5a3a24', end = sh < 0.3 ? '#cfa46c' : sh < 0.7 ? '#bf9462' : '#ad8452';
     const X = Math.round(x), Y = Math.round(y);
     g.fillStyle = bark; g.fillRect(X - 1, Y - 2, 3, 1); g.fillRect(X - 2, Y - 1, 1, 2); g.fillRect(X + 2, Y - 1, 1, 2); g.fillRect(X - 1, Y + 1, 3, 1);
     g.fillStyle = end; g.fillRect(X - 1, Y - 1, 3, 2);
-    g.fillStyle = '#e6c088'; g.fillRect(X - 1, Y - 1, 1, 1);
-    g.fillStyle = '#a07040'; g.fillRect(X, Y, 1, 1);
+    g.fillStyle = '#ddb886'; g.fillRect(X - 1, Y - 1, 1, 1);
+    g.fillStyle = '#93693c'; g.fillRect(X, Y, 1, 1);
   }
-  // Vasen kylki: harvalaudoitus (raot näyttävät sisään)
-  for (let z = FLOOR + 1; z < WALL; z += 3) quad([P(0, 0, z), P(0, D, z), P(0, D, z + 2), P(0, 0, z + 2)], '#b8945c');
-  // Oikea kylki: umpinainen, valoisa laudoitus
-  quad([P(L, 0, FLOOR), P(L, D, FLOOR), P(L, D, WALL), P(L, 0, WALL)], '#d8b47a');
-  for (let z = FLOOR + 3; z < WALL; z += 3) ln(P(L, 0, z), P(L, D, z), '#9a7444');
-  // Kulmapylväät ja etupalkki
-  for (const [a, b] of [[0, 0], [0, D], [L, D]]) { const p0 = P(a, b, 0), p1 = P(a, b, b === 0 ? RB - 1 : RF - 1); g.fillStyle = '#c89c60'; g.fillRect(Math.round(p0[0]) - 1, Math.round(p1[1]), 2, Math.round(p0[1] - p1[1])); g.fillStyle = '#e0bc84'; g.fillRect(Math.round(p0[0]) - 1, Math.round(p1[1]), 1, Math.round(p0[1] - p1[1])); }
-  quad([P(-0.05, D, WALL), P(L + 0.05, D, WALL), P(L + 0.05, D, RF - 1), P(-0.05, D, RF - 1)], '#d8b47a');
-  ln(P(-0.05, D, WALL), P(L + 0.05, D, WALL), '#8a6a40');
-  // Katto: tumma profiilipelti, joka kallistuu eteenpäin; etureunassa vaalea otsalauta
+  // Lähempi kylki: umpinainen laudoitus, laudat hieman eri sävyisiä ja halkeilleita
+  quad([P(L, 0, FLOOR), P(L, D, FLOOR), P(L, D, WALL), P(L, 0, WALL)], OLD.mid);
+  for (let z = FLOOR + 3, k = 0; z < WALL; z += 3, k++) {
+    if (k % 2) quad([P(L, 0, z - 2), P(L, D, z - 2), P(L, D, z), P(L, 0, z)], OLD.lit);
+    ln(P(L, 0, z), P(L, D, z), OLD.gap);
+  }
+  // Etutolpat ja yläpalkki
+  post(L, 0, RB - 1); post(0, D, RF - 1); post(L, D, RF - 1);
+  quad([P(-0.05, D, WALL), P(L + 0.05, D, WALL), P(L + 0.05, D, RF - 1), P(-0.05, D, RF - 1)], OLD.mid);
+  ln(P(-0.05, D, WALL), P(L + 0.05, D, WALL), OLD.gap);
+  // Katto: tumma, ruosteinen profiilipelti, joka kallistuu eteenpäin; reunoilla sammalta
   const r0 = P(-0.18, -0.18, RB), r1 = P(L + 0.18, -0.18, RB), r2 = P(L + 0.18, D + 0.2, RF), r3 = P(-0.18, D + 0.2, RF);
-  quad([r0, r1, r2, r3], '#2e3240');
-  for (let a = -0.1; a < L + 0.18; a += 0.16) ln(P(a, -0.18, RB), P(a, D + 0.2, RF), '#454a5c');
-  quad([r3, r2, P(L + 0.18, D + 0.2, RF - 2), P(-0.18, D + 0.2, RF - 2)], '#c8a46a');
-  quad([r1, r2, P(L + 0.18, D + 0.2, RF - 2), P(L + 0.18, -0.18, RB - 2)], '#a8844e');
-  outlineSprite(c, '#1a120a');
+  quad([r0, r1, r2, r3], '#38383c');
+  for (let a = -0.1; a < L + 0.18; a += 0.16) ln(P(a, -0.18, RB), P(a, D + 0.2, RF), '#4a4a50');
+  quad([r3, r2, P(L + 0.18, D + 0.2, RF - 2), P(-0.18, D + 0.2, RF - 2)], OLD.mid);
+  quad([r1, r2, P(L + 0.18, D + 0.2, RF - 2), P(L + 0.18, -0.18, RB - 2)], OLD.dark);
+  // Säänkulutus: kohinaa, puun syitä, ruostetta pellissä ja sammalta reunoilla
+  const img = g.getImageData(0, 0, w, h), d = img.data;
+  const hsh = (x, y, k) => { const v = Math.sin(x * 12.9898 + y * 78.233 + k * 37.719) * 43758.5453; return v - Math.floor(v); };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const q = (y * w + x) * 4;
+    if (!d[q + 3]) continue;
+    const r = d[q], gg = d[q + 1], bb = d[q + 2], roof = r < 80 && Math.abs(r - bb) < 12;
+    let v = (hsh(x, y, 1) - 0.5) * 16;
+    if (!roof && hsh(x, Math.floor(y / 2), 2) > 0.86) v -= 14;           // halkeamat ja syyt
+    d[q] = clamp(r + v, 0, 255); d[q + 1] = clamp(gg + v, 0, 255); d[q + 2] = clamp(bb + v, 0, 255);
+    if (roof && hsh(x, y, 3) > 0.9) { d[q] = 110; d[q + 1] = 74; d[q + 2] = 50; }     // ruoste
+    const n = hsh(Math.floor(x / 2), Math.floor(y / 2), 4);
+    if (n > 0.93 && (roof || y > h - 14)) { d[q] = 86; d[q + 1] = 104; d[q + 2] = 58; }   // sammal
+  }
+  g.putImageData(img, 0, 0);
+  outlineSprite(c, '#1a160f');
   const spr = { img: c, ax: ox, ay: oy, sil: silhouette(c) };
   shedCache.set(logs, spr);
   return spr;

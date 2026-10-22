@@ -72,8 +72,9 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   Lumpeiden varret ja kaislojen vedenalaiset varret ulottuvat lammen pohjaan asti; kaislikko huojuu rauhallisesti.
 - **Aukea** lammen vasemmalla rannalla: teltta, palava nuotio (savu kulkee tuulen mukana; välillä ritisten
   nousevat hehkuvat kipinät leijailevat savun mukana ja hohtavat pimeällä) ja
-  noin 8 m pitkä laituri, jolle voi kävellä. Aukean takareunassa teltan oikealla puolella on polttopuukatos
-  (harvalaudoitettu takaseinä ja kylki, lautalattia harkkojen päällä, tumma peltikatto). Katokseen mahtuu
+  noin 8 m pitkä laituri, jolle voi kävellä. Aukean takareunassa teltan oikealla puolella on vanha polttopuukatos,
+  jonka avoin puoli osoittaa oikealle eteen (säässä harmaantunut, halkeillut lautapuu, tolpat suoraan maassa,
+  ruosteinen ja sammaloitunut peltikatto). Katokseen mahtuu
   20 klapia (4 riviä x 5), jotka piirretään kukin erikseen, joten katoksen kuva muuttuu klapien määrän
   mukaan; aluksi klapeja on 10 (`SHED.logs`). Laiturin paalujen vedenpäällinen osa näkyy reunapalkin alla, ja veden alla
   oleva osa häipyy syvyyden ja sameuden mukaan.
