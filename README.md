@@ -72,7 +72,7 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   rantakohtia, joista pääsee kalastamaan vapaasti. Matalassa rantavedessä kelluu lumpeita ja ulpukoita.
   Lumpeiden varret ja kaislojen vedenalaiset varret ulottuvat lammen pohjaan asti; kaislikko huojuu rauhallisesti.
 - **Nuotio**: nuotioon lisätään klapeja yksi kerrallaan (E), enintään 5; uuden klapin voi lisätä vain, kun
-  puuta on enintään 4,2 (täyteen nuotioon lisääminen ei tee mitään); pelaajalla on toistaiseksi
+  puuta on enintään 4,5 (täyteen nuotioon lisääminen ei tee mitään); pelaajalla on toistaiseksi
   loputtomasti klapeja. Täysi nuotio palaa loppuun tunnissa pelin aikaa ja sen liekit ovat tavallista 20 %
   korkeammat; liekit, valo, savu ja kipinät pienenevät puiden kuluessa. Kun puut loppuvat, jää punaisena hehkuva
   hiillos, joka sammuu 30 minuutissa; sen jälkeen nuotio on täysin pimeä. Hiillokseen lisätty klapi syttyy

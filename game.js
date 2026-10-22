@@ -2538,9 +2538,9 @@ function burnFire(dt) {
   }
 }
 const FIRE_REACH = 1.6;
-// Uuden klapin mahtuminen: nuotioon voi lisätä klapin vain, kun puuta on enintään 4,2 (eli klapi mahtuu
-// lähes kokonaan). Täyteen nuotioon lisääminen ei tee mitään.
-const FIRE_FULL = FIRE_MAX - 0.8;
+// Uuden klapin mahtuminen: nuotioon voi lisätä klapin vain, kun puuta on enintään 4,5 (ylimenevä osa
+// menee hukkaan). Täyteen nuotioon lisääminen ei tee mitään.
+const FIRE_FULL = 4.5;
 const fireFull = () => fire.wood > FIRE_FULL;
 const nearFire = () => state === 'play' && !player.boat && Math.hypot(player.x - CAMP.cx - 0.5, player.y - CAMP.cy - 0.5) < FIRE_REACH;
 const canLightFire = () => nearFire() && !fire.lit && fire.wood > 0;
