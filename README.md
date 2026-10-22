@@ -154,12 +154,12 @@ voi kerätä talteen kävelemällä sen päälle (myös siiman katkaisun jälkee
 
 ### Vieheet
 
-Vieheen voi vaihtaa (Q), kun siima on kelattu sisään.
+Vieheen voi vaihtaa (Q: koho ja mato → vaappu → lippa), kun siima on kelattu sisään.
 
 - **Koho ja mato**: koukku riippuu kohon alla säädetyllä syvyydellä. Kohon kärjessä on neonvihreä valopiste, joka hehkuu
   pimeällä; kun kala vetää kohon pinnan alle, valo himmenee.
 - **Vaappu**: pieni (noin 3 px) harmaansininen viehe. Se kelluu ja pyrkii koko ajan nousemaan pintaa
-  kohti (12 cm/s). Kelattaessa se sukeltaa sitä nopeammin, mitä kovempaa kelataan (40 cm sukellusta
+  kohti (15,6 cm/s). Kelattaessa se sukeltaa sitä nopeammin, mitä kovempaa kelataan (52 cm sukellusta
   kuljettua metriä kohden), ja painuu kelauksen jatkuessa yhä syvemmälle, lopulta pohjaa pitkin.
   Noin 30 cm/s nopeudella sukellus ja nousu ovat tasapainossa, jolloin vaappu ui samalla syvyydellä;
   hitaammin kelattuna se nousee ja nopeammin kelattuna se sukeltaa. Vedettäessä vaappu heiluttaa pyrstöään (wiggle). Kelausnopeus 10–100 cm/s
@@ -171,8 +171,16 @@ Vieheen voi vaihtaa (Q), kun siima on kelattu sisään.
 
 Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan suuhun.
 
+- **Lippa**: pieni vihreä-oranssi lippa, joka kiepsahtelee ja välkkyy vedettäessä. Se uppoaa (30 cm/s) ja
+  painuu pohjaan, jos sitä ei kelata. Kelattaessa kireä siima vetää sitä ongen kärkeä kohti, jolloin lippa
+  nousee siiman kulman mukaan; vedossa (noin 0,5 m/s) se ei enää uppoa. Kelaamisen loputtua lippa painuu
+  pohjaan ja jää paikalleen. Kelausnopeus säädetään kuten vaapulla. Tähtäimenä on metallinharmaa lippa.
+
+Vain liikkuva uistin (vaappu tai lippa) kiinnostaa kaloja.
+
 Lajit pitävät eri vieheistä: ahven pitää madosta (vaappu noin 0,3-kertaisesti), hauki iskee
-mieluummin vaappuun (1,6-kertaisesti) kuin matoon (0,35-kertaisesti). Tähtäin on valitun vieheen
+mieluummin vaappuun (1,6-kertaisesti) ja lippaan (1,3-kertaisesti) kuin matoon (0,35-kertaisesti); ahvenelle
+lippa kelpaa 0,7-kertaisesti. Tähtäin on valitun vieheen
 näköinen; kun viehe on vedessä, tähtäimenä on kela, jonka kampi pyörii.
 
 Kala voi päästä irti koukusta. Irtoaminen on satunnaista, ja sen todennäköisyys kasvaa kalan

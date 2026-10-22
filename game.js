@@ -1684,7 +1684,7 @@ function updatePlayer() {
   if (keyHit('KeyQ')) switchLure();
   // Rulla ja -/+: koholla koukun syvyys, vaapulla kelausnopeus
   const adj = keyHit('Minus', 'NumpadSubtract', 'WheelDown') ? -1 : keyHit('Equal', 'NumpadAdd', 'WheelUp') ? 1 : 0;
-  if (adj) { if (player.lure === 'wobbler') adjustReel(adj * 10); else adjustHook(adj * 0.1); }
+  if (adj) { if (isArt(player.lure)) adjustReel(adj * 10); else adjustHook(adj * 0.1); }
   let kx = (keyDown('KeyD', 'ArrowRight') ? 1 : 0) - (keyDown('KeyA', 'ArrowLeft') ? 1 : 0);
   let ky = (keyDown('KeyS', 'ArrowDown') ? 1 : 0) - (keyDown('KeyW', 'ArrowUp') ? 1 : 0);
   if (!kx && !ky) { kx = touch.mx; ky = touch.my; }
@@ -1743,8 +1743,8 @@ const lampOn = () => player.light && (state === 'play' || state === 'pause');
 // Viehe vaihdetaan (koho ja mato / vaappu), kun siima on kelattu kokonaan sisään
 function switchLure() {
   if (cast.lure) { notify('Reel in fully to change the lure.', 100, 'hint'); return; }
-  player.lure = player.lure === 'bobber' ? 'wobbler' : 'bobber';
-  notify(player.lure === 'wobbler' ? 'Lure: wobbler' : 'Lure: bobber and worm', 100, 'lure');
+  player.lure = { bobber: 'wobbler', wobbler: 'spoon', spoon: 'bobber' }[player.lure];
+  notify({ bobber: 'Lure: bobber and worm', wobbler: 'Lure: wobbler', spoon: 'Lure: spoon' }[player.lure], 100, 'lure');
   if (player.rod) resetLine();
   SFX.click();
 }
@@ -1757,8 +1757,11 @@ function adjustReel(dv) {
   SFX.reel();
 }
 // Kelaus metreinä päivitystä kohden: koholla nopea vakio, vaapulla säädetty nopeus
-const WOB_DIVE = 0.4, WOB_RISE = 0.12;   // vaapun sukellus (m / kuljettu m) ja nousu (m/s)
-const reelStep = (L) => (L.kind === 'wobbler' ? cast.reelSpeed / 100 / 60 : REEL);
+const WOB_DIVE = 0.52, WOB_RISE = 0.156;   // vaapun sukellus (m / kuljettu m) ja nousu (m/s)
+const SPOON_SINK = 0.3;                       // lipan uppoamisnopeus (m/s)
+// Uistimet (vaappu ja lippa): kelausnopeus säädetään, ja ne kiinnostavat kaloja vain liikkuessaan
+const isArt = (kind) => kind === 'wobbler' || kind === 'spoon';
+const reelStep = (L) => (isArt(L.kind) ? cast.reelSpeed / 100 / 60 : REEL);
 
 function toggleRod() {
   const p = player;
@@ -1879,6 +1882,16 @@ function updateCast() {
     // sukellus ja nousu ovat tasapainossa ja vaappu ui samalla syvyydellä.
     L.z += (L.onWater ? moved * WOB_DIVE : 0) - WOB_RISE / 60;
     L.z = L.onWater ? clamp(L.z, 0, Math.max(0, depthAt(L.x, L.y) - 0.06)) : 0;
+  } else if (L.kind === 'spoon') {
+    // Lippa uppoaa koko ajan kohti pohjaa (SPOON_SINK). Kelattaessa kireä siima vetää sitä ongen kärkeä
+    // kohti, jolloin lippa nousee siiman kulman mukaan: mitä jyrkemmin siima laskee veteen, sitä enemmän
+    // lippa nousee kuljettua matkaa kohden. Kelaamisen loputtua lippa painuu pohjaan ja jää paikalleen.
+    if (L.onWater) {
+      // Vedossa lippa ei juuri uppoa: noin 0,5 m/s vauhdissa uppoaminen lakkaa kokonaan
+      const tipH = 1.2 + playerLift() / Z_PX, slope = (L.z + tipH) / Math.max(1, d);
+      L.z += (SPOON_SINK / 60) * (1 - Math.min(1, (moved * 60) / 0.5)) - moved * slope;
+      L.z = clamp(L.z, 0, Math.max(0, depthAt(L.x, L.y) - 0.03));
+    } else L.z = 0;
   }
   if (L.onWater) {
     // Liikkuva koho jättää vanaveden ja renkaita, paikallaan oleva keinuu ja väreilee välillä
@@ -1900,7 +1913,7 @@ function updateCast() {
 // (sama mittakaava kuin pohjan syvyydellä: Z_PX pikseliä metriä kohden).
 const hookSegs = () => Math.max(1, Math.round((cast.hookDepth * Z_PX) / LINE_SEG));
 function resetLine() {
-  const g = rodGeom(), n = BOB_I + 1 + (player.lure === 'wobbler' ? 0 : hookSegs());
+  const g = rodGeom(), n = BOB_I + 1 + (isArt(player.lure) ? 0 : hookSegs());
   line = Array.from({ length: n }, (_, i) => ({ x: g.tx, y: g.ty + i * LINE_SEG, px: g.tx, py: g.ty + i * LINE_SEG }));
 }
 
@@ -2527,7 +2540,7 @@ const SPECIES = {
     speed: 0.013, fight: 0.034,       // uinti- ja pakonopeus (m / päivitys)
     bite: 'instant',                  // ahven nielaisee syötin heti
     interest: 1.1 / (60 * 22),          // todennäköisyys kiinnostua lähellä olevasta syötistä päivitystä kohden
-    lures: { bobber: 1, wobbler: 0.3 },   // kiinnostus vieheittäin: ahven pitää madosta
+    lures: { bobber: 1, wobbler: 0.3, spoon: 0.7 },   // kiinnostus vieheittäin: ahven pitää madosta
     energy: 4, regen: 2,              // voimien ja niiden palautumisen kertoimet
     pal: { back: '#34421f', body: '#7c8a3c', belly: '#d4cca4', bar: '#202a14', fin: '#d4542a', eye: '#101010' },
   },
@@ -2540,7 +2553,7 @@ const SPECIES = {
     speed: 0.005, fight: 0.05, strike: 0.075,
     bite: 'instant',
     interest: 1.1 / (60 * 30), sight: 4.5,
-    lures: { bobber: 0.35, wobbler: 1.6 },   // hauki iskee mieluummin vaappuun
+    lures: { bobber: 0.35, wobbler: 1.6, spoon: 1.3 },   // hauki iskee mieluummin uistimiin
     energy: 3, regen: 4,
     pal: { back: '#2a3a1c', body: '#5c7434', belly: '#d8d4b0', bar: '#c8c878', fin: '#8a6a2a', eye: '#101010' },
   },
@@ -2701,7 +2714,7 @@ function spawnFish() {
 function baitPoint() {
   const L = cast.lure;
   if (!L || L.st !== 'float' || !L.onWater || L.fish) return null;
-  if (L.kind === 'wobbler') return { x: L.x, y: L.y, z: L.z, lure: 'wobbler', moving: L.moving };
+  if (isArt(L.kind)) return { x: L.x, y: L.y, z: L.z, lure: L.kind, moving: L.moving };
   return { x: L.x, y: L.y, z: Math.min(cast.hookDepth, depthAt(L.x, L.y) - 0.05), lure: 'bobber', moving: false };
 }
 
@@ -2742,7 +2755,7 @@ function updateFishes() {
       }
       // Kala voi kiinnostua lähellä olevasta syötistä, jos se ui suunnilleen samalla syvyydellä
       if (bait && Math.hypot(f.x - bait.x, f.y - bait.y) < (sp.sight || 3) && Math.abs(f.z - bait.z) < 1.2
-        && Math.random() < sp.interest * sp.lures[bait.lure] * (bait.lure === 'wobbler' && !bait.moving ? 0.15 : 1)) {
+        && (!isArt(bait.lure) || bait.moving) && Math.random() < sp.interest * sp.lures[bait.lure]) {
         f.mode = 'interest'; f.t = rand(240, 720);
       }
     } else if (f.mode === 'interest') {
@@ -2756,7 +2769,7 @@ function updateFishes() {
       // Liikkuvaa vaappua kala jahtaa uintinopeuttaan nopeammin
       moveFish(f, sp.strike && bd < 1.5 ? sp.strike : bait.moving ? sp.fight * 1.1 : sp.speed * 0.8);
       const [nx, ny] = fishMouth(f);
-      if (Math.hypot(nx - bait.x, ny - bait.y, (f.z - bait.z) * 0.5) < (bait.lure === 'wobbler' ? 0.3 : 0.22) && sp.bite === 'instant') hookFish(f);
+      if (Math.hypot(nx - bait.x, ny - bait.y, (f.z - bait.z) * 0.5) < (isArt(bait.lure) ? 0.3 : 0.22) && sp.bite === 'instant') hookFish(f);
     }
     f.z += clamp(f.tz - f.z, -0.004, 0.004);
     f.z = clamp(f.z, 0.15, Math.max(0.15, depthAt(f.x, f.y) - 0.1));
@@ -2796,7 +2809,7 @@ function updateFight(L, held) {
     }
     moveFish(f, sp.fight * (0.45 + 0.55 * f.energy / f.maxE), 0.1);
     f.z += clamp(f.tz - f.z, -0.012, 0.012);
-    f.energy -= 0.6 + (L.kind === 'wobbler' ? 0 : Math.max(0, f.z - cast.hookDepth) * 1.6);
+    f.energy -= 0.6 + (isArt(L.kind) ? 0 : Math.max(0, f.z - cast.hookDepth) * 1.6);
     if (f.energy <= 0) {
       // Väsynyt kala jatkaa taistelua, kun yli puolet voimista on palautunut
       f.energy = 0; f.mode = 'tired';
@@ -2839,7 +2852,7 @@ function updateFight(L, held) {
   // Koho seuraa kalaa; jos kala ui koukun syvyyttä syvemmälle, se vetää kohon pinnan alle
   L.x = f.x; L.y = f.y;
   L.onWater = f.mode !== 'land';
-  L.sub = f.mode === 'land' || L.kind === 'wobbler' ? 0 : Math.max(0, f.z - cast.hookDepth);
+  L.sub = f.mode === 'land' || isArt(L.kind) ? 0 : Math.max(0, f.z - cast.hookDepth);
   if (L.onWater && f.mode === 'fight' && ++L.wakeT % 10 === 0) ripples.push({ x: L.x, y: L.y, t: 0, life: 35, max: L.sub > 0 ? 5 : 3, a: 0.55 });
   // Lähelle kelattu kala nostetaan ilmaan
   if (L.out <= 1.2 && d < 1.9) { f.mode = 'caught'; f.caughtT = 75; SFX.splash(0.4); }
@@ -2847,7 +2860,7 @@ function updateFight(L, held) {
 
 // Kala pääsee irti koukusta ja pakenee syvemmälle; koho jää kellumaan
 function releaseFish(L, f) {
-  L.fish = null; L.sub = 0; L.z = L.kind === 'wobbler' ? Math.min(f.z, 1.5) : 0;
+  L.fish = null; L.sub = 0; L.z = isArt(L.kind) ? Math.min(f.z, 1.5) : 0;
   f.mode = 'roam'; f.a = Math.atan2(f.y - player.y, f.x - player.x) + rand(-0.5, 0.5); f.t = 240;
   f.tx = f.x + Math.cos(f.a) * 6; f.ty = f.y + Math.sin(f.a) * 6; f.tz = Math.min(2.5, depthAt(f.x, f.y) - 0.2);
   ripples.push({ x: L.x, y: L.y, t: 0, life: 45, max: 6, a: 0.7 });
@@ -2924,7 +2937,7 @@ function drawLoose(camXr, camYr) {
     ctx.globalAlpha = clamp(o.t / 60, 0, 1);
     const [ux, uy] = screenDir(-Math.cos(o.a), -Math.sin(o.a));
     if (o.onWater) plotLine(ctx, x, y, x + ux * 8, y + uy * 8 + 1, 'rgba(225, 230, 235, 0.45)');
-    if (o.kind === 'wobbler') { if (!f) drawWobblerAt(x, y - 1, 1, false); }
+    if (isArt(o.kind)) { if (!f) drawArtAt(o.kind, x, y - 1, 1, false); }
     else { bobberBehind = behindPlayer(o.x, o.y); drawBobberAt(x, y, o.onWater, !o.onWater, ctx.globalAlpha); }
     ctx.globalAlpha = 1;
   }
@@ -3011,13 +3024,13 @@ function drawUnderwater(camXr, camYr) {
       if (wl) plotLine(g, wl.wx, wl.wy, wl.ex, wl.ey, 'rgba(225, 230, 235, 0.6)');
       else plotLine(g, lx, ly + L.sub * Z_PX, fx, fy, 'rgba(225, 230, 235, 0.6)');
       if (L.sub > 0.05) { g.globalAlpha = underVis(L.sub); bobberBehind = behindPlayer(L.x, L.y); drawBobberAt(lx, Math.round(ly + L.sub * Z_PX), false, false, underVis(L.sub) * 0.6); }
-    } else if (L.kind === 'wobbler') {
+    } else if (isArt(L.kind)) {
       // Pinnan alle sukeltanut vaappu ja siima pinnasta vaappuun
       const wl = wobblerLine(camXr, camYr);
       if (wl && wl.depth > 0.02) { g.globalAlpha = underVis(wl.depth * 0.5); plotLine(g, wl.wx, wl.wy, wl.ex, wl.ey, 'rgba(225, 230, 235, 0.6)'); }
       if (L.z > 0.05) {
         g.globalAlpha = underVis(L.z);
-        drawWobblerAt(lx, Math.round(ly + L.z * Z_PX), wobblerDir(L, camXr), L.moving);
+        drawArtAt(L.kind, lx, Math.round(ly + L.z * Z_PX), wobblerDir(L, camXr), L.moving);
       }
     } else {
       // Syötti ja koukku riippuvat kohon alla koukun syvyydellä (tai pohjassa, jos vesi on matalampaa)
@@ -3063,7 +3076,7 @@ function drawDebugLines(camXr, camYr) {
   }
   // Vedessä oleva vaappu (violetti)
   const L = cast.lure;
-  if (L && L.kind === 'wobbler' && L.st === 'float' && L.onWater && !L.fish) depthLine(L.x, L.y, L.z, '230, 130, 240');
+  if (L && isArt(L.kind) && L.st === 'float' && L.onWater && !L.fish) depthLine(L.x, L.y, L.z, '230, 130, 240');
   if (state === 'play' && aiming()) {
     const mx = Math.round(mouseX), my = Math.round(mouseY);
     if (waterPx(mx + camXr, my + camYr)) {
@@ -3680,6 +3693,13 @@ function drawHeldRod(camXr, camYr) {
     const a = line[i - 1], b = line[i];
     plotLine(ctx, a.x - camXr, a.y - camYr, b.x - camXr, b.y - camYr, i <= BOB_I ? 'rgba(225, 230, 235, 0.6)' : 'rgba(200, 205, 210, 0.45)');
   }
+  if (player.lure === 'spoon') {
+    // Lippa roikkuu siiman päässä: pieni vihreä-oranssi lehti ja koukku alla
+    const k = line[line.length - 1], kx = Math.round(k.x - camXr), ky = Math.round(k.y - camYr);
+    dot(kx, ky + 1, '#9aa0a8'); dot(kx, ky + 2, '#3c9a3c'); dot(kx + 1, ky + 2, '#f08a24'); dot(kx, ky + 3, '#f08a24'); dot(kx + 1, ky + 3, '#2e7a30');
+    dot(kx, ky + 4, '#c0c6cc');
+    return;
+  }
   if (player.lure === 'wobbler') {
     // Vaappu roikkuu siiman päässä nokka alaspäin
     const k = line[line.length - 1], kx = Math.round(k.x - camXr), ky = Math.round(k.y - camYr);
@@ -4090,7 +4110,7 @@ function drawPlayer(sx, sy, camXr, camYr) {
 // suora viiva kärjen korkeudelta vaapun syvyyteen leikkaa vedenpinnan. Palauttaa ruutupisteet tai null.
 function wobblerLine(camXr, camYr) {
   const L = cast.lure;
-  if (!L || L.kind !== 'wobbler' || L.st !== 'float' || !L.onWater) return null;
+  if (!L || !isArt(L.kind) || L.st !== 'float' || !L.onWater) return null;
   const f = L.fish;
   if (f && (f.mode === 'land' || f.mode === 'caught')) return null;
   const d = Math.hypot(L.x - player.x, L.y - player.y), slack = Math.max(0, L.out - d);
@@ -4113,7 +4133,7 @@ function drawCastLine(g, camXr, camYr) {
   const tx = g.tx - camXr, ty = g.ty - camYr;
   if (L.st === 'fly') {
     plotLine(ctx, tx, ty, L.ax - camXr, L.ay - camYr, col);
-    if (L.kind === 'wobbler') drawWobblerAt(Math.round(L.ax - camXr), Math.round(L.ay - camYr), L.ax > L.ax0 ? 1 : -1, false);
+    if (isArt(L.kind)) drawArtAt(L.kind, Math.round(L.ax - camXr), Math.round(L.ay - camYr), L.ax > L.ax0 ? 1 : -1, false);
     else drawBobberAt(Math.round(L.ax - camXr), Math.round(L.ay - camYr), false);
     return;
   }
@@ -4121,7 +4141,7 @@ function drawCastLine(g, camXr, camYr) {
     // Saalis roikkuu ilmassa ongen kärjestä pää ylöspäin ja sätkii
     const f = L.fish, img = FISH_SPR[f.kind][f.px].side[(f.anim >> 2) % 2];
     plotLine(ctx, tx, ty, tx, ty + 6, col);
-    if (L.kind !== 'wobbler') drawBobberAt(Math.round(tx), Math.round(ty + 4), false);
+    if (!isArt(L.kind)) drawBobberAt(Math.round(tx), Math.round(ty + 4), false);
     ctx.save();
     ctx.translate(Math.round(tx) + Math.round(Math.sin(f.anim * 0.5)), Math.round(ty + 7));
     ctx.rotate(-Math.PI / 2);
@@ -4209,6 +4229,16 @@ function drawWobblerAt(x, y, dir, wiggle) {
   dot(x - dir, y + w, '#7890a8'); dot(x, y, '#b8c8d8'); dot(x + dir, y, '#101418');
   dot(x + dir * 2, y + 1, 'rgba(208, 224, 232, 0.8)'); // kieli
 }
+// Lippa: pieni (noin 3 px) vihreä lehti, jossa on oranssi kuvio; vedettäessä se kiepsahtelee ja välkkyy
+function drawSpoonAt(x, y, dir, moving) {
+  const flip = moving && Math.sin(time * 0.7) > 0;
+  dot(x + dir, y - 1, '#9aa0a8');                                      // lenkki
+  dot(x, y - 1, flip ? '#f08a24' : '#3c9a3c'); dot(x - dir, y - 1, '#2e7a30');
+  dot(x, y, flip ? '#3c9a3c' : '#f08a24'); dot(x - dir, y, flip ? '#e0a040' : '#3c9a3c');
+  dot(x - dir * 2, y + 1, '#c0c6cc');                                  // koukku
+}
+const drawArtAt = (kind, x, y, dir, moving) => (kind === 'spoon' ? drawSpoonAt(x, y, dir, moving) : drawWobblerAt(x, y, dir, moving));
+
 // Vaappu osoittaa kohti pelaajaa (siihen suuntaan sitä vedetään)
 const wobblerDir = (L, camXr) => (isoX(player.x, player.y) - camXr >= isoX(L.x, L.y) - camXr ? 1 : -1);
 
@@ -4227,13 +4257,13 @@ function drawLure(camXr, camYr) {
   if (f && f.mode === 'caught') return;
   if (L.sub > 0.05) return;
   const x = Math.round(isoX(L.x, L.y) - camXr), y = Math.round(lureY(L) - camYr);
-  if (L.kind === 'wobbler') {
-    // Kalan suussa olevaa vaappua ei piirretä; pinnalla kelluva vaappu heiluu vedettäessä
+  if (isArt(L.kind)) {
+    // Kalan suussa olevaa uistinta ei piirretä; pinnalla oleva uistin heiluu vedettäessä
     if (f) return;
-    if (!L.onWater) { drawWobblerAt(x, y - 1, 1, false); return; }
+    if (!L.onWater) { drawArtAt(L.kind, x, y - 1, 1, false); return; }
     if (L.z > 0.05) return;
     ctx.fillStyle = `rgba(${env.ring}, 0.5)`; ctx.fillRect(x - 2, y + 1, 5, 1);
-    drawWobblerAt(x, y, wobblerDir(L, camXr), L.moving);
+    drawArtAt(L.kind, x, y, wobblerDir(L, camXr), L.moving);
     return;
   }
   // Kalan riuhtoessa koho nykii pinnalla
@@ -4655,6 +4685,7 @@ function drawWorld() {
 const LURES = {
   bobber: { name: 'BOBBER', reticle: drawBobberReticle },     // koho ja koukku
   wobbler: { name: 'WOBBLER', reticle: drawWobblerReticle },  // vaappu
+  spoon: { name: 'SPOON', reticle: drawSpoonReticle },        // lippa
 };
 
 function drawReticle() {
@@ -4741,6 +4772,28 @@ function drawWobblerReticle(x, y) {
   // Kiiltävä heijastus kyljessä vaihtelee heilunnan mukana
   ctx.fillStyle = `rgba(255, 255, 255, ${(0.35 + 0.35 * Math.max(0, sw)).toFixed(2)})`;
   ctx.fillRect(x - 1, y - 1, 2, 1);
+}
+
+// Lippa tähtäimenä: metallinharmaa pisaranmuotoinen lehti, jossa kiiltävä heijastus, edessä siimalenkki ja
+// perässä kolmihaarakoukku. Lehti kiepsahtaa välillä, jolloin kiilto siirtyy.
+function drawSpoonReticle(x, y) {
+  const flip = Math.sin(time * 0.15) > 0;
+  const px = [];
+  const add = (dx, dy, col) => px.push([dx, dy, col]);
+  const rows = [[-1, 3], [-3, 5], [-4, 6], [-4, 6], [-3, 5], [-1, 3]];   // [alku, loppu] riveittäin y = -3 … 2
+  rows.forEach(([a0, a1], i) => {
+    const dy = i - 3;
+    for (let dx = a0; dx < a1; dx++) {
+      const lit = flip ? dy < 0 && dx < 1 : dy >= 0 && dx > 0;
+      add(dx, dy, i === 0 || i === 5 || dx === a0 || dx === a1 - 1 ? '#6a7078' : lit ? '#e8ecf0' : (dx + dy) & 1 ? '#a8b0b8' : '#8e969e');
+    }
+  });
+  add(flip ? -1 : 2, flip ? -2 : 1, '#ffffff');                           // kiiltopiste
+  add(6, -1, '#8a9098'); add(7, -1, '#6a7078');                         // siimalenkki (nokka oikealla)
+  add(-5, 0, '#8a9098'); add(-6, 0, '#b0b6bc'); add(-7, -1, '#c0c6cc'); add(-7, 1, '#c0c6cc'); add(-8, -1, '#6a7078'); add(-8, 1, '#6a7078');   // koukku
+  ctx.fillStyle = 'rgba(8, 12, 10, 0.5)';
+  for (const [dx, dy] of px) ctx.fillRect(x + dx + 1, y + dy + 1, 1, 1);
+  for (const [dx, dy, col] of px) { ctx.fillStyle = col; ctx.fillRect(x + dx, y + dy, 1, 1); }
 }
 
 // Pieni keinuva koho. Sen alla oleva rengas on vaaleansininen veden päällä ja harmaa maalla.
@@ -4967,8 +5020,8 @@ function render() {
   if (state !== 'sleep') {
     let ly = WATCH.y + WATCH.size + 4;
     const line = (str, col) => { text(str, 6, ly, 4, col, 'left'); ly += 8; };
-    if (player.rod && player.lure === 'wobbler') {
-      line('WOBBLER', '#a8c0d8');
+    if (player.rod && isArt(player.lure)) {
+      line(player.lure === 'spoon' ? 'SPOON' : 'WOBBLER', '#a8c0d8');
       line('REEL ' + cast.reelSpeed + ' cm/s' + (touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
     } else if (player.rod) {
       // Koho-ongella koukun syvyyden perään tieto, jos syötti on pohjassa tai koho kuivalla maalla
@@ -4979,7 +5032,7 @@ function render() {
     // Vaapun syvyys, ja perään tieto, jos vaappu kulkee pohjassa tai on kuivalla maalla;
     // matka pohjaan vain huijaustilassa
     const L = cast.lure;
-    if (L && L.kind === 'wobbler' && L.st === 'float' && !L.fish) {
+    if (L && isArt(L.kind) && L.st === 'float' && !L.fish) {
       if (!L.onWater) line('DEPTH -  ON LAND', '#ffcd75');
       else {
         const bottom = L.z >= depthAt(L.x, L.y) - 0.07;
