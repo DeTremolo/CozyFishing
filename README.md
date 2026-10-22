@@ -190,6 +190,9 @@ Hahmon yläpuolella on siiman kestopalkki. Jos kalaa kelataan tai vedetään (k�
 samaan aikaan kun se taistelee vastaan, siiman rasitus kasvaa sitä nopeammin, mitä painavampi, voimakkaampi
 ja vetävämpi laji kala on (hauki vetää ahventa enemmän). Kun palkki täyttyy, siima katkeaa samoin kuin
 katkaistessa. Kun kala ei taistele tai vetoa ei ole, rasitus laskee: väsynyttä kalaa voi kelata turvallisesti.
+Voimakas kala (painava, vetävä laji, paljon voimia jäljellä) rasittaa kireää siimaa myös ilman kelausta.
+Silloin siimaa pitää päästää kelalta hiiren oikealla napilla, mikä keventää kuormaa. Kun kaikki 30 m siimaa
+on ulkona, siimaa ei voi enää päästää, ja rasitus kasvaa, kunnes siima katkeaa.
 Kun kala vetää kireää siimaa, kela ritisee (kelan lukon luistoa ei vielä ole). Siiman voi
 katkaista (C): koukussa ollut kala ui lopun siiman ja kohon kanssa hetken ja katoaa sitten,
 ja ongen kärkeen tulee uusi koho ja koukku. Saaliiksi saadun tai siiman mukana kadonneen kalan

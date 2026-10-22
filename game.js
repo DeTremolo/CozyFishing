@@ -2848,12 +2848,16 @@ function updateFight(L, held) {
   // Siiman kesto: jos kalaa kelataan tai vedetään (kävellen tai veneellä) samaan aikaan kun se
   // taistelee vastaan, siiman rasitus kasvaa kalan painon, lajin ja voimien mukaan. Täynnä siima
   // katkeaa. Kun kala ei taistele tai vetoa ei ole, rasitus laskee: väsynyttä kalaa voi kelata turvallisesti.
+  // Voimakas kala (painava, vetävä laji, paljon voimia) rasittaa kireää siimaa myös ilman kelausta.
+  // Siimaa pitää silloin päästää kelalta (hiiren oikea nappi), mikä keventää kuormaa; kun kaikki siima
+  // on ulkona, siimaa ei voi enää päästää ja lopulta se katkeaa.
   const pulling = held || (d >= L.out - 0.01 && (p.moving || (p.boat && Math.abs(boat.v) > 0.004)));
-  if (f.mode === 'fight' && pulling) {
-    const e = f.energy / f.maxE;
-    L.tension = (L.tension || 0) + 0.004 * Math.pow(f.w / 1000, 0.7) * sp.pull * (0.3 + 0.7 * e);
-    if (L.tension >= 1) { cutLine(true); return; }
-  } else L.tension = Math.max(0, (L.tension || 0) - (f.mode === 'fight' ? 0.003 : 0.006));
+  const e = f.energy / f.maxE, strength = Math.pow(f.w / 1000, 0.7) * sp.pull * e;
+  const paying = mouseHeld2 && !held && L.out < LINE_MAX;
+  if (f.mode === 'fight' && pulling) L.tension = (L.tension || 0) + 0.004 * Math.pow(f.w / 1000, 0.7) * sp.pull * (0.3 + 0.7 * e);
+  else if (f.mode === 'fight' && taut && !paying && strength > 0.35) L.tension = (L.tension || 0) + 0.0036 * (strength - 0.35);
+  else L.tension = Math.max(0, (L.tension || 0) - (paying ? 0.012 : f.mode === 'fight' ? 0.003 : 0.006));
+  if (L.tension >= 1) { cutLine(true); return; }
   if (f.mode !== 'land' && shoreDist(f.x, f.y) > -0.1) { f.mode = 'land'; f.z = 0; f.flopT = 8; f.hopT = 0; }
   if (f.mode !== 'land') f.z = clamp(f.z, 0.1, Math.max(0.1, depthAt(f.x, f.y) - 0.08));
   // Koho seuraa kalaa; jos kala ui koukun syvyyttä syvemmälle, se vetää kohon pinnan alle
@@ -4714,7 +4718,6 @@ function drawWorld() {
     ctx.fillStyle = '#1a1c2c'; ctx.fillRect(x, y, 18, 4);
     ctx.fillStyle = tn > 0.75 ? (Math.floor(time / 6) % 2 ? '#ff4030' : '#c82818') : tn > 0.45 ? '#ffcd75' : '#a7f070';
     ctx.fillRect(x + 1, y + 1, Math.round(16 * tn), 2);
-    ctx.fillStyle = 'rgba(232, 236, 240, 0.7)'; ctx.fillRect(x + 1 + 16, y + 1, 1, 2);   // katkeamisraja
   }
   // Heiton voimapalkki hahmon alla
   if (cast.charging) {
