@@ -144,9 +144,11 @@ iskee viimeiset puolitoista metriä nopealla syöksyllä. Se taistelee ahventa v
 
 Syötin lähelle osuva ja suunnilleen samalla syvyydellä uiva kala voi kiinnostua syötistä
 (melko harvoin). Ahven nielaisee syötin heti. Koukkuun tarttunut kala yrittää pakoon ja kuluttaa
-energiaansa (palkki hahmon yläpuolella); se voi vetää kohon veden alle, mikä vie enemmän voimia,
-ja se voi viedä siimaa vain ulkona olevan määrän verran. Väsynyt kala ui hetken rauhassa ja jatkaa
-taistelua, kun yli puolet voimista on palautunut. Ahvenella on nelinkertaiset voimat ja kaksinkertainen
+energiaansa (voimapalkki veden pinnalla kalan kohdalla); se voi vetää kohon veden alle, mikä vie enemmän
+voimia, ja se voi viedä siimaa vain ulkona olevan määrän verran. Kala taistelee ainakin, kunnes alle
+puolet voimista on jäljellä; sen jälkeen se voi lopettaa satunnaisella hetkellä, viimeistään kun voimat
+loppuvat. Väsynyt kala ui rauhassa ja aloittaa taistelun uudelleen satunnaisesti, kun voimista on
+palautunut vähintään puolet (joskus vasta täysin palauduttuaan). Ahvenella on nelinkertaiset voimat ja kaksinkertainen
 palautuminen. Hauella on kolminkertaiset voimat ja nelinkertainen palautuminen. Pelaajan lähelle kelattu kala nousee
 roikkumaan ongen kärkeen ja kerätään talteen (saalis näkyy vasemmassa yläkulmassa). Kuivalle
 maalle vedetty kala sätkii satunnaisiin suuntiin, ja jos se pääsee veteen, se jatkaa uintia. Kuivalla
@@ -184,8 +186,10 @@ mieluummin vaappuun (1,6-kertaisesti) ja lippaan (1,3-kertaisesti) kuin matoon (
 lippa kelpaa 0,7-kertaisesti. Tähtäin on valitun vieheen
 näköinen; kun viehe on vedessä, tähtäimenä on kela, jonka kampi pyörii.
 
-Kala voi päästä irti koukusta. Irtoaminen on satunnaista, ja sen todennäköisyys kasvaa kalan
-voimien ja siiman kireyden mukaan: kelaaminen tai siiman vetäminen kävelemällä lisää sitä.
+Hahmon yläpuolella on siiman kestopalkki. Jos kalaa kelataan tai vedetään (kävellen tai veneellä)
+samaan aikaan kun se taistelee vastaan, siiman rasitus kasvaa sitä nopeammin, mitä painavampi, voimakkaampi
+ja vetävämpi laji kala on (hauki vetää ahventa enemmän). Kun palkki täyttyy, siima katkeaa samoin kuin
+katkaistessa. Kun kala ei taistele tai vetoa ei ole, rasitus laskee: väsynyttä kalaa voi kelata turvallisesti.
 Kun kala vetää kireää siimaa, kela ritisee (kelan lukon luistoa ei vielä ole). Siiman voi
 katkaista (C): koukussa ollut kala ui lopun siiman ja kohon kanssa hetken ja katoaa sitten,
 ja ongen kärkeen tulee uusi koho ja koukku. Saaliiksi saadun tai siiman mukana kadonneen kalan

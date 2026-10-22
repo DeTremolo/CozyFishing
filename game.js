@@ -2542,6 +2542,7 @@ const SPECIES = {
     interest: 1.1 / (60 * 22),          // todennäköisyys kiinnostua lähellä olevasta syötistä päivitystä kohden
     lures: { bobber: 1, wobbler: 0.3, spoon: 0.7 },   // kiinnostus vieheittäin: ahven pitää madosta
     energy: 4, regen: 2,              // voimien ja niiden palautumisen kertoimet
+    pull: 0.8,                        // lajin vetovoima siiman rasitukseen
     pal: { back: '#34421f', body: '#7c8a3c', belly: '#d4cca4', bar: '#202a14', fin: '#d4542a', eye: '#101010' },
   },
   // Hauki lymyilee paikallaan rantakaislikossa tai syvänteessä ja iskee syöttiin nopealla syöksyllä
@@ -2554,7 +2555,7 @@ const SPECIES = {
     bite: 'instant',
     interest: 1.1 / (60 * 30), sight: 4.5,
     lures: { bobber: 0.35, wobbler: 1.6, spoon: 1.3 },   // hauki iskee mieluummin uistimiin
-    energy: 3, regen: 4,
+    energy: 3, regen: 4, pull: 1.1,
     pal: { back: '#2a3a1c', body: '#5c7434', belly: '#d8d4b0', bar: '#c8c878', fin: '#8a6a2a', eye: '#101010' },
   },
 };
@@ -2697,7 +2698,7 @@ function makeFish(kind) {
   }
   return {
     kind, w, len, px: clamp(Math.round(len * 0.3), 4, FISH_PX_MAX), x, y, z, tz: z, a: rand(0, Math.PI * 2), sp: 0, tx: x, ty: y, home,
-    t: rand(60, 400), mode: 'roam', energy: 0, maxE: (120 + Math.min(w * 0.5, 900)) * sp.energy, regenTo: 0, anim: Math.floor(rand(0, 100)),
+    t: rand(60, 400), mode: 'roam', energy: 0, maxE: (120 + Math.min(w * 0.5, 900)) * sp.energy, anim: Math.floor(rand(0, 100)),
     dirT: 0, hop: 0, hopT: 0, hvx: 0, hvy: 0, flopT: 0, caughtT: 0,
   };
 }
@@ -2787,6 +2788,7 @@ function hookFish(f) {
   const L = cast.lure;
   L.fish = f;
   f.mode = 'fight'; f.energy = f.maxE * rand(0.85, 1); f.dirT = 0;
+  L.tension = 0;
   ripples.push({ x: L.x, y: L.y, t: 0, life: 45, max: 5, a: 0.75 });
   banners.unshift({ text: 'Fish on!', t: 90 });
   SFX.bite();
@@ -2810,18 +2812,21 @@ function updateFight(L, held) {
     moveFish(f, sp.fight * (0.45 + 0.55 * f.energy / f.maxE), 0.1);
     f.z += clamp(f.tz - f.z, -0.012, 0.012);
     f.energy -= 0.6 + (isArt(L.kind) ? 0 : Math.max(0, f.z - cast.hookDepth) * 1.6);
-    if (f.energy <= 0) {
-      // Väsynyt kala jatkaa taistelua, kun yli puolet voimista on palautunut
-      f.energy = 0; f.mode = 'tired';
-      f.regenTo = f.maxE * 0.5; f.tz = Math.max(0.3, f.z * 0.6);
+    // Kala taistelee ainakin, kunnes alle puolet voimista on jäljellä; sen jälkeen se voi lopettaa
+    // satunnaisella hetkellä, viimeistään kun voimat loppuvat
+    if (f.energy <= 0 || (f.energy < f.maxE * 0.5 && Math.random() < 1 / 240)) {
+      f.energy = Math.max(0, f.energy); f.mode = 'tired';
+      f.tz = Math.max(0.3, f.z * 0.6);
     }
   } else if (f.mode === 'tired') {
     // Väsynyt kala ui hetken rauhassa koukku suussa, kunnes voimat palaavat
     if (Math.random() < 0.02) f.a += rand(-0.8, 0.8);
     moveFish(f, 0.004, 0.1);
     f.z += clamp(f.tz - f.z, -0.004, 0.004);
-    f.energy += rand(0.15, 0.45) * sp.regen;
-    if (f.energy > f.regenTo) { f.mode = 'fight'; f.dirT = 0; SFX.splash(0.3); ripples.push({ x: f.x, y: f.y, t: 0, life: 40, max: 5, a: 0.6 }); }
+    // Taistelu alkaa uudelleen satunnaisesti, kun voimista on palautunut vähintään puolet; joskus kala
+    // odottaa, kunnes voimat ovat täysin palautuneet
+    f.energy = Math.min(f.maxE, f.energy + rand(0.15, 0.45) * sp.regen);
+    if (f.energy >= f.maxE || (f.energy >= f.maxE * 0.5 && Math.random() < 1 / 300)) { f.mode = 'fight'; f.dirT = 0; SFX.splash(0.3); ripples.push({ x: f.x, y: f.y, t: 0, life: 40, max: 5, a: 0.6 }); }
   } else if (f.mode === 'land') {
     flopFish(f);
     // Kuivalla maalla olevan kalan voi kerätä talteen kävelemällä sen päälle
@@ -2840,13 +2845,15 @@ function updateFight(L, held) {
       if (++L.clickT % 4 === 0) SFX.ratchet();
     }
   }
-  // Kala voi päästä irti koukusta. Todennäköisyys kasvaa kalan voimien ja siiman kireyden mukaan:
-  // kelaaminen tai siiman vetäminen kävelemällä lisää sitä.
-  if (f.mode === 'fight' || f.mode === 'tired') {
-    const e = f.energy / f.maxE, pulling = held || (p.moving && d >= L.out - 0.01);
-    const chance = (taut ? (0.0001 + 0.0012 * e * e) * (pulling ? 2.5 : 1) : 0.00002 * e) * 0.5;
-    if (Math.random() < chance) { releaseFish(L, f); return; }
-  }
+  // Siiman kesto: jos kalaa kelataan tai vedetään (kävellen tai veneellä) samaan aikaan kun se
+  // taistelee vastaan, siiman rasitus kasvaa kalan painon, lajin ja voimien mukaan. Täynnä siima
+  // katkeaa. Kun kala ei taistele tai vetoa ei ole, rasitus laskee: väsynyttä kalaa voi kelata turvallisesti.
+  const pulling = held || (d >= L.out - 0.01 && (p.moving || (p.boat && Math.abs(boat.v) > 0.004)));
+  if (f.mode === 'fight' && pulling) {
+    const e = f.energy / f.maxE;
+    L.tension = (L.tension || 0) + 0.004 * Math.pow(f.w / 1000, 0.7) * sp.pull * (0.3 + 0.7 * e);
+    if (L.tension >= 1) { cutLine(true); return; }
+  } else L.tension = Math.max(0, (L.tension || 0) - (f.mode === 'fight' ? 0.003 : 0.006));
   if (f.mode !== 'land' && shoreDist(f.x, f.y) > -0.1) { f.mode = 'land'; f.z = 0; f.flopT = 8; f.hopT = 0; }
   if (f.mode !== 'land') f.z = clamp(f.z, 0.1, Math.max(0.1, depthAt(f.x, f.y) - 0.08));
   // Koho seuraa kalaa; jos kala ui koukun syvyyttä syvemmälle, se vetää kohon pinnan alle
@@ -2858,20 +2865,10 @@ function updateFight(L, held) {
   if (L.out <= 1.2 && d < 1.9) { f.mode = 'caught'; f.caughtT = 75; SFX.splash(0.4); }
 }
 
-// Kala pääsee irti koukusta ja pakenee syvemmälle; koho jää kellumaan
-function releaseFish(L, f) {
-  L.fish = null; L.sub = 0; L.z = isArt(L.kind) ? Math.min(f.z, 1.5) : 0;
-  f.mode = 'roam'; f.a = Math.atan2(f.y - player.y, f.x - player.x) + rand(-0.5, 0.5); f.t = 240;
-  f.tx = f.x + Math.cos(f.a) * 6; f.ty = f.y + Math.sin(f.a) * 6; f.tz = Math.min(2.5, depthAt(f.x, f.y) - 0.2);
-  ripples.push({ x: L.x, y: L.y, t: 0, life: 45, max: 6, a: 0.7 });
-  banners.unshift({ text: 'The fish got away!', t: 150 });
-  SFX.splash(0.5);
-}
-
 // Siiman katkaisu. Koukussa ollut kala ui lopun siiman ja kohon kanssa hetken ja katoaa sitten
 // (tilalle syntyy uusi kala); ilman kalaa koho ajelehtii hetken. Ongen kärkeen solmitaan uusi koho ja koukku.
 let loose = [];
-function cutLine() {
+function cutLine(snapped) {
   const L = cast.lure;
   if (!L || L.st === 'fly' || (L.fish && L.fish.mode === 'caught')) return;
   const f = L.fish;
@@ -2879,7 +2876,7 @@ function cutLine() {
   loose.push({ x: L.x, y: L.y, a: f ? f.a : 0, fish: f, t: rand(200, 360), onWater: L.onWater, kind: L.kind });
   cast.lure = null; cast.needRelease = true;
   resetLine();
-  banners.unshift({ text: 'Line cut.', t: 100 });
+  banners.unshift({ text: snapped ? 'The line snapped!' : 'Line cut.', t: snapped ? 160 : 100 });
   SFX.snip();
 }
 
@@ -4704,11 +4701,19 @@ function drawWorld() {
   drawWindVane();
   if (state === 'play' && aiming()) drawReticle();
   // Koukussa olevan kalan voimat hahmon yläpuolella
+  // Kalan voimapalkki veden pinnalla kalan kohdalla; siiman kestopalkki hahmon yläpuolella
   const hf = cast.lure && cast.lure.fish;
-  if (hf && hf.mode !== 'caught' && ui.fishBar) {
-    const x = Math.round(isoX(player.x, player.y) - camXr) - 9, y = Math.round(isoY(player.x, player.y) - camYr) - 30;
+  if (hf && hf.mode !== 'caught') {
+    if (ui.fishBar) {
+      const x = Math.round(isoX(hf.x, hf.y) - camXr) - 9, y = Math.round(isoY(hf.x, hf.y) - camYr) - 7;
+      ctx.fillStyle = '#1a1c2c'; ctx.fillRect(x, y, 18, 4);
+      ctx.fillStyle = hf.mode === 'tired' ? '#94b0c2' : '#ef7d57'; ctx.fillRect(x + 1, y + 1, Math.round(16 * hf.energy / hf.maxE), 2);
+    }
+    const tn = clamp(cast.lure.tension || 0, 0, 1), x = Math.round(isoX(player.x, player.y) - camXr) - 9, y = Math.round(isoY(player.x, player.y) - camYr) - playerLift() - 27;
     ctx.fillStyle = '#1a1c2c'; ctx.fillRect(x, y, 18, 4);
-    ctx.fillStyle = hf.mode === 'tired' ? '#94b0c2' : '#ef7d57'; ctx.fillRect(x + 1, y + 1, Math.round(16 * hf.energy / hf.maxE), 2);
+    ctx.fillStyle = tn > 0.75 ? (Math.floor(time / 6) % 2 ? '#ff4030' : '#c82818') : tn > 0.45 ? '#ffcd75' : '#a7f070';
+    ctx.fillRect(x + 1, y + 1, Math.round(16 * tn), 2);
+    ctx.fillStyle = 'rgba(232, 236, 240, 0.7)'; ctx.fillRect(x + 1 + 16, y + 1, 1, 2);   // katkeamisraja
   }
   // Heiton voimapalkki hahmon alla
   if (cast.charging) {
