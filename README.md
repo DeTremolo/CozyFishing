@@ -71,7 +71,8 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   kuvat kyydissä olevasta hahmosta: kuljettaja istuu perässä kasvot menosuuntaan ja ohjaa perämoottoria
   oikealla kädellä (onki on laskettu veneen pohjalle kärki keulan yli), ja pysäytetyssä veneessä hahmo voi seistä kalastamassa (`boat.rider`). Veneellä ei
   voi vielä ajaa.
-- **Heijastus**: pelaajan hahmo heijastuu vedenpinnasta (esim. laiturilla ja lammen pohjoisrannalla).
+- **Heijastus**: pelaajan hahmo, vene ja sorsat heijastuvat vedenpinnasta (matalalla lentävän sorsan heijastus
+  himmenee korkeuden mukaan); tähtiä ei näy heijastusten kohdalla.
 - **Aurinko ja valo**: aurinko nousee koillisesta, on keskipäivällä etelässä ja laskee luoteeseen, ja puiden,
   hahmon ja eläinten varjot kääntyvät ja pitenevät sen mukaan (varjojen suunta päivitetään kerran tunnissa
   pelin kellon mukaan ja vaihdetaan pehmeästi). Aamurusko, kultainen aamu, kultainen hetki ja auringonlasku

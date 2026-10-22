@@ -3286,13 +3286,6 @@ function drawDuck(d, sx, sy) {
   }
   const img = d.mode === 'dabble' ? set.dabble : d.mode === 'sleep' ? set.sleep : set.swim;
   const bob = Math.round(Math.sin(d.anim * (d.mode === 'sleep' ? 0.03 : 0.06)) * 0.5);
-  // Heijastus: peilikuva himmeänä veden pinnassa
-  ctx.save();
-  ctx.globalAlpha = 0.18;
-  ctx.translate(d.flip ? sx + 5 : sx - 4, sy + 1 + img.height);
-  ctx.scale(d.flip ? -1 : 1, -1);
-  ctx.drawImage(img, 0, 0);
-  ctx.restore();
   drawImg(img, sx - 4, sy - img.height + 1 + bob, d.flip);
   // Vesiraja: alin pikselirivi jää veden alle
   ctx.fillStyle = `rgba(${env.ring}, 0.35)`;
@@ -3482,25 +3475,41 @@ function updateBirds() {
   }
 }
 
+// Taivaan linnut lentävät siivet levällään: kumpikin siipi on taitettu "kyynärpäästä" (M-muoto), ja
+// siivenisku nostaa ja laskee kyynärpäätä ja siivenkärkeä vuorotellen. Vartalo on pieni ja pää osoittaa
+// lentosuuntaan. Pikkulintu (tumma, vaalea vatsa), varis (musta, leveät siivet ja harottavat kärkisulat)
+// ja lokki (valkoinen, harmaat siivet, mustat kärjet ja keltainen nokka).
+const BIRD_LOOK = {
+  small: { span: 4, col: '#262a34', wing: '#2e323c', tip: '#262a34', belly: '#d8d4c8', beak: '#4a4038', rate: 4, thick: 0 },
+  crow: { span: 6, col: '#121216', wing: '#18181e', tip: '#121216', belly: null, beak: '#2e2e30', rate: 8, thick: 2 },
+  gull: { span: 7, col: '#f2f4f4', wing: '#c8cfd4', tip: '#26282c', belly: null, beak: '#e8b830', rate: 9, thick: 1 },
+};
+// Siiveniskun vaiheet: [kyynärpään korkeus, kärjen korkeus] (negatiivinen = ylös)
+const BIRD_FLAP = [[-2, -4], [-2, 0], [0, 2], [1, 1]];
 function drawSkyBirds(camXr, camYr) {
   for (const b of skyBirds) {
     const x = Math.round(b.x - camXr), y = Math.round(b.y - camYr);
-    if (x < -8 || x > W + 8 || y < -8 || y > H + 8) continue;
-    const up = Math.floor((time + b.ph) / (b.kind === 'small' ? 5 : 9)) % 2 === 0;
-    const wy = up ? -1 : 1;
-    if (b.kind === 'gull') {
-      ctx.fillStyle = '#e8ecee';
-      ctx.fillRect(x - 1, y, 3, 1);
-      ctx.fillRect(x - 3, y + wy, 2, 1); ctx.fillRect(x + 2, y + wy, 2, 1);
-      ctx.fillStyle = '#3a3a3a';
-      ctx.fillRect(x - 4, y + wy * 2, 1, 1); ctx.fillRect(x + 4, y + wy * 2, 1, 1);
-    } else {
-      ctx.fillStyle = b.kind === 'crow' ? '#141418' : '#2a2a30';
-      const s = b.kind === 'crow' ? 3 : 2;
-      ctx.fillRect(x - 1, y, 3, 1);
-      ctx.fillRect(x - s, y + wy, s - 1 || 1, 1); ctx.fillRect(x + 2, y + wy, s - 1 || 1, 1);
-      if (b.kind === 'crow') { ctx.fillRect(x - 4, y + wy * 2, 1, 1); ctx.fillRect(x + 4, y + wy * 2, 1, 1); }
+    if (x < -12 || x > W + 12 || y < -10 || y > H + 10) continue;
+    const L = BIRD_LOOK[b.kind] || BIRD_LOOK.small, dir = b.vx < 0 ? -1 : 1;
+    const [ey, ty] = BIRD_FLAP[Math.floor((time + b.ph) / L.rate) % 4];
+    const ex = Math.max(2, Math.round(L.span * 0.45));
+    for (const side of [-1, 1]) {
+      // Olkapäästä kyynärpäähän leveämpi siiven sisäosa, kyynärpäästä kärkeen ohuempi ulko-osa
+      const sx = x + side, exx = x + side * ex, txx = x + side * L.span;
+      plotLine(ctx, sx, y, exx, y + ey, L.wing);
+      for (let t = 1; t <= L.thick; t++) plotLine(ctx, sx, y + t, exx, y + ey + Math.min(t, 1), L.wing);
+      plotLine(ctx, exx, y + ey, txx, y + ty, L.wing);
+      ctx.fillStyle = L.tip; ctx.fillRect(txx, y + ty, 1, 1);
+      if (b.kind === 'gull') ctx.fillRect(txx - side, y + Math.round((ey + ty * 2) / 3), 1, 1);
+      if (b.kind === 'crow') { ctx.fillRect(txx + side, y + ty + 1, 1, 1); ctx.fillRect(txx, y + ty + 1, 1, 1); }   // kärkisulat
     }
+    // Vartalo, pää, nokka ja pyrstö
+    ctx.fillStyle = L.col;
+    ctx.fillRect(x - 1, y, 3, 2);
+    ctx.fillRect(x + dir * 2, y, 1, 1);
+    ctx.fillRect(x - dir * 2, y + 1, 1, 1);
+    if (L.belly) { ctx.fillStyle = L.belly; ctx.fillRect(x, y + 1, 1, 1); }
+    ctx.fillStyle = L.beak; ctx.fillRect(x + dir * 3, y, 1, 1);
   }
 }
 
@@ -4054,6 +4063,37 @@ function drawBoatReflection(camXr, camYr) {
   ctx.globalAlpha = 1;
 }
 
+// Sorsien heijastukset: uivan sorsan peilikuva vesirajan alla ja matalalla lentävän sorsan peilikuva
+// yhtä syvällä pinnan alla kuin sorsa on sen yläpuolella (himmenee korkeuden mukaan). Heijastukset
+// piirretään tähtien vertailukuvan jälkeen, joten tähdet eivät näy niiden kohdalla.
+const duckReflC = makeCanvas(16, 16), duckReflCtx = duckReflC.getContext('2d');
+function drawDuckReflections(camXr, camYr) {
+  if (!water.show) return;
+  for (const d of ducks) {
+    if (d.z > 24) continue;
+    const sx = Math.round(isoX(d.x, d.y) - camXr), sy = Math.round(isoY(d.x, d.y) - camYr);
+    if (sx < -10 || sx > W + 10 || sy < -4 || sy > H + 40 || !waterPx(sx + camXr, sy + camYr)) continue;
+    const set = DUCK_SPR[d.male ? 'm' : 'f'], flying = d.z > 0.5 || d.mode === 'scramble';
+    const img = d.mode === 'scramble' ? (Math.floor(d.anim / 3) % 2 ? set.fly0 : set.fly1)
+      : d.z > 0.5 ? (Math.floor(d.anim / 5) % 2 ? set.fly0 : set.fly1)
+      : d.mode === 'dabble' ? set.dabble : d.mode === 'sleep' ? set.sleep : set.swim;
+    // Kuvan yläreuna ruudulla ja sen peilaus vedenpinnan (sy + 1) suhteen
+    const top = d.mode === 'scramble' ? sy - 4 : flying ? sy - Math.round(d.z) - 3 : sy - img.height + 1;
+    const ox = flying ? sx - 5 : sx - 4, mirrorTop = 2 * (sy + 1) - (top + img.height);
+    const g = duckReflCtx;
+    g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, 16, 16);
+    g.save(); g.translate(d.flip ? img.width : 0, img.height); g.scale(d.flip ? -1 : 1, -1); g.drawImage(img, 0, 0); g.restore();
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = 'rgba(16, 26, 34, 0.4)'; g.fillRect(0, 0, 16, 16);
+    g.globalCompositeOperation = 'destination-in';
+    g.drawImage(pondMaskCanvas, PB.x0 - camXr - ox, PB.y0 - camYr - mirrorTop);
+    ctx.globalAlpha = 0.42 * (flying ? Math.max(0, 1 - d.z / 24) : 1);
+    ctx.drawImage(duckReflC, ox, mirrorTop);
+    ctx.globalAlpha = 1;
+  }
+}
+
 // Pelaajan heijastus vedenpinnasta: hahmon kuva peilataan vedenpinnan tasossa (laiturilla kannen alta)
 // ja rajataan lammen alueelle. Heijastus on tumma ja läpikuultava ja väreilee tuulessa; se näkyy esim.
 // laiturilla ja lammen pohjoisrannalla, kun vettä on hahmon edessä ruudulla.
@@ -4557,6 +4597,7 @@ function drawWorld() {
   snapStars('a');
   drawPlayerReflection(camXr, camYr);
   drawBoatReflection(camXr, camYr);
+  drawDuckReflections(camXr, camYr);
   if (!water.show) drawDebugLines(camXr, camYr);
   drawLilies(camXr, camYr);
   drawWaterMist(camXr, camYr);
