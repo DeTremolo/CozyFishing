@@ -4152,12 +4152,17 @@ function drawCastLine(g, camXr, camYr) {
       plotLine(ctx, px, py, x, y, col); px = x; py = y;
     }
   };
-  if (slack < 0.15) { curve(tx, ty, (tx + lx) / 2, (ty + ly) / 2 + 3, lx, ly); return; }
-  const f = clamp(0.3 - slack * 0.03, 0.06, 0.3);
+  // Siima roikkuu kärjen ja kohon välillä: notko syvenee löysän siiman mukana. Kun notkon pohja ulottuu
+  // vedenpintaan (kärjen ja kohon välisen linjan alla oleva pinta), loppu löysä siima lepää pinnalla.
+  const surfMid = (isoY(player.x, player.y) - camYr + ly) / 2, hMid = Math.max(2, surfMid - (ty + ly) / 2);
+  const sag = 2 + slack * 16;
+  if (sag < hMid) { curve(tx, ty, (tx + lx) / 2, (ty + ly) / 2 + sag * 2, lx, ly); return; }
+  const rest = slack - (hMid - 2) / 16;   // pinnalle jäävä osa löysästä siimasta
+  const f = clamp(0.3 - rest * 0.03, 0.06, 0.3);
   const wx = player.x + (L.x - player.x) * f, wy = player.y + (L.y - player.y) * f;
   const P = { x: isoX(wx, wy) - camXr, y: restY(wx, wy) };
   curve(tx, ty, tx + (P.x - tx) * 0.3, P.y, P.x, P.y);
-  const n = Math.max(2, Math.ceil(Math.hypot(lx - P.x, ly - P.y) / 2)), amp = Math.min(3, slack * 0.7);
+  const n = Math.max(2, Math.ceil(Math.hypot(lx - P.x, ly - P.y) / 2)), amp = Math.min(3, rest * 0.7);
   const ux = (lx - P.x) / (n * 2 || 1), uy = (ly - P.y) / (n * 2 || 1), ul = Math.hypot(ux, uy) || 1;
   let px = P.x, py = P.y;
   for (let i = 1; i <= n; i++) {
