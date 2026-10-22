@@ -4051,44 +4051,53 @@ function drawBoatReflection(camXr, camYr) {
     g.restore();
   }
   g.drawImage(spr.refl, 0, 0);
-  g.globalCompositeOperation = 'source-atop';
-  g.fillStyle = 'rgba(16, 26, 34, 0.45)'; g.fillRect(0, 0, 72, 72);
-  g.globalCompositeOperation = 'destination-in';
-  g.drawImage(pondMaskCanvas, PB.x0 - camXr - rx, PB.y0 - camYr - ry);
-  ctx.globalAlpha = 0.4;
-  ctx.drawImage(boatReflC, rx, ry);
-  ctx.globalAlpha = 1;
+  reflCtxAll.drawImage(boatReflC, rx, ry);
 }
 
 // Sorsien heijastukset: uivan sorsan peilikuva vesirajan alla ja matalalla lentävän sorsan peilikuva
 // yhtä syvällä pinnan alla kuin sorsa on sen yläpuolella (himmenee korkeuden mukaan). Heijastukset
 // piirretään tähtien vertailukuvan jälkeen, joten tähdet eivät näy niiden kohdalla.
 const duckReflC = makeCanvas(16, 16), duckReflCtx = duckReflC.getContext('2d');
-function drawDuckReflections(camXr, camYr) {
+function drawDuckReflection(d, camXr, camYr) {
+  const sx = Math.round(isoX(d.x, d.y) - camXr), sy = Math.round(isoY(d.x, d.y) - camYr);
+  if (sx < -10 || sx > W + 10 || sy < -4 || sy > H + 40 || !waterPx(sx + camXr, sy + camYr)) return;
+  const set = DUCK_SPR[d.male ? 'm' : 'f'], flying = d.z > 0.5 || d.mode === 'scramble';
+  const img = d.mode === 'scramble' ? (Math.floor(d.anim / 3) % 2 ? set.fly0 : set.fly1)
+    : d.z > 0.5 ? (Math.floor(d.anim / 5) % 2 ? set.fly0 : set.fly1)
+    : d.mode === 'dabble' ? set.dabble : d.mode === 'sleep' ? set.sleep : set.swim;
+  // Kuvan yläreuna ruudulla ja sen peilaus vedenpinnan (sy + 1) suhteen
+  const top = d.mode === 'scramble' ? sy - 4 : flying ? sy - Math.round(d.z) - 3 : sy - img.height + 1;
+  const ox = flying ? sx - 5 : sx - 4, mirrorTop = 2 * (sy + 1) - (top + img.height);
+  const g = reflCtxAll;
+  g.save();
+  g.globalAlpha = flying ? Math.max(0, 1 - d.z / 24) : 1;
+  g.translate(ox + (d.flip ? img.width : 0), mirrorTop + img.height); g.scale(d.flip ? -1 : 1, -1);
+  g.drawImage(img, 0, 0);
+  g.restore();
+}
+
+// Kaikki heijastukset (hahmo, vene ja sorsat) kootaan yhdelle kerrokselle kaukaa lähelle, jolloin lähempi
+// heijastus peittää taaemman. Kerros tummennetaan, rajataan veden alueelle ja piirretään läpikuultavana.
+const reflAll = makeCanvas(1, 1), reflCtxAll = reflAll.getContext('2d');
+function drawReflections(camXr, camYr) {
   if (!water.show) return;
-  for (const d of ducks) {
-    if (d.z > 24) continue;
-    const sx = Math.round(isoX(d.x, d.y) - camXr), sy = Math.round(isoY(d.x, d.y) - camYr);
-    if (sx < -10 || sx > W + 10 || sy < -4 || sy > H + 40 || !waterPx(sx + camXr, sy + camYr)) continue;
-    const set = DUCK_SPR[d.male ? 'm' : 'f'], flying = d.z > 0.5 || d.mode === 'scramble';
-    const img = d.mode === 'scramble' ? (Math.floor(d.anim / 3) % 2 ? set.fly0 : set.fly1)
-      : d.z > 0.5 ? (Math.floor(d.anim / 5) % 2 ? set.fly0 : set.fly1)
-      : d.mode === 'dabble' ? set.dabble : d.mode === 'sleep' ? set.sleep : set.swim;
-    // Kuvan yläreuna ruudulla ja sen peilaus vedenpinnan (sy + 1) suhteen
-    const top = d.mode === 'scramble' ? sy - 4 : flying ? sy - Math.round(d.z) - 3 : sy - img.height + 1;
-    const ox = flying ? sx - 5 : sx - 4, mirrorTop = 2 * (sy + 1) - (top + img.height);
-    const g = duckReflCtx;
-    g.globalCompositeOperation = 'source-over';
-    g.clearRect(0, 0, 16, 16);
-    g.save(); g.translate(d.flip ? img.width : 0, img.height); g.scale(d.flip ? -1 : 1, -1); g.drawImage(img, 0, 0); g.restore();
-    g.globalCompositeOperation = 'source-atop';
-    g.fillStyle = 'rgba(16, 26, 34, 0.4)'; g.fillRect(0, 0, 16, 16);
-    g.globalCompositeOperation = 'destination-in';
-    g.drawImage(pondMaskCanvas, PB.x0 - camXr - ox, PB.y0 - camYr - mirrorTop);
-    ctx.globalAlpha = 0.42 * (flying ? Math.max(0, 1 - d.z / 24) : 1);
-    ctx.drawImage(duckReflC, ox, mirrorTop);
-    ctx.globalAlpha = 1;
-  }
+  if (reflAll.width !== W || reflAll.height !== H) { reflAll.width = W; reflAll.height = H; }
+  const g = reflCtxAll;
+  g.globalCompositeOperation = 'source-over';
+  g.clearRect(0, 0, W, H);
+  const items = [{ d: player.x + player.y, fn: () => drawPlayerReflection(camXr, camYr) }];
+  if (boat) items.push({ d: boat.x + boat.y, fn: () => drawBoatReflection(camXr, camYr) });
+  for (const dk of ducks) if (dk.z <= 24) items.push({ d: dk.x + dk.y, fn: () => drawDuckReflection(dk, camXr, camYr) });
+  items.sort((a, b) => a.d - b.d);
+  for (const it of items) it.fn();
+  g.globalCompositeOperation = 'source-atop';
+  g.fillStyle = 'rgba(16, 26, 34, 0.45)'; g.fillRect(0, 0, W, H);
+  g.globalCompositeOperation = 'destination-in';
+  g.drawImage(pondMaskCanvas, PB.x0 - camXr, PB.y0 - camYr);
+  g.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 0.42;
+  ctx.drawImage(reflAll, 0, 0);
+  ctx.globalAlpha = 1;
 }
 
 // Pelaajan heijastus vedenpinnasta: hahmon kuva peilataan vedenpinnan tasossa (laiturilla kannen alta)
@@ -4105,13 +4114,7 @@ function drawPlayerReflection(camXr, camYr) {
   g.globalCompositeOperation = 'source-over';
   g.clearRect(0, 0, 16, 21);
   g.save(); g.translate(p.flip ? 16 : 0, 21); g.scale(p.flip ? -1 : 1, -1); g.drawImage(spr, 0, 0); g.restore();
-  g.globalCompositeOperation = 'source-atop';
-  g.fillStyle = 'rgba(16, 26, 34, 0.45)'; g.fillRect(0, 0, 16, 21);
-  g.globalCompositeOperation = 'destination-in';
-  g.drawImage(pondMaskCanvas, PB.x0 - camXr - rx, PB.y0 - camYr - ry);
-  ctx.globalAlpha = 0.42;
-  ctx.drawImage(reflCanvas, rx, ry);
-  ctx.globalAlpha = 1;
+  reflCtxAll.drawImage(reflCanvas, rx, ry);
 }
 
 // Pelaajan viimeksi piirretty kuva ja pään paikka ruudulla (otsalampun valo lasketaan niiden mukaan)
@@ -4592,9 +4595,7 @@ function drawWorld() {
   // Tähtien vertailukuva otetaan ennen heijastuksia, jolloin tähdet eivät näy hahmon, veneen eivätkä
   // perämoottorin heijastuksen kohdalla
   snapStars('a');
-  drawPlayerReflection(camXr, camYr);
-  drawBoatReflection(camXr, camYr);
-  drawDuckReflections(camXr, camYr);
+  drawReflections(camXr, camYr);
   if (!water.show) drawDebugLines(camXr, camYr);
   drawLilies(camXr, camYr);
   drawWaterMist(camXr, camYr);
