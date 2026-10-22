@@ -1836,7 +1836,7 @@ function updateCast() {
     if (held && !c.needRelease) {
       // Tähdätyssä heitossa kehä alkaa suurimmasta koosta ja pienenee; muuten voima alkaa nollasta
       if (!c.charging) { c.charging = true; if (aimCast()) { c.power = 1; c.pdir = -1; } else { c.power = 0; c.pdir = 1; } }
-      c.power += c.pdir / 70;
+      c.power += c.pdir / (aimCast() ? 30 : 70);   // tähdätyn heiton kehä: suurin -> piste 0,5 s
       if (c.power >= 1) { c.power = 1; c.pdir = -1; } else if (c.power <= 0) { c.power = 0; c.pdir = 1; }
     } else if (c.charging) {
       c.charging = false;
@@ -4898,9 +4898,9 @@ function drawReticle() {
       return;
     }
     // Tarkkuuskehä tähtäimen ympärillä (maan pinnan suuntainen ellipsi): pienenee ja kasvaa vuorotellen
-    const e = castError(cast.power), r = e * CAST_SPREAD;
+    const r = castError(cast.power) * CAST_SPREAD;
     if (r > 0.1) {
-      ctx.fillStyle = e < 0.2 ? 'rgba(167, 240, 112, 0.9)' : e < 0.55 ? 'rgba(255, 220, 140, 0.85)' : 'rgba(239, 125, 87, 0.85)';
+      ctx.fillStyle = 'rgba(255, 220, 140, 0.85)';
       const n = Math.max(12, Math.round(r * 18));
       for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2; ctx.fillRect(Math.round(x + Math.cos(a) * r * 11.3), Math.round(y + Math.sin(a) * r * 5.66), 1, 1); }
     }
