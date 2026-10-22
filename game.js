@@ -14,7 +14,7 @@ const POND_R = 25;         // lammen keskisäde: halkaisija noin 50 m
 const POND_RMAX = POND_R + 5.5;   // rantaviivan suurin etäisyys keskipisteestä (lahdet)
 const WALK = 0.042;        // kävelynopeus (ruutua / päivitys)
 
-const T_WATER = 0, T_BANK = 1, T_FOREST = 2, T_CLEAR = 3, T_TENT = 4, T_CAMP = 5;
+const T_WATER = 0, T_BANK = 1, T_FOREST = 2, T_CLEAR = 3, T_TENT = 4, T_CAMP = 5, T_SHED = 6;
 // Vuorokausi: kellossa CYCLE yksikköä vuorokaudessa (ks. advanceClock). Kellonaika = 4.30 + osuus * 24 h
 const CYCLE = 10 * 60 * 60;
 const START_TOD = 0.12;    // peli alkaa aamulla noin kello 7
@@ -860,6 +860,7 @@ function genMap() {
   }
   for (let ox = 0; ox < 2; ox++) for (let oy = 0; oy < 2; oy++) type[(TENT.cy + oy) * N + TENT.cx + ox] = T_TENT;
   type[CAMP.cy * N + CAMP.cx] = T_CAMP;
+  placeShed();
 
   // Laituri lähtee penkereeltä aukean kohdalla (ruudulla lammen vasen reuna) kohti lammen keskustaa
   const da = DOCK_ANG, r0 = pondR(da) + 0.8;
@@ -910,7 +911,7 @@ function drawTile(cx, cy) {
   if (t === T_WATER) set = TILES.mud;
   else if (t === T_FOREST) set = TILES.needles;
   else if (t === T_CAMP) set = TILES.dirt;
-  else if (t === T_CLEAR || t === T_TENT) set = Math.hypot(cx + 0.5 - CAMP.cx - 0.5, cy + 0.5 - CAMP.cy - 0.5) < 1.6 ? TILES.dirt : TILES.grass;
+  else if (t === T_CLEAR || t === T_TENT || t === T_SHED) set = Math.hypot(cx + 0.5 - CAMP.cx - 0.5, cy + 0.5 - CAMP.cy - 0.5) < 1.6 ? TILES.dirt : TILES.grass;
   else set = gkind[i] === 1 ? TILES.shore : gkind[i] === 2 ? TILES.path : TILES.grass;
   gctx.drawImage(set[vari[i]], isoX(cx, cy) - HW, isoY(cx, cy));
 }
@@ -920,7 +921,7 @@ function buildGround() {
   for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++) drawTile(cx, cy);
 }
 
-const playerSolid = (t) => t === T_FOREST || t === T_TENT || t === T_CAMP;
+const playerSolid = (t) => t === T_FOREST || t === T_TENT || t === T_CAMP || t === T_SHED;
 
 // ---------------------------------------------------------------------------
 // Maaston korkeus. Maa on tasaista (korkeus 0) paitsi lammen kohdalla, jossa pohja laskee.
@@ -3436,7 +3437,7 @@ function updateAnimals() {
       if (dist <= speed) { a.x = a.tx; a.y = a.ty; if (a.mode !== 'flee') a.moving = false; }
       else {
         const nx = a.x + (dx / dist) * speed, ny = a.y + (dy / dist) * speed;
-        if (shoreDist(nx, ny) > 0.15 && type[cellIdx(nx, ny)] !== T_TENT && type[cellIdx(nx, ny)] !== T_CAMP) { a.x = nx; a.y = ny; }
+        if (shoreDist(nx, ny) > 0.15 && !playerSolid(type[cellIdx(nx, ny)])) { a.x = nx; a.y = ny; }
         else { a.tx = a.x; a.ty = a.y; a.moving = false; }
       }
       const [sx] = screenDir(dx, dy);
@@ -4349,6 +4350,87 @@ function drawLure(camXr, camYr) {
   else drawBobberAt(x, y, false, true);
 }
 
+// ---------------------------------------------------------------------------
+// Polttopuukatos aukean takareunassa teltan oikealla puolella. Katos on 2,6 m pitkä ja 1,2 m syvä,
+// avoin puoli katsojaan päin. Siinä on harvalaudoitettu takaseinä ja vasen kylki, umpinainen oikea
+// kylki, lautalattia betoniharkkojen päällä ja tumma, eteen kallistuva peltikatto. Klapit pinotaan
+// 5 klapin riveihin (4 riviä, enintään 20 klapia) ja jokainen klapi piirretään omana kuvanaan, joten
+// katoksen kuva muuttuu klapien määrän mukaan.
+// ---------------------------------------------------------------------------
+const SHED = { x0: 0, y0: 0, L: 2.6, D: 1.2, logs: 10, cap: 20, cols: 5 };
+function placeShed() {
+  // Haetaan aukean takaosasta paikka teltan oikealta puolelta (ruudulla oikealla, kauempana kuin nuotio)
+  const tu = TENT.cx - TENT.cy;
+  let best = null;
+  for (let y0 = TENT.cy - 6; y0 <= TENT.cy + 2; y0++) for (let x0 = TENT.cx; x0 <= TENT.cx + 8; x0++) {
+    let ok = true;
+    for (let cy = y0; cy < y0 + 2 && ok; cy++) for (let cx = x0; cx < x0 + 3 && ok; cx++) {
+      if (type[cy * N + cx] !== T_CLEAR || !inClearing(cx + 0.5, cy + 0.5)) ok = false;
+    }
+    const mx = x0 + 1.3, my = y0 + 0.6;
+    if (!ok || mx - my < tu + 2.5 || Math.hypot(mx - CAMP.cx - 0.5, my - CAMP.cy - 0.5) < 3 || Math.hypot(mx - TENT.cx - 1, my - TENT.cy - 1) < 2.5) continue;
+    const score = (mx + my) + Math.abs(mx - my - tu - 5) * 0.5;   // takareuna (pieni x + y) ja lähellä telttaa
+    if (!best || score < best.score) best = { x0, y0, score };
+  }
+  if (!best) best = { x0: TENT.cx + 3, y0: TENT.cy - 3 };
+  SHED.x0 = best.x0 + 0.2; SHED.y0 = best.y0 + 0.4;
+  for (let cy = best.y0; cy < best.y0 + 2; cy++) for (let cx = best.x0; cx < best.x0 + 3; cx++) type[cy * N + cx] = T_SHED;
+}
+const shedCache = new Map();
+function shedSprite(logs) {
+  if (shedCache.has(logs)) return shedCache.get(logs);
+  const { L, D } = SHED, ox = Math.ceil(D * 8) + 6, oy = 36, w = Math.ceil((L + D) * 8) + 14, h = Math.ceil((L + D) * 4) + oy + 6;
+  const c = makeCanvas(w, h), g = c.getContext('2d');
+  const P = (a, b, z) => [ox + (a - b) * 8, oy + (a + b) * 4 - z];
+  const quad = (pts, col) => polyFill(g, pts, col);
+  const ln = (p0, p1, col) => plotLine(g, p0[0], p0[1], p1[0], p1[1], col);
+  const FLOOR = 4, WALL = 22, RF = 27, RB = 23;
+  // Betoniharkot kulmissa
+  for (const [a, b] of [[0, 0], [L, 0], [L / 2, 0], [0, D], [L / 2, D], [L, D]]) quad([P(a - 0.12, b, 0), P(a + 0.12, b, 0), P(a + 0.12, b, FLOOR), P(a - 0.12, b, FLOOR)], b === 0 ? '#5a5e66' : '#8a8e96');
+  // Takaseinä (varjossa): vaakalaudat, joiden välissä raot
+  quad([P(0, 0, FLOOR), P(L, 0, FLOOR), P(L, 0, WALL), P(0, 0, WALL)], '#3a2a1a');
+  for (let z = FLOOR + 1; z < WALL; z += 3) quad([P(0, 0, z), P(L, 0, z), P(L, 0, z + 2), P(0, 0, z + 2)], '#8a6a40');
+  // Lautalattia
+  quad([P(0, 0, FLOOR), P(L, 0, FLOOR), P(L, D, FLOOR), P(0, D, FLOOR)], '#c8a46a');
+  for (let a = 0.18; a < L; a += 0.22) ln(P(a, 0, FLOOR), P(a, D, FLOOR), '#9a7848');
+  // Klapit: päädyt katsojaan päin, alimmasta rivistä ylöspäin vasemmalta oikealle
+  const rnd = mulberry32(91);
+  for (let i = 0; i < Math.min(logs, SHED.cap); i++) {
+    const col = i % SHED.cols, row = Math.floor(i / SHED.cols), sh = rnd();
+    const [x, y] = P(0.34 + col * 0.48, D - 0.12, FLOOR + 2 + row * 4);
+    const bark = sh < 0.5 ? '#4a3020' : '#5a3a24', end = sh < 0.3 ? '#d4a86c' : sh < 0.7 ? '#c89a62' : '#b8884e';
+    // Klapin pääty: kuoren reunustama soikio (5 x 4 px), halkaistun puun pinta ja vuosirenkaiden keskus
+    const X = Math.round(x), Y = Math.round(y);
+    g.fillStyle = bark; g.fillRect(X - 1, Y - 2, 3, 1); g.fillRect(X - 2, Y - 1, 1, 2); g.fillRect(X + 2, Y - 1, 1, 2); g.fillRect(X - 1, Y + 1, 3, 1);
+    g.fillStyle = end; g.fillRect(X - 1, Y - 1, 3, 2);
+    g.fillStyle = '#e6c088'; g.fillRect(X - 1, Y - 1, 1, 1);
+    g.fillStyle = '#a07040'; g.fillRect(X, Y, 1, 1);
+  }
+  // Vasen kylki: harvalaudoitus (raot näyttävät sisään)
+  for (let z = FLOOR + 1; z < WALL; z += 3) quad([P(0, 0, z), P(0, D, z), P(0, D, z + 2), P(0, 0, z + 2)], '#b8945c');
+  // Oikea kylki: umpinainen, valoisa laudoitus
+  quad([P(L, 0, FLOOR), P(L, D, FLOOR), P(L, D, WALL), P(L, 0, WALL)], '#d8b47a');
+  for (let z = FLOOR + 3; z < WALL; z += 3) ln(P(L, 0, z), P(L, D, z), '#9a7444');
+  // Kulmapylväät ja etupalkki
+  for (const [a, b] of [[0, 0], [0, D], [L, D]]) { const p0 = P(a, b, 0), p1 = P(a, b, b === 0 ? RB - 1 : RF - 1); g.fillStyle = '#c89c60'; g.fillRect(Math.round(p0[0]) - 1, Math.round(p1[1]), 2, Math.round(p0[1] - p1[1])); g.fillStyle = '#e0bc84'; g.fillRect(Math.round(p0[0]) - 1, Math.round(p1[1]), 1, Math.round(p0[1] - p1[1])); }
+  quad([P(-0.05, D, WALL), P(L + 0.05, D, WALL), P(L + 0.05, D, RF - 1), P(-0.05, D, RF - 1)], '#d8b47a');
+  ln(P(-0.05, D, WALL), P(L + 0.05, D, WALL), '#8a6a40');
+  // Katto: tumma profiilipelti, joka kallistuu eteenpäin; etureunassa vaalea otsalauta
+  const r0 = P(-0.18, -0.18, RB), r1 = P(L + 0.18, -0.18, RB), r2 = P(L + 0.18, D + 0.2, RF), r3 = P(-0.18, D + 0.2, RF);
+  quad([r0, r1, r2, r3], '#2e3240');
+  for (let a = -0.1; a < L + 0.18; a += 0.16) ln(P(a, -0.18, RB), P(a, D + 0.2, RF), '#454a5c');
+  quad([r3, r2, P(L + 0.18, D + 0.2, RF - 2), P(-0.18, D + 0.2, RF - 2)], '#c8a46a');
+  quad([r1, r2, P(L + 0.18, D + 0.2, RF - 2), P(L + 0.18, -0.18, RB - 2)], '#a8844e');
+  outlineSprite(c, '#1a120a');
+  const spr = { img: c, ax: ox, ay: oy, sil: silhouette(c) };
+  shedCache.set(logs, spr);
+  return spr;
+}
+function drawShed(camXr, camYr) {
+  const spr = shedSprite(SHED.logs);
+  ctx.drawImage(spr.img, Math.round(isoX(SHED.x0, SHED.y0) - camXr - spr.ax), Math.round(isoY(SHED.x0, SHED.y0) - camYr - spr.ay));
+}
+
 // Nuotio: varjostettu kivirengas, hiiltyneet halot, hehkuvat hiillos ja kerroksellinen liekki
 const CAMP_STONES = (() => {
   const rnd = mulberry32(77);
@@ -4431,6 +4513,12 @@ function sunRows(canvas, key, r0, r1) {
     if (type[i] !== T_FOREST || kind[i] === 3) continue;
     const spr = FOREST_SPR[kind[i]][pvar[i]];
     g.setTransform(1, 0, c, d, isoX(cx + 0.5, cy + 0.5), isoY(cx + 0.5, cy + 0.5) + 2);
+    g.drawImage(spr.sil, -spr.ax, -spr.ay);
+  }
+  // Polttopuukatoksen varjo
+  if (SHED.y0 >= r0 && SHED.y0 < r1) {
+    const spr = shedSprite(SHED.logs);
+    g.setTransform(1, 0, c, d, isoX(SHED.x0, SHED.y0), isoY(SHED.x0, SHED.y0) + 2);
     g.drawImage(spr.sil, -spr.ax, -spr.ay);
   }
   g.setTransform(1, 0, 0, 1, 0, 0);
@@ -4665,6 +4753,7 @@ function drawWorld() {
     list.push({ d: o.x + o.y, k: 1, o, sx, sy });
   }
   list.push({ d: TENT.cx + TENT.cy + 2, k: 2 });
+  list.push({ d: SHED.x0 + SHED.y0 + (SHED.L + SHED.D) / 2, k: 9 });
   if (boat && !boatBehindDock) list.push({ d: boat.x + boat.y, k: 8 });
   list.push({ d: CAMP.cx + CAMP.cy + 1, k: 3 });
   for (const a of animals) list.push({ d: a.x + a.y, k: 4, a });
@@ -4695,6 +4784,8 @@ function drawWorld() {
       drawAnimal(o.a, isoX(o.a.x, o.a.y) - camXr, isoY(o.a.x, o.a.y) - camYr);
     } else if (o.k === 5) {
       drawDuck(o.dk, isoX(o.dk.x, o.dk.y) - camXr, isoY(o.dk.x, o.dk.y) - camYr);
+    } else if (o.k === 9) {
+      drawShed(camXr, camYr);
     } else if (o.k === 8) {
       drawBoat(camXr, camYr);
     } else if (o.k === 7) {
