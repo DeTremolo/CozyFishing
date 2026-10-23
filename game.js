@@ -1501,6 +1501,38 @@ function tone(freq, dur, wave = 'square', vol = 0.06, endFreq = 0, delay = 0) {
   o.start(t); o.stop(t + dur);
 }
 
+// Pehmeä kohina: nousee hitaasti ja vaimenee, jolloin alussa ei ole terävää iskua
+function softNoise(dur, freq, ftype = 'lowpass', vol = 0.1, q = 1, attack = 0.05, delay = 0, endFreq = 0) {
+  if (!actx) return;
+  const t = actx.currentTime + delay;
+  const s = actx.createBufferSource(); s.buffer = noiseBuf;
+  const f = actx.createBiquadFilter(); f.type = ftype; f.Q.value = q;
+  f.frequency.setValueAtTime(freq, t);
+  if (endFreq) f.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
+  const g = actx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + attack);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  s.connect(f).connect(g).connect(master);
+  s.start(t, Math.random() * 1.5);
+  s.stop(t + dur);
+}
+
+// Pieni vesipisaran "plip": lyhyt siniääni, jonka sävel nousee
+function droplet(delay, vol) {
+  if (!actx) return;
+  const t = actx.currentTime + delay, f0 = rand(500, 900), dur = rand(0.05, 0.09);
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f0 * rand(1.8, 2.6), t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(master);
+  o.start(t); o.stop(t + dur);
+}
+
 // Ulostulo, joka sijoittuu stereokuvaan (pan -1..1) ja kuulostaa kaukaiselta (alipäästö)
 function outNode(pan = 0, vol = 1, far = 8000) {
   const g = actx.createGain(); g.gain.value = vol;
@@ -1596,6 +1628,18 @@ const SFX = {
   step: (wood) => (wood ? noiseBurst(0.06, rand(250, 380), 'bandpass', 0.07, 2) : noiseBurst(0.05, rand(700, 1100), 'bandpass', 0.035, 1.2)),
   rustle: () => { for (let k = 0; k < 4; k++) setTimeout(() => noiseBurst(0.05, rand(2500, 4500), 'bandpass', 0.05, 2), k * 45); },
   splash: (v = 1) => { noiseBurst(0.35, 900, 'lowpass', 0.25 * v, 1); noiseBurst(0.2, 3000, 'bandpass', 0.1 * v, 1); },
+  // Sorsan lasku tai lentoonlähtö: pehmeä veden kohahdus, roiskeen suhina ja muutama pisara.
+  // Laskeutuessa liuku pinnalla kestää pidempään, lentoon lähtiessä siivet piiskaavat vettä.
+  duckWater: (land, v = 1) => {
+    if (land) {
+      softNoise(0.7, 700, 'lowpass', 0.13 * v, 0.7, 0.09, 0, 260);
+      softNoise(0.5, 1800, 'bandpass', 0.035 * v, 0.8, 0.12, 0.03, 900);
+    } else {
+      for (let k = 0; k < 4; k++) softNoise(0.22, rand(500, 800), 'lowpass', rand(0.07, 0.1) * v, 0.8, 0.04, k * 0.11);
+      softNoise(0.6, 1600, 'bandpass', 0.03 * v, 0.8, 0.1, 0, 700);
+    }
+    for (let k = 0, n = Math.floor(rand(4, 8)); k < n; k++) droplet(rand(0.1, 0.75), rand(0.012, 0.03) * v);
+  },
   // Nuotion ritinä: joukko lyhyitä napsahduksia
   crackle: (v = 1) => { for (let k = 0, n = Math.floor(rand(3, 8)); k < n; k++) setTimeout(() => noiseBurst(rand(0.008, 0.02), rand(2500, 6500), 'bandpass', rand(0.04, 0.11) * v, 3), rand(0, 220)); },
   flap: () => { for (let k = 0; k < 8; k++) setTimeout(() => noiseBurst(0.05, rand(900, 1600), 'bandpass', 0.12, 2), k * 70); },
@@ -3257,7 +3301,7 @@ function scramble(d) {
   const away = Math.atan2(d.y - p.y, d.x - p.x), center = Math.atan2(C - d.y, C - d.x);
   d.a = away + angDiff(away, center) * 0.4;
   duckSplash(d, 8, true);
-  SFX.splash(0.5); SFX.flap();
+  SFX.duckWater(false, 0.8); SFX.flap();
   const dp = Math.hypot(d.x - p.x, d.y - p.y);
   sing('quack', clamp((isoX(d.x, d.y) - isoX(p.x, p.y)) / 200, -1, 1), clamp(1.2 - dp / 25, 0.3, 1));
 }
@@ -3333,7 +3377,7 @@ function updateDucks() {
       if (dist < 0.3) {
         d.mode = 'swim'; d.z = 0; d.sp = 0.03; d.t = rand(200, 500);
         duckSplash(d, 14, true);
-        SFX.splash(0.5);
+        SFX.duckWater(true);
         sing('quack', 0, 0.7);
       }
     }
@@ -3356,7 +3400,7 @@ function takeOff(d) {
   d.a = Math.atan2(d.y - p.y, d.x - p.x) + rand(-0.4, 0.4);
   d.vz = 0; d.sp = Math.max(d.sp, 0.02);
   duckSplash(d, 10, true);
-  SFX.splash(0.6); SFX.flap();
+  SFX.duckWater(false); SFX.flap();
   const dp = Math.hypot(d.x - p.x, d.y - p.y);
   sing('quack', clamp((isoX(d.x, d.y) - isoX(p.x, p.y)) / 200, -1, 1), clamp(1.2 - dp / 25, 0.3, 1));
   // Muut lähellä olevat sorsat lähtevät mukaan
@@ -3444,8 +3488,8 @@ function forestTarget(a, deep) {
 function updateAnimals() {
   const p = player;
   if (--animalT <= 0) {
-    animalT = rand(400, 1100);
-    if (animals.length < 3) spawnAnimal();
+    animalT = rand(800, 2200);
+    if (animals.length < 2) spawnAnimal();
   }
   const scare = p.moving ? 4.6 : Math.max(1.3, 3.2 - p.stillT / 400);
   const night = phaseName === 'NIGHT';
@@ -3501,7 +3545,9 @@ function updateAnimals() {
       if (dist <= speed) { a.x = a.tx; a.y = a.ty; if (a.mode !== 'flee') a.moving = false; }
       else {
         const nx = a.x + (dx / dist) * speed, ny = a.y + (dy / dist) * speed;
-        if (shoreDist(nx, ny) > 0.15 && !playerSolid(type[cellIdx(nx, ny)])) { a.x = nx; a.y = ny; }
+        // Metsässä saa kulkea; teltta, nuotio ja liiteri ovat esteitä
+        const ct = type[cellIdx(nx, ny)];
+        if (shoreDist(nx, ny) > 0.15 && (ct === T_FOREST || !playerSolid(ct))) { a.x = nx; a.y = ny; }
         else { a.tx = a.x; a.ty = a.y; a.moving = false; }
       }
       const [sx] = screenDir(dx, dy);
