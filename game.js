@@ -4785,10 +4785,18 @@ function buildRevealMask() {
 const holeShape = makeCanvas(W, H), holeShapeCtx = holeShape.getContext('2d', { willReadFrequently: true });
 const holeCanvas = makeCanvas(W, H), holeCtx = holeCanvas.getContext('2d');
 let holeImg = holeCtx.createImageData(W, H);
+let holeRect = [0, 0, W, H];   // viimeksi laskettu aukon alue (viewHole)
 function viewHole(psx, psy, camXr, camYr) {
   const g = holeShapeCtx, a0 = player.fa;
+  // Aukko mahtuu laatikkoon: soikio (säde 38, y x1,15) ja keilat (r <= 10,5 ruutua, |cos a - sin a| <= 1,415);
+  // mitattu: x -119..118, y -66..53 hahmon ympärillä. Vain tämä laatikko luetaan, lasketaan ja kopioidaan.
+  const bx0 = Math.max(0, psx - 120), bx1 = Math.min(W, psx + 121), by0 = Math.max(0, psy - 66), by1 = Math.min(H, psy + 55);
+  const bw = bx1 - bx0, bh = by1 - by0;
+  holeRect = [bx0, by0, bw, bh];
+  holeCtx.clearRect(0, 0, W, H);
+  if (bw <= 0 || bh <= 0) return holeCanvas;
   g.globalCompositeOperation = 'source-over';
-  g.clearRect(0, 0, W, H);
+  g.clearRect(bx0, by0, bw, bh);
   g.globalCompositeOperation = 'lighter';
   // Hahmon ympärillä: soikio, jonka keskiosa on täysin auki ja reuna liukuu
   g.save();
@@ -4811,18 +4819,18 @@ function viewHole(psx, psy, camXr, camYr) {
     g.closePath();
     g.fill();
   }
-  const src = g.getImageData(0, 0, W, H).data, dst = holeImg.data, gw = ground.width, gh = ground.height;
-  for (let y = 0, p = 0; y < H; y++) {
+  const src = g.getImageData(bx0, by0, bw, bh).data, dst = holeImg.data, gw = ground.width, gh = ground.height;
+  for (let y = by0, q = 0; y < by1; y++) {
     const ay = y + camYr, row = ay * gw;
-    for (let x = 0; x < W; x++, p += 4) {
-      const a = src[p + 3];
+    for (let x = bx0, p = (y * W + bx0) * 4; x < bx1; x++, p += 4, q += 4) {
+      const a = src[q + 3];
       if (!a) { dst[p + 3] = 0; continue; }
       const ax = x + camXr;
       const rv = ax >= 0 && ay >= 0 && ax < gw && ay < gh ? revealMask[row + ax] : 0;
       dst[p + 3] = (a * rv) / 65025 > BAYER[(y & 3) * 4 + (x & 3)] ? 255 : 0;
     }
   }
-  holeCtx.putImageData(holeImg, 0, 0);
+  holeCtx.putImageData(holeImg, 0, 0, bx0, by0, bw, bh);
   return holeCanvas;
 }
 
@@ -4983,7 +4991,8 @@ function drawWorld() {
   if (playerShown()) {
     const psx = Math.round(isoX(player.x, player.y) - camXr), psy = Math.round(isoY(player.x, player.y) - camYr);
     frontCtx.globalCompositeOperation = 'destination-out';
-    frontCtx.drawImage(viewHole(psx, psy, camXr, camYr), 0, 0);
+    const hc = viewHole(psx, psy, camXr, camYr), [hx, hy, hw, hh] = holeRect;
+    if (hw > 0 && hh > 0) frontCtx.drawImage(hc, hx, hy, hw, hh, hx, hy, hw, hh);
     frontCtx.globalCompositeOperation = 'source-over';
   }
   ctx.drawImage(front, 0, 0);
