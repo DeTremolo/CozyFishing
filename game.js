@@ -2461,6 +2461,36 @@ const darkCtx = darkCanvas.getContext('2d');
 let darkImg = darkCtx.createImageData(W, H);
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 const DARK_LEVELS = 6;
+// Valoläiskät piirretään valmiista gradienttikuvista (skaalataan drawImagella) eikä luomalla gradienttia joka ruudussa
+const LIGHT_SPR = 128;
+function makeLightSprite(r, g, b, stops) {
+  const c = makeCanvas(LIGHT_SPR, LIGHT_SPR), x = c.getContext('2d'), h = LIGHT_SPR / 2;
+  const gr = x.createRadialGradient(h, h, 0, h, h, h);
+  for (const [pos, a] of stops) gr.addColorStop(pos, `rgba(${r}, ${g}, ${b}, ${a})`);
+  x.fillStyle = gr;
+  x.fillRect(0, 0, LIGHT_SPR, LIGHT_SPR);
+  return c;
+}
+const lightBlob = makeLightSprite(255, 255, 255, [[0, 1], [0.3, 0.62], [0.65, 0.22], [1, 0]]);
+const colorBlobs = {};   // väriläiskät värin mukaan: alfa 0,3 -> 0,1 -> 0
+const colorBlob = (col) => colorBlobs[col] || (colorBlobs[col] = makeLightSprite(col[0], col[1], col[2], [[0, 0.3], [0.5, 0.1], [1, 0]]));
+// Pimeyskerroksen hakutaulu: (valon arvo 0–255, Bayer-kohta 0–15) -> valmis 32-bittinen pikseli
+let darkLut = new Uint32Array(256 * 16), darkLutKey = -1, dark32 = null;
+const clamp8 = new Uint8ClampedArray(1);
+function buildDarkLut(maxDark) {
+  for (let v = 0; v < 256; v++) {
+    const f = (1 - Math.min(1, v / 255)) * DARK_LEVELS, fl = Math.floor(f);
+    for (let b = 0; b < 16; b++) {
+      clamp8[0] = (fl + (f - fl > BAYER[b] ? 1 : 0)) * maxDark;
+      darkLut[(v << 4) | b] = ((clamp8[0] << 24) | (22 << 16) | (6 << 8) | 4) >>> 0;
+    }
+  }
+  darkLutKey = maxDark;
+}
+// Yön valokerros (valokartta, pimeys, lampun sävy) lasketaan uudelleen heti kun kamera, hahmo tai
+// valaistus muuttuu; muuten (paikallaan seistessä) vain joka NIGHT_EVERY. ruudussa, jolloin vain nuotion
+// välke päivittyy harvemmin.
+let nightEvery = 2, nightTick = 0, nightKey = '';
 
 function collectLights(camXr, camYr) {
   const L = [];
@@ -2523,66 +2553,61 @@ function drawNight(camXr, camYr) {
   const night = nightAmt();
   if (night <= 0.01) return;
   const lights = collectLights(camXr, camYr);
-  const lc = lightCtx;
-
-  // 1) Valon voimakkuus: valkoisia, pehmeästi vaimenevia läiskiä mustalle pohjalle
-  lc.globalCompositeOperation = 'source-over';
-  lc.fillStyle = '#000';
-  lc.fillRect(0, 0, W, H);
-  lc.globalCompositeOperation = 'lighter';
-  for (const l of lights) {
-    const g = lc.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
-    g.addColorStop(0, `rgba(255, 255, 255, ${l.a})`);
-    g.addColorStop(0.3, `rgba(255, 255, 255, ${l.a * 0.62})`);
-    g.addColorStop(0.65, `rgba(255, 255, 255, ${l.a * 0.22})`);
-    g.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    lc.fillStyle = g;
-    lc.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
-  }
-  // Otsalampun valo lisätään omalta kerrokseltaan (ks. drawLampLight)
-  if (lampOn()) {
+  const lc = lightCtx, lamp = lampOn();
+  const key = [camXr, camYr, player.x.toFixed(3), player.y.toFixed(3), player.fa.toFixed(3), lamp, (night * 400) | 0, shownPlayer.x, shownPlayer.y, W, H].join();
+  const redo = key !== nightKey || ++nightTick >= nightEvery;
+  if (redo) {
+    nightKey = key; nightTick = 0;
+    // 1) Valon voimakkuus: valkoisia, pehmeästi vaimenevia läiskiä mustalle pohjalle
+    lc.globalCompositeOperation = 'source-over';
+    lc.fillStyle = '#000';
+    lc.fillRect(0, 0, W, H);
     lc.globalCompositeOperation = 'lighter';
-    lc.drawImage(drawLampLight(camXr, camYr), 0, 0);
-  }
+    for (const l of lights) {
+      lc.globalAlpha = l.a;
+      lc.drawImage(lightBlob, l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
+    }
+    lc.globalAlpha = 1;
+    // Otsalampun valo lisätään omalta kerrokseltaan (ks. drawLampLight)
+    if (lamp) {
+      lc.globalCompositeOperation = 'lighter';
+      lc.drawImage(drawLampLight(camXr, camYr), 0, 0);
+    }
 
-  // 2) Pimeyskerros: rasteroidaan valon mukaan porrastetuiksi tasoiksi
-  const src = lc.getImageData(0, 0, W, H).data, dst = darkImg.data;
-  // Valon määrä porrastetaan ja rasteroidaan, pimeyden voimakkuus ei: tasainen hämärä pysyy tasaisena
-  // eikä muutu pistekuvioksi, ja vain valokeilojen reunoille tulee porrastettu, kuvioitu liuku.
-  const maxDark = 0.84 * night * 255 / DARK_LEVELS;
-  for (let y = 0, p = 0; y < H; y++) {
-    for (let x = 0; x < W; x++, p += 4) {
-      const v = (1 - Math.min(1, src[p] / 255)) * DARK_LEVELS;
-      const level = Math.floor(v) + (v - Math.floor(v) > BAYER[(y & 3) * 4 + (x & 3)] ? 1 : 0);
-      dst[p] = 4; dst[p + 1] = 6; dst[p + 2] = 22;
-      dst[p + 3] = level * maxDark;
+    // 2) Pimeyskerros: rasteroidaan valon mukaan porrastetuiksi tasoiksi
+    // Valon määrä porrastetaan ja rasteroidaan, pimeyden voimakkuus ei: tasainen hämärä pysyy tasaisena
+    // eikä muutu pistekuvioksi, ja vain valokeilojen reunoille tulee porrastettu, kuvioitu liuku.
+    const src = lc.getImageData(0, 0, W, H).data;
+    const maxDark = 0.84 * night * 255 / DARK_LEVELS;
+    if (darkLutKey !== maxDark) buildDarkLut(maxDark);
+    if (!dark32 || dark32.buffer !== darkImg.data.buffer) dark32 = new Uint32Array(darkImg.data.buffer);
+    for (let y = 0, i = 0; y < H; y++) {
+      const row = (y & 3) * 4;
+      for (let x = 0; x < W; x++, i++) dark32[i] = darkLut[(src[i << 2] << 4) | (row + (x & 3))];
+    }
+    darkCtx.putImageData(darkImg, 0, 0);
+    // Otsalampun kellertävä sävy valmiiksi (hahmo itse jää sen ulkopuolelle)
+    if (lamp) {
+      lampTintCtx.globalCompositeOperation = 'source-over';
+      lampTintCtx.clearRect(0, 0, W, H);
+      lampTintCtx.drawImage(lampCanvas, 0, 0);
+      lampTintCtx.globalCompositeOperation = 'source-in';
+      lampTintCtx.fillStyle = `rgba(255, 240, 200, ${(0.16 * night).toFixed(3)})`;
+      lampTintCtx.fillRect(0, 0, W, H);
     }
   }
-  darkCtx.putImageData(darkImg, 0, 0);
   ctx.drawImage(darkCanvas, 0, 0, W, H);
 
   // 3) Värillinen valo päälle: nuotio lämmin, otsalamppu kellertävän valkoinen
   ctx.globalCompositeOperation = 'lighter';
   for (const l of lights) {
     if (!l.col) continue;
-    const [r, g, b] = l.col;
-    const grad = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r * 0.85);
-    grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.3 * l.a * night})`);
-    grad.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${0.1 * l.a * night})`);
-    grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-    ctx.fillStyle = grad;
-    ctx.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
+    const rr = l.r * 0.85;
+    ctx.globalAlpha = l.a * night;
+    ctx.drawImage(colorBlob(l.col), l.x - rr, l.y - rr, rr * 2, rr * 2);
   }
-  if (lampOn()) {
-    // Kellertävä sävy otsalampun valoon (hahmo itse jää sen ulkopuolelle)
-    lampTintCtx.globalCompositeOperation = 'source-over';
-    lampTintCtx.clearRect(0, 0, W, H);
-    lampTintCtx.drawImage(lampCanvas, 0, 0);
-    lampTintCtx.globalCompositeOperation = 'source-in';
-    lampTintCtx.fillStyle = `rgba(255, 240, 200, ${(0.16 * night).toFixed(3)})`;
-    lampTintCtx.fillRect(0, 0, W, H);
-    ctx.drawImage(lampTint, 0, 0);
-  }
+  ctx.globalAlpha = 1;
+  if (lamp) ctx.drawImage(lampTint, 0, 0);
   ctx.globalCompositeOperation = 'source-over';
 }
 
