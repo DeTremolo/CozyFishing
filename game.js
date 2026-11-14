@@ -2309,6 +2309,7 @@ const fogCanvas = makeCanvas(W / 4, H / 4);
 const fogCtx = fogCanvas.getContext('2d');
 
 const tintCanvas = makeCanvas(1, 1), tintCtx = tintCanvas.getContext('2d');
+let tintKey = '';
 function drawWeather(camXr, camYr) {
   const w = weather;
   if (w.rain > 0.02) {
@@ -2357,16 +2358,22 @@ function drawWeather(camXr, camYr) {
   // Vedenpinnalla sävytys on miedompi, jolloin lähivesi jää turkoosiksi ja heijastaa kultaista taivasta.
   const [tr, tg, tb, ta] = env.tint;
   if (ta > 0.005) {
-    if (tintCanvas.width !== W || tintCanvas.height !== H) { tintCanvas.width = W; tintCanvas.height = H; }
-    const tc = tintCtx;
-    tc.globalCompositeOperation = 'source-over';
-    tc.clearRect(0, 0, W, H);
-    tc.fillStyle = `rgba(${Math.round(tr)}, ${Math.round(tg)}, ${Math.round(tb)}, ${Math.min(0.6, ta * 2.2).toFixed(3)})`;
-    tc.fillRect(0, 0, W, H);
-    tc.globalCompositeOperation = 'destination-out';
-    tc.globalAlpha = 0.65;
-    tc.drawImage(pondMaskCanvas, PB.x0 - camXr, PB.y0 - camYr);
-    tc.globalAlpha = 1;
+    // Sävykerros (väri, josta lampi on leikattu pois) rakennetaan uudelleen vain kun väri tai kamera muuttuu
+    const tcol = `rgba(${Math.round(tr)}, ${Math.round(tg)}, ${Math.round(tb)}, ${Math.min(0.6, ta * 2.2).toFixed(3)})`;
+    const tkey = tcol + camXr + ',' + camYr + ',' + W + ',' + H;
+    if (tkey !== tintKey) {
+      tintKey = tkey;
+      if (tintCanvas.width !== W || tintCanvas.height !== H) { tintCanvas.width = W; tintCanvas.height = H; }
+      const tc = tintCtx;
+      tc.globalCompositeOperation = 'source-over';
+      tc.clearRect(0, 0, W, H);
+      tc.fillStyle = tcol;
+      tc.fillRect(0, 0, W, H);
+      tc.globalCompositeOperation = 'destination-out';
+      tc.globalAlpha = 0.65;
+      tc.drawImage(pondMaskCanvas, PB.x0 - camXr, PB.y0 - camYr);
+      tc.globalAlpha = 1;
+    }
     ctx.globalCompositeOperation = 'soft-light';
     ctx.drawImage(tintCanvas, 0, 0);
     ctx.globalCompositeOperation = 'source-over';
@@ -5249,15 +5256,40 @@ function drawBobberReticle(x, y) {
 // tuulen kulkusuunnan ruudulla, ja sen vieressä kolme palkkia tuulen voimakkuudelle
 // (tyyni = piste eikä palkkeja, heikko 1, kohtalainen 2, kova 3).
 const ICON_N = 34;
-const iconCanvas = makeCanvas(ICON_N, ICON_N), iconCtx = iconCanvas.getContext('2d', { willReadFrequently: true });
-function iconBegin() { iconCtx.clearRect(0, 0, ICON_N, ICON_N); return iconCtx; }
-function iconEnd(x, y) {
-  outlineSprite(iconCanvas, 'rgba(8, 12, 16, 0.9)');
-  ctx.drawImage(iconCanvas, Math.round(x - ICON_N / 2), Math.round(y - ICON_N / 2));
+// Kuvakkeet piirretään ja ääriviivat (pikselien luku) tehdään vain kun kuvake muuttuu; muuten piirretään
+// valmis kuva. Piirtoavain (key) kuvaa kaiken, mikä vaikuttaa kuvakkeen pikseleihin.
+const iconCanvas = makeCanvas(ICON_N, ICON_N), iconCtx = iconCanvas.getContext('2d', { willReadFrequently: true });   // työkangas
+const iconCache = {};
+for (const k of ['weather', 'wind']) {
+  const cv = makeCanvas(ICON_N, ICON_N);
+  iconCache[k] = { cv, ctx: cv.getContext('2d', { willReadFrequently: true }), key: null };
+}
+function iconBegin(C) { C.ctx.clearRect(0, 0, ICON_N, ICON_N); return C.ctx; }
+const showIcon = (C, x, y) => ctx.drawImage(C.cv, Math.round(x - ICON_N / 2), Math.round(y - ICON_N / 2));
+
+// Animaation vaiheet (käytetään sekä piirtoon että piirtoavaimeen)
+const moonBig = () => Math.sin(time * 0.05) > 0.3;
+const rainPhase = (i, heavy) => Math.floor((time * (heavy ? 0.09 : 0.05) + i * 0.6) % 3);
+const fogShift = (r) => Math.round(Math.sin(time * 0.015 + r * 1.9));
+function weatherIconKey() {
+  const k = weather.kind, night = env.dark > 0.5;
+  if (k === 'clear') return night ? 'cn' + (moonBig() ? 1 : 0) : 'cd';
+  if (k === 'drizzle' || k === 'rain') {
+    const heavy = k === 'rain', n = heavy ? 4 : 3;
+    let key = k;
+    for (let i = 0; i < n; i++) key += rainPhase(i, heavy);
+    return key;
+  }
+  return 'f' + fogShift(0) + fogShift(1) + fogShift(2);
 }
 
 function drawWeatherIcon(x, y) {
-  const g = iconBegin(), c = ICON_N / 2, k = weather.kind, night = env.dark > 0.5, t = time;
+  const C = iconCache.weather, key = weatherIconKey();
+  if (key !== C.key) { paintWeatherIcon(C); C.key = key; }
+  showIcon(C, x, y);
+}
+function paintWeatherIcon(C) {
+  const g = iconBegin(C), c = ICON_N / 2, k = weather.kind, night = env.dark > 0.5;
   const fill = (col, fn) => { g.fillStyle = col; fn(); };
   const cloud = (dark) => {
     // Pilvi kolmesta pyöreästä möykystä ja tasaisesta pohjasta
@@ -5272,7 +5304,7 @@ function drawWeatherIcon(x, y) {
       }
     });
     fill('#fffbe8', () => g.fillRect(c - 6, c - 1, 1, 3));
-    const big = Math.sin(t * 0.05) > 0.3;
+    const big = moonBig();
     fill('#f4f4ff', () => { g.fillRect(c + 6, c - 5, 1, 1); if (big) { g.fillRect(c + 5, c - 5, 3, 1); g.fillRect(c + 6, c - 6, 1, 3); } });
   } else if (k === 'clear') {
     fill('#ffb63c', () => {
@@ -5289,7 +5321,7 @@ function drawWeatherIcon(x, y) {
     // Pisarat putoavat hitaasti pilven alla
     const n = heavy ? 4 : 3;
     for (let i = 0; i < n; i++) {
-      const px = c - (heavy ? 6 : 5) + i * (heavy ? 4 : 5), ph = Math.floor((t * (heavy ? 0.09 : 0.05) + i * 0.6) % 3);
+      const px = c - (heavy ? 6 : 5) + i * (heavy ? 4 : 5), ph = rainPhase(i, heavy);
       fill(heavy ? '#5aa0e6' : '#8cc8f4', () => {
         if (heavy) { for (let q = 0; q < 3; q++) g.fillRect(px - q + 1, c + 7 + ph + q, 1, 1); }
         else g.fillRect(px, c + 7 + ph, 1, 2);
@@ -5297,47 +5329,56 @@ function drawWeatherIcon(x, y) {
     }
   } else {
     for (let r = 0; r < 3; r++) {
-      const off = Math.round(Math.sin(t * 0.015 + r * 1.9)), w = r === 1 ? 14 : 11, yy = c - 4 + r * 4;
+      const off = fogShift(r), w = r === 1 ? 14 : 11, yy = c - 4 + r * 4;
       fill(r === 1 ? '#e2e8ec' : '#c2ccd2', () => g.fillRect(c - (w >> 1) + off, yy, w, 2));
     }
   }
-  iconEnd(x, y);
+  outlineSprite(C.cv, 'rgba(8, 12, 16, 0.9)');
 }
 
 function drawWindIcon(x, y) {
   const gst = wind.gust, level = gst < 0.08 ? 0 : gst < 0.3 ? 1 : gst < 0.6 ? 2 : 3;
   const col = ['#9aa8ae', '#d8e4ea', '#ffffff', '#ffcd75'][level];
-  // Kompassin pohja ja rengas (ilman ääriviivaa), pääilmansuunnat pidempinä merkkeinä
-  ctx.fillStyle = 'rgba(8, 14, 18, 0.5)'; disc(ctx, x, y, 10);
-  for (let a = 0; a < 32; a++) {
-    const ang = (a / 32) * Math.PI * 2;
-    ctx.fillStyle = a % 8 === 0 ? '#c8d4da' : 'rgba(140, 158, 168, 0.75)';
-    ctx.fillRect(Math.round(x + Math.cos(ang) * 10), Math.round(y + Math.sin(ang) * 10), 1, 1);
-  }
-  const g = iconBegin(), c = ICON_N / 2;
-  if (level === 0) { g.fillStyle = col; g.fillRect(c - 1, c - 1, 3, 3); }
-  else {
-    // Nuoli: paksu varsi ja täytetty kärki. Suunta pyöristetään kahdeksaan ilmansuuntaan, jolloin
-    // nuolen pikselit pysyvät siisteinä (vinot nuolet kulkevat tarkalleen 45 asteen kulmassa).
-    const d = ((Math.round(Math.atan2(wind.sy, wind.sx) / (Math.PI / 4)) % 8) + 8) % 8;
-    const dx = Math.round(Math.cos(d * Math.PI / 4)), dy = Math.round(Math.sin(d * Math.PI / 4)), nx = -dy, ny = dx;
-    const L = dx && dy ? 5 : 7;   // vinossa askel on pidempi, joten pikselimäärä pienempi
-    g.fillStyle = col;
-    for (let k = -L; k <= 1; k++) {
-      g.fillRect(c + dx * k, c + dy * k, 1, 1);
-      g.fillRect(c + dx * k + (dx && dy ? dx : nx), c + dy * k + (dx && dy ? 0 : ny), 1, 1);
+  // Nuolen suunta pyöristetään kahdeksaan ilmansuuntaan, jolloin nuolen pikselit pysyvät siisteinä
+  // (vinot nuolet kulkevat tarkalleen 45 asteen kulmassa)
+  const d = level === 0 ? 0 : ((Math.round(Math.atan2(wind.sy, wind.sx) / (Math.PI / 4)) % 8) + 8) % 8;
+  const C = iconCache.wind, key = level + ',' + d;
+  if (key !== C.key) {
+    // Kompassin pohja ja rengas (ilman ääriviivaa), pääilmansuunnat pidempinä merkkeinä; niiden päälle ääriviivattu nuoli
+    const cg = iconBegin(C), c = ICON_N / 2;
+    cg.fillStyle = 'rgba(8, 14, 18, 0.5)'; disc(cg, c, c, 10);
+    for (let a = 0; a < 32; a++) {
+      const ang = (a / 32) * Math.PI * 2;
+      cg.fillStyle = a % 8 === 0 ? '#c8d4da' : 'rgba(140, 158, 168, 0.75)';
+      cg.fillRect(Math.round(c + Math.cos(ang) * 10), Math.round(c + Math.sin(ang) * 10), 1, 1);
     }
-    // Kärki: suorilla nuolilla kolmio, vinoilla suorakulmainen kolmio, jonka kateetit osoittavat taaksepäin
-    if (dx && dy) {
-      for (let yy = 0; yy <= 5; yy++) for (let xx = 0; xx <= 5; xx++) if (xx + yy >= 5) g.fillRect(c + xx * dx, c + yy * dy, 1, 1);
-    } else {
-      for (let k = 0; k <= 4; k++) {
-        const half = 4 - k;
-        for (let s = -half; s <= half + 1; s++) g.fillRect(c + dx * (2 + k) + nx * s, c + dy * (2 + k) + ny * s, 1, 1);
+    const g = iconCtx;
+    g.clearRect(0, 0, ICON_N, ICON_N);
+    if (level === 0) { g.fillStyle = col; g.fillRect(c - 1, c - 1, 3, 3); }
+    else {
+      // Nuoli: paksu varsi ja täytetty kärki
+      const dx = Math.round(Math.cos(d * Math.PI / 4)), dy = Math.round(Math.sin(d * Math.PI / 4)), nx = -dy, ny = dx;
+      const L = dx && dy ? 5 : 7;   // vinossa askel on pidempi, joten pikselimäärä pienempi
+      g.fillStyle = col;
+      for (let k = -L; k <= 1; k++) {
+        g.fillRect(c + dx * k, c + dy * k, 1, 1);
+        g.fillRect(c + dx * k + (dx && dy ? dx : nx), c + dy * k + (dx && dy ? 0 : ny), 1, 1);
+      }
+      // Kärki: suorilla nuolilla kolmio, vinoilla suorakulmainen kolmio, jonka kateetit osoittavat taaksepäin
+      if (dx && dy) {
+        for (let yy = 0; yy <= 5; yy++) for (let xx = 0; xx <= 5; xx++) if (xx + yy >= 5) g.fillRect(c + xx * dx, c + yy * dy, 1, 1);
+      } else {
+        for (let k = 0; k <= 4; k++) {
+          const half = 4 - k;
+          for (let s = -half; s <= half + 1; s++) g.fillRect(c + dx * (2 + k) + nx * s, c + dy * (2 + k) + ny * s, 1, 1);
+        }
       }
     }
+    outlineSprite(iconCanvas, 'rgba(8, 12, 16, 0.9)');
+    cg.drawImage(iconCanvas, 0, 0);
+    C.key = key;
   }
-  iconEnd(x, y);
+  showIcon(C, x, y);
   // Voimakkuuspalkit kompassin oikealla puolella
   for (let b = 0; b < 3; b++) {
     const h = 4 + b * 2, bx = x + 13 + b * 4, by = y + 7 - h;
@@ -5377,12 +5418,17 @@ WATCH_IMG.src = 'img/watch.png';
 const WATCH = { x: 3, y: 2, size: 49, cx: 24 / 49, cy: 24 / 49 };   // keskipikseli kuvan osuutena
 const watchCanvas = makeCanvas(WATCH.size, WATCH.size), watchCtx = watchCanvas.getContext('2d');
 
+let watchKey = -1;
 function drawWatch(tod) {
   if (!WATCH_IMG.complete || !WATCH_IMG.naturalWidth) return;
   const g = watchCtx, n = WATCH.size;
+  const h = (4.5 + tod * 24) % 24, m = (h % 1) * 60;
+  // Viisarit piirretään uudelleen vain kun aika on edennyt neljännesminuutin (viisarin pikselit eivät muutu sitä tiheämmin)
+  const wk = Math.floor(h * 240);
+  if (wk === watchKey) { vctx.imageSmoothingEnabled = false; vctx.drawImage(watchCanvas, WATCH.x * S, WATCH.y * S, n * S, n * S); return; }
+  watchKey = wk;
   g.clearRect(0, 0, n, n);
   g.drawImage(WATCH_IMG, 0, 0);
-  const h = (4.5 + tod * 24) % 24, m = (h % 1) * 60;
   const cx = WATCH.cx * n, cy = WATCH.cy * n;
   // Viisari pikseliviivana: tumma reunus ja kermanvärinen keskus
   const hand = (ang, len, col) => {
