@@ -66,7 +66,8 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
   Metsään ja veteen ei voi kävellä.
 - **Metsä**: enimmäkseen eri muotoisia kuusia (kapea, suippo latvus yksittäisistä riippuvista oksista ja
   niiden alta roikkuvista neulasverhoista), joukossa harvakseltaan mäntyjä ja koivuja. Puiden latvukset
-  huojuvat tuulessa rauhallisesti, kukin puu omassa tahdissaan. Rantavedessä kasvavassa
+  huojuvat tuulessa rauhallisesti, kukin puu omassa tahdissaan. Metsän reunassa (3 ruutua penkereestä) puu on
+  jokaisessa ruudussa, syvemmällä vain joka toisessa (shakkiruudukko, `FOREST_FULL_DEPTH`), mikä keventää piirtoa. Rantavedessä kasvavassa
   kaislikossa on järviruokoa,
   osmankäämiä ja saraa, jotka taipuvat tuulessa sulavasti. Kaislikon väleissä on avoimia
   rantakohtia, joista pääsee kalastamaan vapaasti. Matalassa rantavedessä kelluu lumpeita ja ulpukoita.

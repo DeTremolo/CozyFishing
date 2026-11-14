@@ -830,6 +830,9 @@ const nearCamp = (x, y, r) => Math.hypot(x - CAMP.cx - 0.5, y - CAMP.cy - 0.5) <
 // Aukean edessä (ruudulla sen alapuolella) kasvaa vain nuorta kuusikkoa, jotta korkeat kuuset eivät peitä telttaa ja nuotiota
 const belowClearing = (x, y) => x - y > CLEARING.u0 - 2.5 && x - y < CLEARING.u1 && x + y >= CLEARING.v1 - 1 && x + y < CLEARING.v1 + 14;
 
+// Metsän reunassa (näin monta ruutua penkereestä) puu on joka ruudussa, sen takana vain joka toisessa
+const FOREST_FULL_DEPTH = 3;
+
 function genMap() {
   const rnd = mulberry32(Math.floor(Math.random() * 1e9));
   shoreA = rnd() * 6.28; shoreB = rnd() * 6.28; shoreC = rnd() * 6.28; shoreD = rnd() * 6.28; shoreE = rnd() * 6.28;
@@ -855,6 +858,8 @@ function genMap() {
         else kind[i] = k < 0.66 ? K_SPRUCE : k < 0.82 ? K_YOUNG : k < 0.84 ? K_ROCK : k < 0.855 ? K_PINE : k < 0.868 ? K_BIRCH : K_NONE;
         if (belowClearing(x, y)) kind[i] = k < 0.62 ? K_YOUNG : k < 0.7 ? K_ROCK : K_NONE;
         pvar[i] = Math.floor(rnd() * FOREST_SPR[kind[i]].length);
+        // Syvemmällä metsässä puita on vain joka toisessa ruudussa (shakkiruudukko): kevyempi piirtää
+        if (f >= FOREST_FULL_DEPTH && ((cx + cy) & 1)) kind[i] = K_NONE;
       }
     }
   }
