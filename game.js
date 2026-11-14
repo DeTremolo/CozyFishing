@@ -4897,13 +4897,17 @@ function drawWorld() {
       const i = cy * N + cx;
       if (type[i] !== T_FOREST || kind[i] === 3) continue;
       const sx = isoX(cx + 0.5, cy + 0.5) - camXr, sy = isoY(cx + 0.5, cy + 0.5) - camYr;
-      if (sx < -24 || sx > W + 24 || sy < -4 || sy > H + 80) continue;
+      // Piirretään vain puut, joiden kuva osuu ruudulle (kuvan todellisten mittojen mukaan)
+      const spr = FOREST_SPR[kind[i]][pvar[i]], im = spr.frames ? spr.frames[0] : spr.full;
+      const x0 = sx - spr.ax - 2, y0 = sy - spr.ay + 1;
+      if (x0 >= W || x0 + im.width <= 0 || y0 >= H || y0 + im.height <= 0) continue;
       list.push({ d: cx + cy + 1, k: 0, i, sx, sy });
     }
   }
   for (const o of decor) {
     const sx = isoX(o.x, o.y) - camXr, sy = isoY(o.x, o.y) - camYr;
-    if (sx < -10 || sx > W + 10 || sy < -4 || sy > H + 24) continue;
+    const g = o.spr, gi = g.frames[0], gx = Math.round(sx) - g.ax, gy = Math.round(sy) - g.ay;
+    if (gx >= W || gx + gi.width <= 0 || gy >= H || gy + gi.height <= 0) continue;
     list.push({ d: o.x + o.y, k: 1, o, sx, sy });
   }
   list.push({ d: TENT.cx + TENT.cy + 2, k: 2 });
