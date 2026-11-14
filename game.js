@@ -3738,7 +3738,9 @@ function startSleep() {
 // Kuinka monta päivitystä seuraavaan aamuun kello 7.00
 function framesToWake() {
   let d = WAKE_TOD - todNow();
-  if (d <= 0.0005) d += 1;
+  // Vain jo ohitettu (tai täsmälleen nyt oleva) aamu siirtyy seuraavaan päivään. Pieni positiivinen jäännös
+  // (nopea kelaus jättää loppumatkan alle askelen) ei saa lisätä kokonaista vuorokautta.
+  if (d <= 1e-7) d += 1;
   return Math.round(d * CYCLE);
 }
 
