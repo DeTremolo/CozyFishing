@@ -226,6 +226,22 @@ tilalle syntyy lampeen heti uusi, satunnainen kala.
 Avaa `index.html` selaimessa. Puhelimella peli pitää avata http(s)-osoitteesta,
 esim. GitHub Pagesista (*Settings → Pages → Deploy from a branch*, haara `main`, kansio `/`).
 
+## Kehityksen jatkaminen (myös toisella Claude-tilillä)
+
+Kehittäjän ohjeet ovat tiedostossa [`CLAUDE.md`](CLAUDE.md): työtapa, haarat, commit-käytännöt,
+koodin rakenne, testaus ja tunnetut sudenkuopat. Claude Code lukee sen automaattisesti.
+
+Uudella tilillä:
+1. Yhdistä GitHub-tili osoitteessa https://claude.ai/connect-github ja varmista, että Claude GitHub App
+   on asennettu repoon `DeTremolo/CozyFishing` (samalta sivulta).
+2. Aloita uusi Claude Code -istunto (claude.ai/code) ja valitse repoksi `DeTremolo/CozyFishing`.
+   Repo valitaan istunnon alussa.
+3. Pyydä ensin esim.: *"Lue CLAUDE.md ja README.md, siirry lampi-haaraan ja aja savutesti."*
+   Sen jälkeen jatka pyynnöillä kuten ennenkin.
+
+Paikallisesti: `python3 -m http.server` repon juuressa ja selaimella http://localhost:8000
+(tai avaa `index.html` suoraan). Savutesti: `NODE_PATH=$(npm root -g) node tools/smoke.js`.
+
 ## Tiedostot
 
 - `index.html`, `style.css`
@@ -233,5 +249,7 @@ esim. GitHub Pagesista (*Settings → Pages → Deploy from a branch*, haara `ma
 - `touch.js` – kosketusohjaimet puhelimille
 - `img/watch.png` – rannekellon taulu
 - `fonts/` – Press Start 2P -fontti ja sen lisenssi (`OFL.txt`)
+- `tools/smoke.js` – Playwright-savutesti; `tools/mkwatch.py` – kellotaulun generaattori
+- `CLAUDE.md` – kehittäjän ja Claude Coden ohjeet
 
 Lisenssi: ks. [`LICENSE`](LICENSE) ja [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
