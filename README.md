@@ -34,6 +34,9 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 | P | II | tauko |
 | M | ♪ | äänet päälle / pois |
 
+Oikeassa yläkulmassa näkyy jatkuvasti ruudunpäivitysnopeus ja yhden ruudun laskenta-aika (esim. `60 FPS  4.2 MS`; päivitykset ja
+piirtokomennot, keskiarvo puolen sekunnin ajalta).
+
 Tähtäin vaihtuu sen mukaan, mitä hahmolla on kädessä: ilman esinettä se on risti, ongen kanssa
 siimassa olevan vieheen muotoinen (nyt keinuva koho, jonka alla oleva rengas sinertää veden päällä).
 Kun koho kelluu vedessä, tähtäimenä on ongen kela, jonka kampi pyörii kelattaessa ja välillä
@@ -67,7 +70,8 @@ Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peili
 - **Metsä**: enimmäkseen eri muotoisia kuusia (kapea, suippo latvus yksittäisistä riippuvista oksista ja
   niiden alta roikkuvista neulasverhoista), joukossa harvakseltaan mäntyjä ja koivuja. Puiden latvukset
   huojuvat tuulessa rauhallisesti, kukin puu omassa tahdissaan. Metsän reunassa (3 ruutua) puu on
-  jokaisessa ruudussa, syvemmällä vain joka toisessa (shakkiruudukko, `FOREST_FULL_DEPTH`), mikä keventää piirtoa.
+  jokaisessa ruudussa, sen takana vain joka toisessa (shakkiruudukko, `FOREST_FULL_DEPTH`) ja yli 7 ruudun syvyydessä vain joka
+  neljännessä (`FOREST_SPARSE_DEPTH`), mikä keventää piirtoa.
   Reuna mitataan ruutuina lähimmästä metsättömästä ruudusta (penger, aukea, vesi), ei pelkästä lammesta. Auringon varjot
   piirretään vain reunan puille, koska syvässä metsässä niitä ei näe. Rantavedessä kasvavassa
   kaislikossa on järviruokoa,

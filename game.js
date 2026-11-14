@@ -831,8 +831,9 @@ const nearCamp = (x, y, r) => Math.hypot(x - CAMP.cx - 0.5, y - CAMP.cy - 0.5) <
 const belowClearing = (x, y) => x - y > CLEARING.u0 - 2.5 && x - y < CLEARING.u1 && x + y >= CLEARING.v1 - 1 && x + y < CLEARING.v1 + 14;
 
 // Metsän reunassa (näin monta ruutua lähimmästä metsättömästä ruudusta: penger, aukea, vesi) puu on joka
-// ruudussa, sen takana vain joka toisessa (shakkiruudukko). Varjot piirretään vain reunan puille.
-const FOREST_FULL_DEPTH = 3;
+// ruudussa, sen takana vain joka toisessa (shakkiruudukko) ja syvimmällä vain joka neljännessä (parillinen
+// x ja y). Varjot piirretään vain reunan puille.
+const FOREST_FULL_DEPTH = 3, FOREST_SPARSE_DEPTH = 7;
 const forestEdge = new Uint8Array(N * N);   // metsäruudun etäisyys (ruutuina) lähimpään metsättömään ruutuun
 function calcForestEdge() {
   forestEdge.fill(255);
@@ -881,10 +882,11 @@ function genMap() {
   type[CAMP.cy * N + CAMP.cx] = T_CAMP;
   placeShed();
   calcForestEdge();
-  // Syvemmällä metsässä puita on vain joka toisessa ruudussa: kevyempi piirtää
+  // Syvemmällä metsässä puita on harvemmin: kevyempi piirtää
   for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++) {
-    const i = cy * N + cx;
-    if (type[i] === T_FOREST && forestEdge[i] > FOREST_FULL_DEPTH && ((cx + cy) & 1)) kind[i] = K_NONE;
+    const i = cy * N + cx, d = forestEdge[i];
+    if (type[i] !== T_FOREST || d <= FOREST_FULL_DEPTH) continue;
+    if (((cx + cy) & 1) || (d > FOREST_SPARSE_DEPTH && ((cx | cy) & 1))) kind[i] = K_NONE;
   }
 
   // Laituri lähtee penkereeltä aukean kohdalla (ruudulla lammen vasen reuna) kohti lammen keskustaa
@@ -5445,7 +5447,7 @@ function render() {
     if (sleep.phase !== 'out') text(touch.on ? 'TAP TO WAKE UP' : 'PRESS ANY KEY TO WAKE UP', 6, H - 11, 4, '#94b0c2', 'left');
     return;
   }
-  if (muted) text('SOUND OFF', W - 6, 6, 4, '#94b0c2', 'right');
+  if (muted) text('SOUND OFF', W - 6, 14, 4, '#94b0c2', 'right');
   if (!touch.on) {
     const inBoat = player.boat, driving = inBoat && boat.rider === 'drive';
     const dtt = Math.hypot(player.x - TENT_DOOR.x, player.y - TENT_DOOR.y), dff = Math.hypot(player.x - CAMP.cx - 0.5, player.y - CAMP.cy - 0.5);
@@ -5505,11 +5507,26 @@ buffersReady = true;
 setupWorld();
 const STEP = 1000 / 60;
 let last = performance.now(), acc = 0;
+// FPS ja yhden ruudun laskenta-aika (päivitykset + piirtokomennot, ei selaimen omaa rasterointia),
+// keskiarvo puolen sekunnin ajalta; näkyy oikeassa yläkulmassa
+const perf = { n: 0, ms: 0, t0: 0, fps: 0, avg: 0 };
+function drawPerf() {
+  text(perf.fps + ' FPS  ' + perf.avg.toFixed(1) + ' MS', W - 6, 6, 4, '#94b0c2', 'right');
+}
 function frame(t) {
+  const t0 = performance.now();
   acc += Math.min(100, t - last);
   last = t;
   while (acc >= STEP) { update(); acc -= STEP; }
   render();
+  const t1 = performance.now();
+  perf.n++; perf.ms += t1 - t0;
+  if (!perf.t0) perf.t0 = t1;
+  else if (t1 - perf.t0 >= 500) {
+    perf.fps = Math.round((perf.n * 1000) / (t1 - perf.t0)); perf.avg = perf.ms / perf.n;
+    perf.n = 0; perf.ms = 0; perf.t0 = t1;
+  }
+  drawPerf();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
