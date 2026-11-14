@@ -830,8 +830,24 @@ const nearCamp = (x, y, r) => Math.hypot(x - CAMP.cx - 0.5, y - CAMP.cy - 0.5) <
 // Aukean edessä (ruudulla sen alapuolella) kasvaa vain nuorta kuusikkoa, jotta korkeat kuuset eivät peitä telttaa ja nuotiota
 const belowClearing = (x, y) => x - y > CLEARING.u0 - 2.5 && x - y < CLEARING.u1 && x + y >= CLEARING.v1 - 1 && x + y < CLEARING.v1 + 14;
 
-// Metsän reunassa (näin monta ruutua penkereestä) puu on joka ruudussa, sen takana vain joka toisessa
+// Metsän reunassa (näin monta ruutua lähimmästä metsättömästä ruudusta: penger, aukea, vesi) puu on joka
+// ruudussa, sen takana vain joka toisessa (shakkiruudukko). Varjot piirretään vain reunan puille.
 const FOREST_FULL_DEPTH = 3;
+const forestEdge = new Uint8Array(N * N);   // metsäruudun etäisyys (ruutuina) lähimpään metsättömään ruutuun
+function calcForestEdge() {
+  forestEdge.fill(255);
+  const q = [];
+  for (let i = 0; i < N * N; i++) if (type[i] !== T_FOREST) { forestEdge[i] = 0; q.push(i); }
+  for (let h = 0; h < q.length; h++) {
+    const i = q[h], cx = i % N, cy = (i / N) | 0, d = forestEdge[i] + 1;
+    for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+      const x = cx + ox, y = cy + oy;
+      if (x < 0 || y < 0 || x >= N || y >= N) continue;
+      const j = y * N + x;
+      if (forestEdge[j] > d) { forestEdge[j] = d; q.push(j); }
+    }
+  }
+}
 
 function genMap() {
   const rnd = mulberry32(Math.floor(Math.random() * 1e9));
@@ -858,14 +874,18 @@ function genMap() {
         else kind[i] = k < 0.66 ? K_SPRUCE : k < 0.82 ? K_YOUNG : k < 0.84 ? K_ROCK : k < 0.855 ? K_PINE : k < 0.868 ? K_BIRCH : K_NONE;
         if (belowClearing(x, y)) kind[i] = k < 0.62 ? K_YOUNG : k < 0.7 ? K_ROCK : K_NONE;
         pvar[i] = Math.floor(rnd() * FOREST_SPR[kind[i]].length);
-        // Syvemmällä metsässä puita on vain joka toisessa ruudussa (shakkiruudukko): kevyempi piirtää
-        if (f >= FOREST_FULL_DEPTH && ((cx + cy) & 1)) kind[i] = K_NONE;
       }
     }
   }
   for (let ox = 0; ox < 2; ox++) for (let oy = 0; oy < 2; oy++) type[(TENT.cy + oy) * N + TENT.cx + ox] = T_TENT;
   type[CAMP.cy * N + CAMP.cx] = T_CAMP;
   placeShed();
+  calcForestEdge();
+  // Syvemmällä metsässä puita on vain joka toisessa ruudussa: kevyempi piirtää
+  for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++) {
+    const i = cy * N + cx;
+    if (type[i] === T_FOREST && forestEdge[i] > FOREST_FULL_DEPTH && ((cx + cy) & 1)) kind[i] = K_NONE;
+  }
 
   // Laituri lähtee penkereeltä aukean kohdalla (ruudulla lammen vasen reuna) kohti lammen keskustaa
   const da = DOCK_ANG, r0 = pondR(da) + 0.8;
@@ -4668,7 +4688,7 @@ function sunRows(canvas, key, r0, r1) {
   const g = canvas.getContext('2d'), [c, d] = sunShear(key);
   for (let cy = r0; cy < r1; cy++) for (let cx = 0; cx < N; cx++) {
     const i = cy * N + cx;
-    if (type[i] !== T_FOREST || kind[i] === 3) continue;
+    if (type[i] !== T_FOREST || kind[i] === 3 || forestEdge[i] > FOREST_FULL_DEPTH) continue;   // syvän metsän varjoista ei ole hyötyä
     const spr = FOREST_SPR[kind[i]][pvar[i]];
     g.setTransform(1, 0, c, d, isoX(cx + 0.5, cy + 0.5), isoY(cx + 0.5, cy + 0.5) + 2);
     g.drawImage(spr.sil, -spr.ax, -spr.ay);
