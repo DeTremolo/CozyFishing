@@ -2653,6 +2653,7 @@ function buildDarkLut(maxDark) {
 // valaistus muuttuu; muuten (paikallaan seistessä) vain joka NIGHT_EVERY. ruudussa, jolloin vain nuotion
 // välke päivittyy harvemmin.
 let nightEvery = 4, nightTick = 0, nightKey = '';
+let lampKey = '', lampLum = new Uint8Array(0);
 let nightLampBox = null;   // otsalampun valon rajauslaatikko ruudulla [x, y, w, h]
 
 function collectLights(camXr, camYr) {
@@ -2672,9 +2673,9 @@ function collectLights(camXr, camYr) {
 // leikataan valosta pois, jolloin poispäin osoittava keila jää hahmon taakse.
 const lampCanvas = makeCanvas(W, H), lampCtx = lampCanvas.getContext('2d', { willReadFrequently: true });
 const lampTint = makeCanvas(W, H), lampTintCtx = lampTint.getContext('2d');
-function drawLampLight(camXr, camYr) {
+function drawLampLight() {
   const g = lampCtx, fa = player.fa;
-  const psx = isoX(player.x, player.y) - camXr, psy = isoY(player.x, player.y) - camYr - playerLift();
+  const psx = W >> 1, psy = H >> 1;   // piirretään aina ruudun keskelle; sijoitus ruudulle tehdään vasta käytettäessä
   g.globalCompositeOperation = 'source-over';
   g.clearRect(0, 0, W, H);
   g.save();
@@ -2721,37 +2722,52 @@ function drawNight(camXr, camYr) {
   const redo = key !== nightKey || ++nightTick >= (gfxLow ? 8 : nightEvery);
   if (redo) {
     nightKey = key; nightTick = 0;
-    if (lamp) drawLampLight(camXr, camYr);
-    // 1) Valon voimakkuus lasketaan suoraan taulukkoon (blob-valot) ja otsalampun kerros luetaan vain sen laatikosta
-    // 2) Pimeyskerros: rasteroidaan valon mukaan porrastetuiksi tasoiksi
+    // 1) Valon voimakkuus lasketaan suoraan taulukkoon (blob-valot). Otsalampun valo piirretään ja luetaan vain kun
+    // suunta, korkeus, sijainti ruudulla tai yön määrä muuttuu (käveltäessä kamera seuraa hahmoa, joten se pysyy samana).
+    // 2) Pimeyskerros: rasteroidaan valon mukaan porrastetuiksi tasoiksi, laatikko kerrallaan.
     // Valon määrä porrastetaan ja rasteroidaan, pimeyden voimakkuus ei: tasainen hämärä pysyy tasaisena
     // eikä muutu pistekuvioksi, ja vain valokeilojen reunoille tulee porrastettu, kuvioitu liuku.
-    // Valokartta on nolla valojen ulkopuolella, joten ruutu täytetään ensin tasaisella täyspimeydellä ja vain
-    // valojen rajauslaatikko luetaan ja rasteroidaan (nuotion ja lampun ympäriltä, tyypillisesti alle puolet ruudusta).
     const maxDark = 0.84 * night * 255 / DARK_LEVELS;
     if (darkLutKey !== maxDark) buildDarkLut(maxDark);
     if (!dark32 || dark32.buffer !== darkImg.data.buffer) dark32 = new Uint32Array(darkImg.data.buffer);
-    let bx0 = W, by0 = H, bx1 = 0, by1 = 0;
-    const addBox = (x0, y0, x1, y1) => { bx0 = Math.min(bx0, Math.max(0, Math.floor(x0))); by0 = Math.min(by0, Math.max(0, Math.floor(y0))); bx1 = Math.max(bx1, Math.min(W, Math.ceil(x1))); by1 = Math.max(by1, Math.min(H, Math.ceil(y1))); };
+    const boxes = [];
+    const addBox = (x0, y0, x1, y1) => {
+      x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0)); x1 = Math.min(W, Math.ceil(x1)); y1 = Math.min(H, Math.ceil(y1));
+      if (x1 > x0 && y1 > y0) boxes.push([x0, y0, x1, y1]);
+    };
     for (const l of lights) addBox(l.x - l.r - 1, l.y - l.r - 1, l.x + l.r + 1, l.y + l.r + 1);
     nightLampBox = null;
     if (lamp) {
       // Lampun valo ulottuu enintään ±113 x ±56 px hahmon pään kohdalta (mitattu kaikilla suunnilla)
-      const psx = isoX(player.x, player.y) - camXr, psy = isoY(player.x, player.y) - camYr - playerLift();
+      const psx = Math.round(isoX(player.x, player.y) - camXr), psy = Math.round(isoY(player.x, player.y) - camYr - playerLift());
+      nightLampBox = [psx - 117, psy - 60, 234, 120];   // koko laatikko (voi ulottua ruudun ulkopuolelle)
       addBox(psx - 117, psy - 60, psx + 117, psy + 60);
-      const lx0 = Math.max(0, Math.floor(psx - 117)), ly0 = Math.max(0, Math.floor(psy - 60));
-      nightLampBox = [lx0, ly0, Math.min(W, Math.ceil(psx + 117)) - lx0, Math.min(H, Math.ceil(psy + 60)) - ly0];
+      const lk = [player.fa.toFixed(3), (night * 400) | 0, W, H].join();
+      if (lk !== lampKey) {
+        lampKey = lk;
+        drawLampLight();
+        const rx = (W >> 1) - 117, ry = (H >> 1) - 60;
+        const ld = lampCtx.getImageData(rx, ry, 234, 120).data;
+        if (lampLum.length !== 234 * 120) lampLum = new Uint8Array(234 * 120);
+        for (let q = 0, j = 0; j < 234 * 120; j++, q += 4) lampLum[j] = ld[q] * ld[q + 3] / 255;
+        // Otsalampun kellertävä sävy valmiiksi (hahmo itse jää sen ulkopuolelle); vain lampun laatikko
+        lampTintCtx.globalCompositeOperation = 'source-over';
+        lampTintCtx.clearRect(0, 0, W, H);
+        lampTintCtx.drawImage(lampCanvas, rx, ry, 234, 120, rx, ry, 234, 120);
+        lampTintCtx.globalCompositeOperation = 'source-in';
+        lampTintCtx.fillStyle = `rgba(255, 240, 200, ${(0.16 * night).toFixed(3)})`;
+        lampTintCtx.fillRect(rx, ry, 234, 120);
+      }
     }
     darkCtx.clearRect(0, 0, W, H);
     darkCtx.fillStyle = `rgba(4, 6, 22, ${((darkLut[0] >>> 24) / 255).toFixed(4)})`;
     darkCtx.fillRect(0, 0, W, H);
-    const bw = bx1 - bx0, bh = by1 - by0;
-    if (bw > 0 && bh > 0) {
+    if (boxes.length) {
       if (lightBuf.length !== W * H) lightBuf = new Uint16Array(W * H);
-      for (let y = by0; y < by1; y++) lightBuf.fill(0, y * W + bx0, y * W + bx1);
+      for (const [x0, y0, x1, y1] of boxes) for (let y = y0; y < y1; y++) lightBuf.fill(0, y * W + x0, y * W + x1);
       for (const l of lights) {
-        const x0 = Math.max(bx0, Math.floor(l.x - l.r)), x1 = Math.min(bx1, Math.ceil(l.x + l.r));
-        const y0 = Math.max(by0, Math.floor(l.y - l.r)), y1 = Math.min(by1, Math.ceil(l.y + l.r));
+        const x0 = Math.max(0, Math.floor(l.x - l.r)), x1 = Math.min(W, Math.ceil(l.x + l.r));
+        const y0 = Math.max(0, Math.floor(l.y - l.r)), y1 = Math.min(H, Math.ceil(l.y + l.r));
         const k = 256 / l.r, amp = 255 * l.a;
         for (let y = y0; y < y1; y++) {
           const dy = y + 0.5 - l.y, dy2 = dy * dy;
@@ -2761,25 +2777,20 @@ function drawNight(camXr, camYr) {
           }
         }
       }
-      if (lamp && nightLampBox) {
-        const [lx, ly, lw, lh] = nightLampBox, ld = lampCtx.getImageData(lx, ly, lw, lh).data;
-        for (let y = 0, q = 0; y < lh; y++) for (let x = 0, i = (ly + y) * W + lx; x < lw; x++, i++, q += 4) lightBuf[i] += ld[q] * ld[q + 3] / 255;
+      if (nightLampBox) {
+        const [lx, ly] = nightLampBox;
+        for (let y = Math.max(0, -ly); y < 120 && ly + y < H; y++) {
+          const u0 = Math.max(0, -lx), u1 = Math.min(234, W - lx);
+          for (let u = u0, i = (ly + y) * W + lx + u0, q = y * 234 + u0; u < u1; u++, i++, q++) lightBuf[i] += lampLum[q];
+        }
       }
-      for (let y = by0; y < by1; y++) {
-        const row = (y & 3) * 4;
-        for (let x = bx0, i = y * W + bx0; x < bx1; x++, i++) dark32[i] = darkLut[(Math.min(255, lightBuf[i]) << 4) | (row + (x & 3))];
+      for (const [x0, y0, x1, y1] of boxes) {
+        for (let y = y0; y < y1; y++) {
+          const row = (y & 3) * 4;
+          for (let x = x0, i = y * W + x0; x < x1; x++, i++) dark32[i] = darkLut[(Math.min(255, lightBuf[i]) << 4) | (row + (x & 3))];
+        }
+        darkCtx.putImageData(darkImg, 0, 0, x0, y0, x1 - x0, y1 - y0);
       }
-      darkCtx.putImageData(darkImg, 0, 0, bx0, by0, bw, bh);
-    }
-    // Otsalampun kellertävä sävy valmiiksi (hahmo itse jää sen ulkopuolelle); vain lampun laatikko
-    if (lamp && nightLampBox) {
-      const [lx, ly, lw, lh] = nightLampBox;
-      lampTintCtx.globalCompositeOperation = 'source-over';
-      lampTintCtx.clearRect(0, 0, W, H);
-      lampTintCtx.drawImage(lampCanvas, lx, ly, lw, lh, lx, ly, lw, lh);
-      lampTintCtx.globalCompositeOperation = 'source-in';
-      lampTintCtx.fillStyle = `rgba(255, 240, 200, ${(0.16 * night).toFixed(3)})`;
-      lampTintCtx.fillRect(lx, ly, lw, lh);
     }
   }
   ctx.drawImage(darkCanvas, 0, 0, W, H);
@@ -2793,7 +2804,10 @@ function drawNight(camXr, camYr) {
     ctx.drawImage(colorBlob(l.col), l.x - rr, l.y - rr, rr * 2, rr * 2);
   }
   ctx.globalAlpha = 1;
-  if (lamp && nightLampBox) ctx.drawImage(lampTint, nightLampBox[0], nightLampBox[1], nightLampBox[2], nightLampBox[3], nightLampBox[0], nightLampBox[1], nightLampBox[2], nightLampBox[3]);
+  if (lamp && nightLampBox) {
+    const [lx, ly] = nightLampBox, u0 = Math.max(0, -lx), v0 = Math.max(0, -ly), u1 = Math.min(234, W - lx), v1 = Math.min(120, H - ly);
+    if (u1 > u0 && v1 > v0) ctx.drawImage(lampTint, (W >> 1) - 117 + u0, (H >> 1) - 60 + v0, u1 - u0, v1 - v0, lx + u0, ly + v0, u1 - u0, v1 - v0);
+  }
   ctx.globalCompositeOperation = 'source-over';
 }
 
