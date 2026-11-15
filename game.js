@@ -4580,12 +4580,13 @@ const ARM_DEPTH = {
 function drawArm(sx0, sy0, hx, hy, out, away, wx = 0, wy = 0) {
   hx = Math.round(hx); hy = Math.round(hy);
   if (away) {
-    // Poispäin katsottaessa kädet ovat hahmon edessä: näkyy vain olkavarsi kyynärpäähän asti (kyynärpää liikkuu
-    // kelatessa), kämmentä ei näy
-    const ex = Math.round(sx0 + out + wx), ey = Math.round(sy0 + 4 + wy);
-    const o = out < 0 ? -1 : 1;   // ulkoreunan tumma ääriviiva (kuten kuvan reunassa), jotta käsivarsi erottuu taustasta
-    plotLine(ctx, sx0 + o, sy0, ex + o, ey, '#120c0a'); dot(ex, ey + 1, '#120c0a'); dot(ex + o, ey + 1, '#120c0a');
-    plotLine(ctx, sx0, sy0, ex, ey, '#6c8c40'); plotLine(ctx, sx0 - o, sy0, ex - o, ey, '#40541e');
+    // Poispäin katsottaessa kädet ovat hahmon edessä: näkyy vain olkavarsi kiinni kehon kyljessä (kuten kuvan
+    // omat käsivarret), ja kyynärtaipeessa kyynärvarsi kääntyy sisään vatsan taakse piiloon. Kämmentä ei näy.
+    // Kyynärpää liikkuu hieman kelatessa (wx, wy).
+    const o = out < 0 ? -1 : 1, ex = sx0 + Math.round(wx * 0.5), ey = sy0 + 3 + Math.round(wy * 0.5);
+    plotLine(ctx, sx0 + o, sy0, ex + o, ey, '#120c0a'); dot(ex + o, ey + 1, '#120c0a'); dot(ex, ey + 1, '#120c0a');   // ääriviiva ulkoreunassa
+    plotLine(ctx, sx0, sy0, ex, ey, '#6c8c40');
+    dot(ex, ey, '#40541e'); dot(ex - o, ey, '#22300f');                                                                // kyynärtaive: käsi kääntyy sisään
     return;
   }
   const ex = Math.round((sx0 + hx) / 2 + out), ey = Math.round((sy0 + hy) / 2 + 2);
