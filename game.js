@@ -268,7 +268,7 @@ const PLAYER_LEGS_SIDE = [
 // Viisi katsesuuntaa; länsipuolen suunnat saadaan peilaamalla. Kullekin suunnalle:
 // lamp = otsalampun sarake (-1 = ei näy), away = katsooko hahmo poispäin katsojasta.
 // Ongen paikat eivät saa peilautua mukana (peilikuvassa oikea käsi olisi vasen), joten ne ovat
-// omissa taulukoissaan kaikille kahdeksalle suunnalle (ROD_BACK, HAND_X).
+// omissa taulukoissaan kaikille kahdeksalle suunnalle (ROD_BACK, HAND).
 const VIEW_ORDER = ['N', 'NE', 'E', 'SE', 'S'];
 const VIEW_INFO = {
   S: { rows: PLAYER_FRONT, legs: PLAYER_LEGS, lamp: 6, away: false },
@@ -287,8 +287,10 @@ const ROD_BACK = {
   S: { x: -4, front: false }, SE: { x: -5, front: false }, E: { x: -3, front: true }, NE: { x: 3, front: true },
   N: { x: 4, front: true }, NW: { x: 4, front: true }, W: { x: 3, front: false }, SW: { x: 1, front: false },
 };
-// Ongen kahvan paikka (x hahmon keskestä): kädessä pidetty onki on aina hahmon oikeassa kädessä
-const HAND_X = { S: -4, SE: -4, E: 1, NE: 4, N: 4, NW: 3, W: -2, SW: -5 };
+// Oikean käden ote ongen kahvasta [x, y] hahmon jalkapisteestä: kädessä pidetty onki on aina hahmon oikeassa
+// kädessä, joka on koukistettuna hieman hahmon edessä (ei suorana alaspäin). Poispäin katsottaessa (NE, N, NW)
+// ote on kyljellä.
+const HAND = { S: [-2, -7], SE: [-2, -8], E: [3, -8], NE: [4, -9], N: [3, -9], NW: [3, -9], W: [-3, -8], SW: [-3, -8] };
 // Hahmon kuva saa yhden pikselin reunuksen, johon piirretään tumma ääriviiva (kuva on 16 x 21)
 function playerSprite(rows) {
   const base = makeSprite(rows, PLAYER_PAL), c = makeCanvas(base.width + 2, base.height + 2);
@@ -297,19 +299,23 @@ function playerSprite(rows) {
   return { img: c };
 }
 const PLAYER_SPR = Object.fromEntries(VIEW_ORDER.map((v) => [v, VIEW_INFO[v].legs.map((l) => playerSprite([...VIEW_INFO[v].rows, ...l]))]));
-// Onki kädessä: vasen käsi kelaa, joten kuvan roikkuva vasen käsi poistetaan ja käsi piirretään kelalle
-// (drawLeftHand). Poistettava alue: [x0, x1, y0, y1] kuvan sarakkeina ja riveinä sille suunnalle, jossa
-// kuvassa näkyvä käsi on hahmon vasen (S ja SE: ruudun oikea, N ja NW: ruudun vasen). Muissa suunnissa
-// vasen käsi on piilossa tai se on oikea käsi, jolloin kuvaan ei kosketa.
-const REEL_ERASE = { S: ['S', [10, 11, 10, 12]], SE: ['SE', [11, 12, 10, 12]], N: ['N', [1, 1, 7, 11]], NW: ['NE', [12, 12, 7, 11]] };
-const PLAYER_SPR_REEL = Object.fromEntries(Object.entries(REEL_ERASE).map(([dir, [view, [x0, x1, y0, y1]]]) => {
-  const rows = VIEW_INFO[view].rows.map((r, y) => (y >= y0 && y <= y1 ? r.slice(0, x0) + '.'.repeat(x1 - x0 + 1) + r.slice(x1 + 1) : r));
+// Onki kädessä: molemmat kädet piirretään koukistettuina onkea pitämään (drawArms), joten kuvan roikkuvat
+// kädet poistetaan. Alueet [x0, x1, y0, y1] ovat kuvan sarakkeita ja rivejä; fill on poistettujen
+// pikselien tilalle tuleva merkki ('.' = läpinäkyvä). Esim. S: molemmat roikkuvat kädet, SE: vain ruudun
+// oikea käsi (vasen käsi on repun takana), E/W: sivukuvan käden ihopikseli peitetään takilla.
+const HELD_ARMS = {
+  S: ['S', [[2, 3, 10, 12], [10, 11, 10, 12]], '.'], SE: ['SE', [[11, 12, 10, 12]], '.'], E: ['E', [[8, 8, 12, 12]], 'j'],
+  NE: ['NE', [[12, 12, 7, 11]], '.'], N: ['N', [[1, 1, 7, 11], [12, 12, 7, 11]], '.'], NW: ['NE', [[12, 12, 7, 11]], '.'],
+  W: ['E', [[8, 8, 12, 12]], 'j'], SW: ['SE', [[11, 12, 10, 12]], '.'],
+};
+const PLAYER_SPR_HELD = Object.fromEntries(Object.entries(HELD_ARMS).map(([dir, [view, boxes, fill]]) => {
+  const rows = VIEW_INFO[view].rows.map((r, y) => boxes.reduce((row, [x0, x1, y0, y1]) => (y >= y0 && y <= y1 ? row.slice(0, x0) + fill.repeat(x1 - x0 + 1) + row.slice(x1 + 1) : row), r));
   return [dir, VIEW_INFO[view].legs.map((l) => playerSprite([...rows, ...l]))];
 }));
-// Hahmon kuva: onki kädessä käytetään kuvaa, josta vasen käsi on poistettu (jos sellainen on)
+// Hahmon kuva: onki kädessä käytetään kuvaa, josta roikkuvat kädet on poistettu
 const playerSpr = (p) => {
-  const k = p.moving ? Math.floor(p.anim / 8) % 2 : 0, dir = playerDir();
-  return p.rod && PLAYER_SPR_REEL[dir] ? PLAYER_SPR_REEL[dir][k] : PLAYER_SPR[p.view][k];
+  const k = p.moving ? Math.floor(p.anim / 8) % 2 : 0;
+  return p.rod ? PLAYER_SPR_HELD[playerDir()][k] : PLAYER_SPR[p.view][k];
 };
 
 // Sorsat (sinisorsa): koiras vihreäpäinen, naaras ruskea. Kaikki kuvat nokka oikealle.
@@ -1901,7 +1907,7 @@ function toggleLight() {
 function rodGeom() {
   const p = player, ax = isoX(p.x, p.y), ay = isoY(p.x, p.y) - playerLift();
   const step = p.moving ? Math.floor(p.anim / 8) % 2 : 0;
-  const hx = ax + HAND_X[playerDir()], hy = ay - 6 + step;
+  const hand = HAND[playerDir()], hx = ax + hand[0], hy = ay + hand[1] + step;
   const sway = Math.sin(time * 0.035) * 0.7;
   const reach = 11 - (cast.charging ? cast.power * 13 : 0) + cast.flick * 0.5;
   return { hx, hy, tx: hx + p.gux * reach + sway, ty: hy + p.guy * 5 * (reach / 11) - 15 + step + Math.sin(time * 0.05) * 0.4 };
@@ -4382,37 +4388,38 @@ function drawPlayer(sx, sy, camXr, camYr) {
   }
   if (!p.rod && RB.front) drawBackRod(sx, sy, p.flip, RB.x);
   if (p.rod && !V.away) drawHeldRod(camXr, camYr);
-  if (p.rod) drawLeftHand(sx, sy, camXr, camYr);
+  if (p.rod) drawArms(sx, sy, camXr, camYr);
 }
 
 // Kelaus: onki on oikeassa kädessä ja vasen käsi pitää kelasta. Kelatessa (hiiri pohjassa, viehe vedessä)
 // vasen käsi kiertää kampea; muulloin se lepää kelalla. Kelan kampi pyörii samaa vauhtia kuin tähtäimen kela.
 const isReeling = () => player.rod && cast.lure && cast.lure.st !== 'fly' && (mouseHeld || touch.cast) && state === 'play';
 const handCrank = { a: 0 };
-// Olkapään paikka hahmon jalkapisteestä (x, y): vasemman käden varsi alkaa siitä
-const SHOULDER_L = { S: [3, -9], SE: [3, -9], E: [1, -10], W: [-2, -10], SW: [3, -9] };
-function drawLeftHand(sx, sy, camXr, camYr) {
-  const dir = playerDir();
-  let ax, ay, hx, hy;
-  const rate = isReeling() ? handCrank.a : null;
-  if (SHOULDER_L[dir]) {
-    // Käsi kelalla (kela on ongen kahvan vieressä)
-    const g = rodGeom(), gx = g.hx - camXr, gy = g.hy - camYr, l = Math.hypot(g.tx - g.hx, g.ty - g.hy) || 1;
-    const rx = gx + ((g.tx - g.hx) / l) * 3 + 0.5, ry = gy + ((g.ty - g.hy) / l) * 3 + 1;   // kela on ongen kahvan edessä
-    ax = sx + SHOULDER_L[dir][0]; ay = sy + SHOULDER_L[dir][1];
-    hx = rx + (rate === null ? 0 : Math.cos(rate) * 1.6); hy = ry + (rate === null ? 0 : Math.sin(rate) * 1.6);
-  } else if (dir === 'N' || dir === 'NW') {
-    // Poispäin katsottaessa vasen käsi näkyy kyljellä ja kiertää kampea kylkensä edessä
-    ax = sx - 5; ay = sy - 12;
-    hx = sx - 6 + (rate === null ? 0 : Math.cos(rate) * 1.6); hy = sy - 7 + (rate === null ? 0 : Math.sin(rate) * 1.6);
-  } else return;
+// Käsivarren alkupiste (kyynärpää tai olkapää) hahmon jalkapisteestä: oikea käsi ja vasen käsi (vasen vain
+// suunnissa, joissa se näkyy ja pitää kelasta; N ja NW piirretään erikseen kyljelle)
+const ARM_R = { S: [-5, -9], SE: [-4, -9], E: [1, -9], NE: [5, -12], N: [5, -12], NW: [4, -10], W: [0, -9], SW: [-5, -9] };
+const ARM_L = { S: [4, -9], SE: [4, -9], E: [0, -10], W: [-1, -9], SW: [3, -10] };
+// Käsivarsi (tumma reuna, takin väri) ja käsi (iho tummalla reunalla)
+function drawArm(ax, ay, hx, hy) {
   hx = Math.round(hx); hy = Math.round(hy);
-  // Käsivarsi (tumma reuna, takin väri) ja käsi (iho tummalla reunalla)
   for (const [ox, oy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) plotLine(ctx, ax + ox, ay + oy, hx + ox, hy + oy, '#120c0a');
   plotLine(ctx, ax, ay, hx, hy, '#6c8c40');
   ctx.fillStyle = '#120c0a'; ctx.fillRect(hx - 1, hy - 1, 4, 4);
   ctx.fillStyle = '#f6d0ac'; ctx.fillRect(hx, hy, 2, 2);
   ctx.fillStyle = '#d29c7c'; ctx.fillRect(hx, hy + 1, 2, 1);
+}
+function drawArms(sx, sy, camXr, camYr) {
+  const dir = playerDir(), rate = isReeling() ? handCrank.a : null;
+  const g = rodGeom(), gx = g.hx - camXr, gy = g.hy - camYr, l = Math.hypot(g.tx - g.hx, g.ty - g.hy) || 1;
+  // Oikea käsi pitää ongen kahvasta
+  drawArm(sx + ARM_R[dir][0], sy + ARM_R[dir][1], gx, gy);
+  // Vasen käsi: kelalla (kela on ongen kahvan edessä) tai, poispäin katsottaessa, kyljellä kelaamassa
+  if (ARM_L[dir]) {
+    const rx = gx + ((g.tx - g.hx) / l) * 3 + 0.5, ry = gy + ((g.ty - g.hy) / l) * 3 + 1;
+    drawArm(sx + ARM_L[dir][0], sy + ARM_L[dir][1], rx + (rate === null ? 0 : Math.cos(rate) * 1.6), ry + (rate === null ? 0 : Math.sin(rate) * 1.6));
+  } else if (dir === 'N' || dir === 'NW') {
+    drawArm(sx - 5, sy - 12, sx - 6 + (rate === null ? 0 : Math.cos(rate) * 1.6), sy - 7 + (rate === null ? 0 : Math.sin(rate) * 1.6));
+  }
 }
 
 // Vaapulla kelattaessa siima kulkee ongen kärjestä lähes suorana (pieni painovoiman notko) vaappuun tai

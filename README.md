@@ -58,10 +58,11 @@ vanaveden), ja koko heitetty siima pitää kelata ennen kuin onkea voi laittaa s
 
 Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peilikuvat). Onki ei peilaudu
 mukana: selässä se on kaikissa suunnissa repun oikeassa reunassa (hahmon oma oikea puoli; länteen päin katsottaessa se
-jää repun ja hahmon taakse) ja kädessä aina oikeassa kädessä (`ROD_BACK`, `HAND_X`). Vasen käsi pitää kelasta:
-kun onki on kädessä, vasen käsi on kelalla, ja kelatessa (hiiri pohjassa, viehe vedessä) se kiertää kampea samaa vauhtia
-kuin tähtäimen kela (`drawLeftHand`). Etu- ja sivusuunnista, joissa vasen käsi näkyy roikkumassa kyljellä, kuvasta
-poistetaan se käsi (`REEL_ERASE`), ja poispäin katsottaessa käsi kiertää kampea hahmon kyljellä.
+jää repun ja hahmon taakse) ja kädessä aina oikeassa kädessä (`ROD_BACK`, `HAND`). Kun onki on kädessä, kuvan
+roikkuvat kädet poistetaan (`HELD_ARMS`) ja molemmat kädet piirretään koukistettuina (`drawArms`): oikea käsi pitää
+ongen kahvasta hieman hahmon edessä (ei suorana alaspäin) ja vasen käsi pitää kelasta. Kelatessa (hiiri pohjassa, viehe
+vedessä) vasen käsi kiertää kampea samaa vauhtia kuin tähtäimen kela; poispäin katsottaessa (N, NW) käsi kiertää kampea
+hahmon kyljellä.
 
 ## Maailma
 
