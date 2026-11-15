@@ -4605,7 +4605,10 @@ function drawArms(sx, sy, camXr, camYr, phase) {
   const outwards = (x) => (dir === 'E' || dir === 'W' ? 0 : x < 0 ? -1.5 : 1.5), away = VIEW_INFO[player.view].away;
   if (depth.R === phase) { const s0 = SHOULDER_R[dir]; drawArm(sx + s0[0], sy + s0[1], gx, gy, outwards(s0[0]), away); }
   if (depth.L === phase && SHOULDER_L[dir]) {
-    const s0 = SHOULDER_L[dir], c = rate === null ? 0 : Math.cos(rate) * 1.6, d = rate === null ? 0 : Math.sin(rate) * 1.6;
+    // Kampi pyörii pystytasossa ongen suuntaan: oikealle katsoessa kierto näkyy myötäpäivään, vasemmalle vastapäivään
+    // (vaakakomponentti kerrotaan katsesuunnan x-komponentilla), ja kameraa kohti tai poispäin katsoessa taso on
+    // sivuttain, jolloin käsi liikkuu vain ylös ja alas.
+    const s0 = SHOULDER_L[dir], c = rate === null ? 0 : Math.cos(rate) * 1.6 * player.gux, d = rate === null ? 0 : Math.sin(rate) * 1.6;
     if (away) drawArm(sx + s0[0], sy + s0[1], 0, 0, outwards(s0[0]), true, c * 0.9, d * 0.9);
     else drawArm(sx + s0[0], sy + s0[1], gx + ((g.tx - g.hx) / l) * 3 + 0.5 + c, gy + ((g.ty - g.hy) / l) * 3 + 1 + d, outwards(s0[0]), false);
   }
