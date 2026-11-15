@@ -63,8 +63,9 @@ roikkuvat kädet poistetaan (`HELD_ARMS`) ja molemmat kädet piirretään koukis
 ongen kahvasta hieman hahmon edessä (ei suorana alaspäin) ja vasen käsi pitää kelasta. Käsivarret ovat kaksiosaisia
 (olkapää → kyynärpää → käsi, `SHOULDER_R` / `SHOULDER_L`), ja kameran puolelta katsottaessa kauempi käsi piirretään ongen
 taakse (`ARM_DEPTH`), jolloin esim. itään katsottaessa vasen käsi ei näy ongen läpi. Kelatessa (hiiri pohjassa, viehe
-vedessä) vasen käsi kiertää kampea samaa vauhtia kuin tähtäimen kela; poispäin katsottaessa (N, NW) käsi kiertää kampea
-hahmon kyljellä.
+vedessä) vasen käsi kiertää kampea samaa vauhtia kuin tähtäimen kela. Poispäin katsottaessa (NE, N, NW) kädet ovat
+hahmon edessä, joten kämmeniä ei näy: sivuilla näkyy vain hiha kyynärpäähän asti, ja kelatessa vasen kyynärpää liikkuu.
+Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poistetaan (SE ja SW:ssä myös repun takaa pilkistävä käsi).
 
 ## Maailma
 

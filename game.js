@@ -301,12 +301,13 @@ function playerSprite(rows) {
 const PLAYER_SPR = Object.fromEntries(VIEW_ORDER.map((v) => [v, VIEW_INFO[v].legs.map((l) => playerSprite([...VIEW_INFO[v].rows, ...l]))]));
 // Onki kädessä: molemmat kädet piirretään koukistettuina onkea pitämään (drawArms), joten kuvan roikkuvat
 // kädet poistetaan. Alueet [x0, x1, y0, y1] ovat kuvan sarakkeita ja rivejä; fill on poistettujen
-// pikselien tilalle tuleva merkki ('.' = läpinäkyvä). Esim. S: molemmat roikkuvat kädet, SE: vain ruudun
-// oikea käsi (vasen käsi on repun takana), E/W: sivukuvan käden ihopikseli peitetään takilla.
+// pikselien tilalle tuleva merkki ('.' = läpinäkyvä). Esim. S: molemmat roikkuvat kädet, SE: ruudun oikea
+// käsi ja repun takaa pilkistävän käden ihopikselit, E/W: sivukuvan käden ihopikseli peitetään takilla.
+// Kuviin ei saa jäädä ihonvärisiä käsipikseleitä (alla olevat kädet piirretään uudelleen).
 const HELD_ARMS = {
-  S: ['S', [[2, 3, 10, 12], [10, 11, 10, 12]], '.'], SE: ['SE', [[11, 12, 10, 12]], '.'], E: ['E', [[8, 8, 12, 12]], 'j'],
+  S: ['S', [[2, 3, 10, 12], [10, 11, 10, 12]], '.'], SE: ['SE', [[11, 12, 10, 12], [3, 4, 12, 12]], '.'], E: ['E', [[8, 8, 12, 12]], 'j'],
   NE: ['NE', [[12, 12, 7, 11]], '.'], N: ['N', [[1, 1, 7, 11], [12, 12, 7, 11]], '.'], NW: ['NE', [[12, 12, 7, 11]], '.'],
-  W: ['E', [[8, 8, 12, 12]], 'j'], SW: ['SE', [[11, 12, 10, 12]], '.'],
+  W: ['E', [[8, 8, 12, 12]], 'j'], SW: ['SE', [[11, 12, 10, 12], [3, 4, 12, 12]], '.'],
 };
 const PLAYER_SPR_HELD = Object.fromEntries(Object.entries(HELD_ARMS).map(([dir, [view, boxes, fill]]) => {
   const rows = VIEW_INFO[view].rows.map((r, y) => boxes.reduce((row, [x0, x1, y0, y1]) => (y >= y0 && y <= y1 ? row.slice(0, x0) + fill.repeat(x1 - x0 + 1) + row.slice(x1 + 1) : row), r));
@@ -4573,11 +4574,20 @@ const SHOULDER_L = { S: [4, -10], SE: [4, -10], E: [1, -11], N: [-6, -11], NW: [
 // Itään katsottaessa oikea käsi on kameraa kohti ja vasen ongen takana, länteen katsottaessa päinvastoin.
 const ARM_DEPTH = {
   S: { L: 'near', R: 'near' }, SE: { L: 'far', R: 'near' }, E: { L: 'far', R: 'near' }, NE: { R: 'near' },
-  N: { L: 'near', R: 'near' }, NW: { L: 'near', R: 'near' }, W: { L: 'near', R: 'far' }, SW: { L: 'near', R: 'far' },
+  N: { L: 'near', R: 'near' }, NW: { L: 'near' }, W: { L: 'near', R: 'far' }, SW: { L: 'near', R: 'far' },
 };
 // Käsivarsi (takin väri, tummempi alareuna) ja käsi (iho, tumma reuna oikealla ja alla sekä ylhäällä)
-function drawArm(sx0, sy0, hx, hy, out) {
+function drawArm(sx0, sy0, hx, hy, out, away, wx = 0, wy = 0) {
   hx = Math.round(hx); hy = Math.round(hy);
+  if (away) {
+    // Poispäin katsottaessa kädet ovat hahmon edessä: näkyy vain olkavarsi kyynärpäähän asti (kyynärpää liikkuu
+    // kelatessa), kämmentä ei näy
+    const ex = Math.round(sx0 + out + wx), ey = Math.round(sy0 + 4 + wy);
+    const o = out < 0 ? -1 : 1;   // ulkoreunan tumma ääriviiva (kuten kuvan reunassa), jotta käsivarsi erottuu taustasta
+    plotLine(ctx, sx0 + o, sy0, ex + o, ey, '#120c0a'); dot(ex, ey + 1, '#120c0a'); dot(ex + o, ey + 1, '#120c0a');
+    plotLine(ctx, sx0, sy0, ex, ey, '#6c8c40'); plotLine(ctx, sx0 - o, sy0, ex - o, ey, '#40541e');
+    return;
+  }
   const ex = Math.round((sx0 + hx) / 2 + out), ey = Math.round((sy0 + hy) / 2 + 2);
   plotLine(ctx, sx0, sy0 + 1, ex, ey + 1, '#22300f'); plotLine(ctx, ex, ey + 1, hx, hy + 1, '#22300f');   // tumma alareuna
   plotLine(ctx, sx0, sy0, ex, ey, '#6c8c40'); plotLine(ctx, ex, ey, hx, hy, '#6c8c40');
@@ -4591,12 +4601,12 @@ function drawArm(sx0, sy0, hx, hy, out) {
 function drawArms(sx, sy, camXr, camYr, phase) {
   const dir = playerDir(), depth = ARM_DEPTH[dir], rate = isReeling() ? handCrank.a : null;
   const g = rodGeom(), gx = g.hx - camXr, gy = g.hy - camYr, l = Math.hypot(g.tx - g.hx, g.ty - g.hy) || 1;
-  const outwards = (x) => (dir === 'E' || dir === 'W' ? 0 : x < 0 ? -1.5 : 1.5);
-  if (depth.R === phase) { const s0 = SHOULDER_R[dir]; drawArm(sx + s0[0], sy + s0[1], gx, gy, outwards(s0[0])); }
+  const outwards = (x) => (dir === 'E' || dir === 'W' ? 0 : x < 0 ? -1.5 : 1.5), away = VIEW_INFO[player.view].away;
+  if (depth.R === phase) { const s0 = SHOULDER_R[dir]; drawArm(sx + s0[0], sy + s0[1], gx, gy, outwards(s0[0]), away); }
   if (depth.L === phase && SHOULDER_L[dir]) {
     const s0 = SHOULDER_L[dir], c = rate === null ? 0 : Math.cos(rate) * 1.6, d = rate === null ? 0 : Math.sin(rate) * 1.6;
-    if (dir === 'N' || dir === 'NW') drawArm(sx + s0[0], sy + s0[1], sx - 6 + c, sy - 7 + d, outwards(s0[0]));
-    else drawArm(sx + s0[0], sy + s0[1], gx + ((g.tx - g.hx) / l) * 3 + 0.5 + c, gy + ((g.ty - g.hy) / l) * 3 + 1 + d, outwards(s0[0]));
+    if (away) drawArm(sx + s0[0], sy + s0[1], 0, 0, outwards(s0[0]), true, c * 0.9, d * 0.9);
+    else drawArm(sx + s0[0], sy + s0[1], gx + ((g.tx - g.hx) / l) * 3 + 0.5 + c, gy + ((g.ty - g.hy) / l) * 3 + 1 + d, outwards(s0[0]), false);
   }
 }
 
