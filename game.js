@@ -4554,38 +4554,49 @@ function drawPlayer(sx, sy, camXr, camYr) {
     dot(lx, ly, '#ffffff');
   }
   if (!p.rod && RB.front) drawBackRod(sx, sy, p.flip, RB.x);
+  // Kauempi käsi ennen onkea (onki peittää sen), lähempi käsi onkea pitämässä sen päällä
+  if (p.rod) drawArms(sx, sy, camXr, camYr, 'far');
   if (p.rod && !V.away) drawHeldRod(camXr, camYr);
-  if (p.rod) drawArms(sx, sy, camXr, camYr);
+  if (p.rod) drawArms(sx, sy, camXr, camYr, 'near');
 }
 
 // Kelaus: onki on oikeassa kädessä ja vasen käsi pitää kelasta. Kelatessa (hiiri pohjassa, viehe vedessä)
 // vasen käsi kiertää kampea; muulloin se lepää kelalla. Kelan kampi pyörii samaa vauhtia kuin tähtäimen kela.
 const isReeling = () => player.rod && cast.lure && cast.lure.st !== 'fly' && (mouseHeld || touch.cast) && state === 'play';
 const handCrank = { a: 0 };
-// Käsivarren alkupiste (kyynärpää tai olkapää) hahmon jalkapisteestä: oikea käsi ja vasen käsi (vasen vain
-// suunnissa, joissa se näkyy ja pitää kelasta; N ja NW piirretään erikseen kyljelle)
-const ARM_R = { S: [-5, -9], SE: [-4, -9], E: [1, -9], NE: [5, -12], N: [5, -12], NW: [4, -10], W: [0, -9], SW: [-5, -9] };
-const ARM_L = { S: [4, -9], SE: [4, -9], E: [0, -10], W: [-1, -9], SW: [3, -10] };
-// Käsivarsi (tumma reuna, takin väri) ja käsi (iho tummalla reunalla)
-function drawArm(ax, ay, hx, hy) {
+// Olkapäiden paikat hahmon jalkapisteestä [x, y] kuvan suuntien mukaan (oikea ja vasen käsi). Vasen käsi
+// puuttuu koillisesta, jossa se on repun takana. Käsivarsi on kaksiosainen: olkapäästä kyynärpäähän ja
+// kyynärpäästä käteen; kyynärpää on olkapään ja käden puolivälissä hieman alempana ja ulompana.
+const SHOULDER_R = { S: [-4, -10], SE: [-3, -10], E: [2, -10], NE: [5, -11], N: [5, -11], NW: [4, -10], W: [-1, -11], SW: [-5, -10] };
+const SHOULDER_L = { S: [4, -10], SE: [4, -10], E: [1, -11], N: [-6, -11], NW: [-6, -11], W: [-3, -10], SW: [3, -10] };
+// Kumpi käsi on ongen takana (far: piirretään ennen onkea, jolloin onki peittää sen) ja kumpi edessä (near).
+// Itään katsottaessa oikea käsi on kameraa kohti ja vasen ongen takana, länteen katsottaessa päinvastoin.
+const ARM_DEPTH = {
+  S: { L: 'near', R: 'near' }, SE: { L: 'far', R: 'near' }, E: { L: 'far', R: 'near' }, NE: { R: 'near' },
+  N: { L: 'near', R: 'near' }, NW: { L: 'near', R: 'near' }, W: { L: 'near', R: 'far' }, SW: { L: 'near', R: 'far' },
+};
+// Käsivarsi (takin väri, tummempi alareuna) ja käsi (iho, tumma reuna oikealla ja alla sekä ylhäällä)
+function drawArm(sx0, sy0, hx, hy, out) {
   hx = Math.round(hx); hy = Math.round(hy);
-  for (const [ox, oy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) plotLine(ctx, ax + ox, ay + oy, hx + ox, hy + oy, '#120c0a');
-  plotLine(ctx, ax, ay, hx, hy, '#6c8c40');
-  ctx.fillStyle = '#120c0a'; ctx.fillRect(hx - 1, hy - 1, 4, 4);
+  const ex = Math.round((sx0 + hx) / 2 + out), ey = Math.round((sy0 + hy) / 2 + 2);
+  plotLine(ctx, sx0, sy0 + 1, ex, ey + 1, '#22300f'); plotLine(ctx, ex, ey + 1, hx, hy + 1, '#22300f');   // tumma alareuna
+  plotLine(ctx, sx0, sy0, ex, ey, '#6c8c40'); plotLine(ctx, ex, ey, hx, hy, '#6c8c40');
+  plotLine(ctx, sx0, sy0 - 1, ex, ey - 1, '#8aa856');                                                      // valoisa yläreuna
+  ctx.fillStyle = '#2a2018'; ctx.fillRect(hx - 1, hy - 1, 4, 1); ctx.fillRect(hx + 2, hy, 1, 3); ctx.fillRect(hx - 1, hy + 2, 3, 1); ctx.fillRect(hx - 1, hy, 1, 2);
   ctx.fillStyle = '#f6d0ac'; ctx.fillRect(hx, hy, 2, 2);
   ctx.fillStyle = '#d29c7c'; ctx.fillRect(hx, hy + 1, 2, 1);
 }
-function drawArms(sx, sy, camXr, camYr) {
-  const dir = playerDir(), rate = isReeling() ? handCrank.a : null;
+// Piirtää kädet, joiden syvyys (far / near) on phase. Oikea käsi pitää ongen kahvasta, vasen kelasta
+// (kela on ongen kahvan edessä); poispäin katsottaessa (N, NW) vasen käsi kiertää kampea kyljellä.
+function drawArms(sx, sy, camXr, camYr, phase) {
+  const dir = playerDir(), depth = ARM_DEPTH[dir], rate = isReeling() ? handCrank.a : null;
   const g = rodGeom(), gx = g.hx - camXr, gy = g.hy - camYr, l = Math.hypot(g.tx - g.hx, g.ty - g.hy) || 1;
-  // Oikea käsi pitää ongen kahvasta
-  drawArm(sx + ARM_R[dir][0], sy + ARM_R[dir][1], gx, gy);
-  // Vasen käsi: kelalla (kela on ongen kahvan edessä) tai, poispäin katsottaessa, kyljellä kelaamassa
-  if (ARM_L[dir]) {
-    const rx = gx + ((g.tx - g.hx) / l) * 3 + 0.5, ry = gy + ((g.ty - g.hy) / l) * 3 + 1;
-    drawArm(sx + ARM_L[dir][0], sy + ARM_L[dir][1], rx + (rate === null ? 0 : Math.cos(rate) * 1.6), ry + (rate === null ? 0 : Math.sin(rate) * 1.6));
-  } else if (dir === 'N' || dir === 'NW') {
-    drawArm(sx - 5, sy - 12, sx - 6 + (rate === null ? 0 : Math.cos(rate) * 1.6), sy - 7 + (rate === null ? 0 : Math.sin(rate) * 1.6));
+  const outwards = (x) => (dir === 'E' || dir === 'W' ? 0 : x < 0 ? -1.5 : 1.5);
+  if (depth.R === phase) { const s0 = SHOULDER_R[dir]; drawArm(sx + s0[0], sy + s0[1], gx, gy, outwards(s0[0])); }
+  if (depth.L === phase && SHOULDER_L[dir]) {
+    const s0 = SHOULDER_L[dir], c = rate === null ? 0 : Math.cos(rate) * 1.6, d = rate === null ? 0 : Math.sin(rate) * 1.6;
+    if (dir === 'N' || dir === 'NW') drawArm(sx + s0[0], sy + s0[1], sx - 6 + c, sy - 7 + d, outwards(s0[0]));
+    else drawArm(sx + s0[0], sy + s0[1], gx + ((g.tx - g.hx) / l) * 3 + 0.5 + c, gy + ((g.ty - g.hy) / l) * 3 + 1 + d, outwards(s0[0]));
   }
 }
 
