@@ -22,8 +22,8 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 | E (nuotion vieressä) | WOOD | lisää nuotioon klapi (kun nuotio ei ole täynnä) |
 | Z (nuotion vieressä) | LIGHT | sytytä sammunut nuotio (kun siinä on puita) |
 | hiiren oikea nappi pohjassa | – | vapauta siimaa kelalta (enintään 30 m ulkona) |
-| Q | LURE | vaihda viehe: koho ja mato / vaappu (vain kun siima on kelattu sisään) |
-| hiiren rulla tai - / + | – | koholla koukun syvyys 0,1–1,5 m (vain kun siima on kelattu sisään); vaapulla kelausnopeus 10–100 cm/s |
+| Q | LURE | vaihda viehe: koho ja mato / vaappu / lippa / pohjaonki ja mato / pohjaonki ja boilie (vain kun siima on kelattu sisään) |
+| hiiren rulla tai - / + | – | koholla koukun syvyys 0,1–1,5 m ja pohjaongella syötin etäisyys puntista 20–120 cm (vain kun siima on kelattu sisään); uistimilla kelausnopeus 10–100 cm/s |
 | T / Shift+T | – | ajan nopeus 1x–10x todelliseen aikaan verrattuna (nopeampi / hitaampi) |
 | L | – | kelaa kello nopeasti (60 min/s) selaimen paikalliseen kellonaikaan; perillä nopeus palaa 1x:ään |
 | V | – | huijaustila (cheat mode) päälle / pois: vesi piilotetaan, kalat ja pohja näkyvät, debug-viivat |
@@ -193,7 +193,7 @@ voi kerätä talteen kävelemällä sen päälle (myös siiman katkaisun jälkee
 
 ### Vieheet
 
-Vieheen voi vaihtaa (Q: koho ja mato → vaappu → lippa), kun siima on kelattu sisään.
+Vieheen voi vaihtaa (Q: koho ja mato → vaappu → lippa → pohjaonki ja mato → pohjaonki ja boilie), kun siima on kelattu sisään.
 
 - **Koho ja mato**: koukku riippuu kohon alla säädetyllä syvyydellä. Kohon kärjessä on neonvihreä valopiste, joka hehkuu
   pimeällä; kun kala vetää kohon pinnan alle, valo himmenee.
@@ -214,6 +214,24 @@ Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan su
   painuu pohjaan, jos sitä ei kelata. Kelattaessa kireä siima vetää sitä ongen kärkeä kohti, jolloin lippa
   nousee siiman kulman mukaan; vedossa (noin 0,5 m/s) se ei enää uppoa. Kelaamisen loputtua lippa painuu
   pohjaan ja jää paikalleen. Kelausnopeus säädetään kuten vaapulla. Tähtäimenä on metallinharmaa lippa.
+
+- **Pohjaonki** (bottom rig; kaksi syöttiä Q:lla: mato ja boilie): siiman päässä on puntti, ja siitä säädettävän matkan
+  (20–120 cm, hiiren rulla) päässä siimaa ylöspäin on 10 cm pitkä sivuhaara, jonka päässä on koukku ja syötti. Mato näyttää
+  samalta kuin koho-ongessa; boilie on ruskea noin 3 cm:n syöttipallo (kuvassa suurennettu kahteen pikseliin).
+  Mato ja boilie eivät kellu, joten ne roikkuvat sivuhaaran mukana alaspäin kohti pohjaa. Sivuhaara on mallinnettu
+  pääsiimasta erillään (oma siimaketju), joten onkea heiluteltaessa haara ja syötti heiluvat vapaasti. Pohjaonki heitetään
+  kauemmas kuin muut vieheet (enintään 24 m, lippa 16 m).
+  Puntti painuu pohjaan melko nopeasti (1 m/s). Siiman pituus otetaan huomioon: siima kulkee ongen kärjestä (3 m
+  vedenpinnan yläpuolella) puntille, ja jos siimaa ei ole riittävästi, puntti ei painu suoraan alas vaan kaartuu kireän
+  siiman varassa kohti vapaa; siimaa voi päästää kelalta oikealla hiirennapilla. Kelattaessa (1,2 m/s) puntti
+  kulkee pohjaa pitkin kohti ongen kärkeä ja painuu taas pohjaan, kun kelaus loppuu. Kun puntti on pohjassa, siima pitää kelata
+  kireälle (löysää alle 0,5 m), jotta sivuhaara nousee pois pohjasta: löysä siima makaa pohjalla ja syötti sen mukana, ja
+  pohjassa makaava syötti kiinnostaa kaloja vain vähän (HUD varoittaa: BAIT ON BOTTOM - REEL LINE TIGHT). Siima on kireällä
+  kulmassa, joten pitkä sivuhaara (120 cm) nostaa syötin pohjasta enemmän kuin lyhyt. Tiedoissa näytetään puntin syvyys
+  (SINKER). Pohjaonki nousee vedestä vasta, kun puntti on kelattu pintaan aivan pelaajan lähelle (alle 1,5 m); puntin voi siis
+  päästää pohjaan myös aivan pelaajan edestä, eikä sitä nosteta ylös ilman kelausta. Kun kala nappaa pohjaonkeen, vavan päässä
+  oleva pieni kilikello soi (ja heiluu). Ahven pitää madosta (0,75-kertaisesti) mutta boilie ei kelpaa sille juuri (0,12-kertaisesti);
+  hauki ei välitä pohjaongesta (0,2 ja 0,04).
 
 Vain liikkuva uistin (vaappu tai lippa) kiinnostaa kaloja.
 

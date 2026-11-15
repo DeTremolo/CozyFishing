@@ -1682,6 +1682,8 @@ const SFX = {
   reel: () => tone(rand(2600, 3000), 0.012, 'square', 0.025),
   payout: () => tone(rand(1500, 1900), 0.01, 'square', 0.018),
   bite: () => { tone(380, 0.12, 'sine', 0.14, 180); noiseBurst(0.15, 900, 'bandpass', 0.12, 2); },
+  // Pohjaongen vavan päässä oleva pieni kilikello: nopea sarja korkeita, hopeisia kilahduksia
+  bell: () => { for (let k = 0; k < 7; k++) { const f = rand(2900, 3500), d = k * 0.065 + rand(0, 0.02); tone(f, 0.22, 'sine', 0.07, 0, d); tone(f * 1.62, 0.12, 'sine', 0.025, 0, d); } },
   ratchet: () => { tone(rand(3400, 4200), 0.01, 'square', 0.035); noiseBurst(0.02, 5000, 'bandpass', 0.05, 3); },
   snip: () => { tone(2400, 0.03, 'square', 0.05, 1200); noiseBurst(0.05, 4000, 'highpass', 0.06); },
   catch: () => { tone(660, 0.1, 'triangle', 0.09); tone(880, 0.1, 'triangle', 0.09, 0, 0.1); tone(1320, 0.18, 'triangle', 0.08, 0, 0.2); },
@@ -1728,7 +1730,7 @@ function setupWorld() {
   };
   [player.gux, player.guy] = screenDir(Math.cos(player.fa), Math.sin(player.fa));
   line = [];
-  cast = { charging: false, power: 0, pdir: 1, flick: 0, lure: null, reelT: 0, payT: 0, needRelease: false, hookDepth: 0.5, reelSpeed: 40 };
+  cast = { charging: false, power: 0, pdir: 1, flick: 0, lure: null, reelT: 0, payT: 0, needRelease: false, hookDepth: 0.5, reelSpeed: 40, rigDist: 0.6 };
   particles = []; ripples = []; wakes = []; drops = []; animals = []; skyBirds = []; banners = []; loose = [];
   spawnFish();
   catches = [];
@@ -1793,9 +1795,9 @@ function updatePlayer() {
   // Kalan voimapalkin voi näyttää vain huijaustilassa (vesi piilotettuna)
   if (keyHit('KeyH') && !water.show) { ui.fishBar = !ui.fishBar; notify(ui.fishBar ? 'Fish strength bar shown' : 'Fish strength bar hidden', 90, 'fishbar'); }
   if (keyHit('KeyQ')) switchLure();
-  // Rulla ja -/+: koholla koukun syvyys, vaapulla kelausnopeus
+  // Rulla ja -/+: koholla koukun syvyys, uistimilla kelausnopeus, pohjaongella syötin etäisyys puntista
   const adj = keyHit('Minus', 'NumpadSubtract', 'WheelDown') ? -1 : keyHit('Equal', 'NumpadAdd', 'WheelUp') ? 1 : 0;
-  if (adj) { if (isArt(player.lure)) adjustReel(adj * 10); else adjustHook(adj * 0.1); }
+  if (adj) { if (isArt(player.lure)) adjustReel(adj * 10); else if (isRig(player.lure)) adjustRig(adj * 0.1); else adjustHook(adj * 0.1); }
   let kx = (keyDown('KeyD', 'ArrowRight') ? 1 : 0) - (keyDown('KeyA', 'ArrowLeft') ? 1 : 0);
   let ky = (keyDown('KeyS', 'ArrowDown') ? 1 : 0) - (keyDown('KeyW', 'ArrowUp') ? 1 : 0);
   if (!kx && !ky) { kx = touch.mx; ky = touch.my; }
@@ -1851,11 +1853,11 @@ const playerLift = () => (player.boat ? 1 : onDock(player.x, player.y) ? DOCK_Z 
 // Otsalampun valo näkyy pelin ja tauon aikana
 const lampOn = () => player.light && (state === 'play' || state === 'pause');
 
-// Viehe vaihdetaan (koho ja mato / vaappu), kun siima on kelattu kokonaan sisään
+// Viehe vaihdetaan (koho ja mato / vaappu / lippa / pohjaonki ja mato / pohjaonki ja boilie), kun siima on kelattu kokonaan sisään
 function switchLure() {
   if (cast.lure) { notify('Reel in fully to change the lure.', 100, 'hint'); return; }
-  player.lure = { bobber: 'wobbler', wobbler: 'spoon', spoon: 'bobber' }[player.lure];
-  notify({ bobber: 'Lure: bobber and worm', wobbler: 'Lure: wobbler', spoon: 'Lure: spoon' }[player.lure], 100, 'lure');
+  player.lure = { bobber: 'wobbler', wobbler: 'spoon', spoon: 'rigworm', rigworm: 'rigboilie', rigboilie: 'bobber' }[player.lure];
+  notify({ bobber: 'Lure: bobber and worm', wobbler: 'Lure: wobbler', spoon: 'Lure: spoon', rigworm: 'Lure: bottom rig, worm', rigboilie: 'Lure: bottom rig, boilie' }[player.lure], 100, 'lure');
   if (player.rod) resetLine();
   SFX.click();
 }
@@ -1872,7 +1874,17 @@ const WOB_DIVE = 0.52, WOB_RISE = 0.156;   // vaapun sukellus (m / kuljettu m) j
 const SPOON_SINK = 0.3;                       // lipan uppoamisnopeus (m/s)
 // Uistimet (vaappu ja lippa): kelausnopeus säädetään, ja ne kiinnostavat kaloja vain liikkuessaan
 const isArt = (kind) => kind === 'wobbler' || kind === 'spoon';
-const reelStep = (L) => (isArt(L.kind) ? cast.reelSpeed / 100 / 60 : REEL);
+// Pohjaonki: puntti siiman päässä ja siitä RIG_DIST ylöspäin sivuhaara, jossa on koukku ja syötti
+// (rigworm = mato, rigboilie = syöttipallo). Siima kulkee ongen kärjestä suoraan puntille kuten uistimilla.
+const isRig = (kind) => kind === 'rigworm' || kind === 'rigboilie';
+const isDirect = (kind) => isArt(kind) || isRig(kind);
+const RIG_MIN = 0.2, RIG_MAX = 1.2;   // syötin etäisyys puntista ylöspäin (m), säädetään rullalla
+const RIG_ARM = 0.1;                  // sivuhaaran pituus (m): syötti roikkuu tämän verran haaran kiinnityskohdan alapuolella
+const RIG_SINK = 1.0;                 // puntin uppoamisnopeus (m/s)
+const RIG_REEL = 1.2 / 60;            // pohjaongen kelausnopeus (m / päivitys)
+const RIG_CAST_MAX = 24;              // pohjaongen heiton enimmäispituus (m); muilla vieheillä CAST_MAX
+const RIG_TIP = 3;                    // ongen kärjen korkeus veden yläpuolella (m), määrää siiman kulman
+const reelStep = (L) => (isRig(L.kind) ? RIG_REEL : isArt(L.kind) ? cast.reelSpeed / 100 / 60 : REEL);
 
 function toggleRod() {
   const p = player;
@@ -1965,7 +1977,7 @@ function updateCast() {
     if (k >= 1) {
       L.st = 'float';
       L.onWater = lureInWater(L.x, L.y);
-      L.out = Math.hypot(L.x - p.x, L.y - p.y) + 0.3;
+      L.out = (isRig(L.kind) ? Math.hypot(Math.hypot(L.x - p.x, L.y - p.y), RIG_TIP + playerLift() / Z_PX) : Math.hypot(L.x - p.x, L.y - p.y)) + 0.3;
       if (L.onWater) {
         ripples.push({ x: L.x, y: L.y, t: 0, life: 55, max: 7, a: 0.75 }, { x: L.x, y: L.y, t: -12, life: 50, max: 4.5, a: 0.5 });
         for (let n = 0; n < 6; n++) particles.push({ x: ex + rand(-1, 1), y: ey - 1, vx: rand(-0.4, 0.4), vy: rand(-1.1, -0.4), g: 0.1, life: 40, color: pick(['#d8e4ec', '#ffffff']), floor: ey + rand(-1, 1), splash: true });
@@ -1982,10 +1994,21 @@ function updateCast() {
   // Kelaus vähentää ulkona olevaa siimaa; ensin kiristyy löysä siima, sitten koho alkaa liikkua
   if (mouseHeld2 && !held) payOut(L);
   if (held) { L.out = Math.max(0, L.out - reelStep(L)); if (++c.reelT % 6 === 0) SFX.reel(); }
+  // Pohjaongen puntti uppoaa nopeasti (RIG_SINK), mutta siima kulkee ongen kärjestä (RIG_TIP) puntille: jos
+  // siimaa ei ole riittävästi, puntti ei voi uppoamaan suoraan alas vaan kaartuu kireän siiman varassa kohti
+  // vapaa (vaakasuora ulottuma lim = sqrt(siima² - (syvyys + kärki)²)); jos siima on liian lyhyt syvyydelle,
+  // puntti pysyy ylempänä.
+  let lim = L.out;
+  if (isRig(L.kind) && L.onWater) {
+    const tipH = RIG_TIP + playerLift() / Z_PX;
+    L.z = clamp(L.z + RIG_SINK / 60, 0, Math.max(0, depthAt(L.x, L.y) - 0.03));
+    if (L.z + tipH > L.out) L.z = Math.max(0, L.out - tipH);
+    lim = Math.sqrt(Math.max(0, L.out * L.out - (L.z + tipH) * (L.z + tipH)));
+  }
   const dx = p.x - L.x, dy = p.y - L.y, d = Math.hypot(dx, dy) || 0.001;
   let moved = 0;
-  if (d > L.out) {
-    moved = d - L.out;
+  if (d > lim) {
+    moved = d - lim;
     L.x += (dx / d) * moved; L.y += (dy / d) * moved;
   } else if (L.onWater) {
     // Löysällä siimalla tuuli ajelehtii kohoa hiljalleen
@@ -2011,6 +2034,9 @@ function updateCast() {
       L.z += (SPOON_SINK / 60) * (1 - Math.min(1, (moved * 60) / 0.5)) - moved * slope;
       L.z = clamp(L.z, 0, Math.max(0, depthAt(L.x, L.y) - 0.03));
     } else L.z = 0;
+  } else if (isRig(L.kind)) {
+    // Syvyys rajataan uuteen paikkaan; kelattaessa puntti kulkee pohjaa pitkin ja nousee, kun siima on liian lyhyt
+    L.z = L.onWater ? clamp(L.z, 0, Math.max(0, depthAt(L.x, L.y) - 0.03)) : 0;
   }
   if (L.onWater) {
     // Liikkuva koho jättää vanaveden ja renkaita, paikallaan oleva keinuu ja väreilee välillä
@@ -2020,8 +2046,10 @@ function updateCast() {
       if (L.wakeT % 24 === 0) ripples.push({ x: L.x, y: L.y, t: 0, life: 40, max: 3.5, a: 0.5 });
     } else if (moved <= 0.004 && Math.random() < 1 / 240) ripples.push({ x: L.x, y: L.y, t: 0, life: 40, max: 3, a: 0.35 });
   }
-  // Kokonaan kelattu viehe palaa roikkumaan ongen kärkeen
-  if (L.out <= 1) {
+  // Kokonaan kelattu viehe palaa roikkumaan ongen kärkeen. Pohjaonki nousee vedestä vasta, kun puntti on
+  // kelattu pintaan aivan pelaajan lähelle; puntin voi siis päästää pohjaan myös aivan pelaajan edestä
+  // (kelaamatta se ei nouse, vaikka etäisyys menisi nollaan).
+  if (isRig(L.kind) ? held && L.z <= 0.15 && Math.hypot(p.x - L.x, p.y - L.y) < 1.5 : L.out <= 1) {
     c.lure = null; c.needRelease = true;
     resetLine();
     SFX.rodIn();
@@ -2032,8 +2060,34 @@ function updateCast() {
 // (sama mittakaava kuin pohjan syvyydellä: Z_PX pikseliä metriä kohden).
 const hookSegs = () => Math.max(1, Math.round((cast.hookDepth * Z_PX) / LINE_SEG));
 function resetLine() {
-  const g = rodGeom(), n = BOB_I + 1 + (isArt(player.lure) ? 0 : hookSegs());
+  const g = rodGeom(), n = BOB_I + 1 + (isDirect(player.lure) ? 0 : hookSegs());
   line = Array.from({ length: n }, (_, i) => ({ x: g.tx, y: g.ty + i * LINE_SEG, px: g.tx, py: g.ty + i * LINE_SEG }));
+  rigArm = [];
+  if (isRig(player.lure)) {
+    const j = rigJunction();
+    rigArm = Array.from({ length: 3 }, (_, i) => ({ x: j.x, y: j.y + i * RIG_ARM_SEG, px: j.x, py: j.y + i * RIG_ARM_SEG }));
+  }
+}
+
+// Pohjaongen sivuhaara: oma pieni siimaketju (Verlet), joka on kiinni pääsiimassa RIG_DIST puntin yläpuolella,
+// mutta liikkuu pääsiimasta erillään. Kun onkea heilutellaan, haara ja syötti heiluvat vapaasti.
+// Piirrossa sivuhaara on suurennettu (kolme pikseliä; 10 cm olisi alle pikselin), samoin syötti.
+const RIG_ARM_SEG = 1.4;
+let rigArm = [];
+// Haaran kiinnityskohta pääsiimaketjussa: cast.rigDist * Z_PX pikseliä ketjun päästä ylöspäin
+function rigJunction() {
+  const n = line.length, idx = Math.max(0, n - 1 - (cast.rigDist * Z_PX) / LINE_SEG), i0 = Math.min(n - 2, Math.floor(idx)), f = idx - i0;
+  const a = line[i0], b = line[i0 + 1];
+  return { x: lerp(a.x, b.x, f), y: lerp(a.y, b.y, f) };
+}
+
+// Pohjaongen syötin etäisyyttä puntista (20–120 cm) voi säätää vain, kun koko siima on kelattu sisään
+function adjustRig(dv) {
+  if (cast.lure) { notify('Reel in fully to adjust the bait distance.', 100, 'hint'); return; }
+  cast.rigDist = clamp(Math.round((cast.rigDist + dv) * 10) / 10, RIG_MIN, RIG_MAX);
+  notify('Bait distance ' + Math.round(cast.rigDist * 100) + ' cm', 90, 'hook');
+  if (player.rod) resetLine();
+  SFX.reel();
 }
 
 // Koukun syvyyttä voi säätää vain, kun koko siima on kelattu sisään
@@ -2069,11 +2123,11 @@ function castLureAt(tx, ty, power) {
 }
 
 function castLure(power) {
-  const p = player, dist = CAST_MIN + power * (CAST_MAX - CAST_MIN), g = rodGeom();
+  const p = player, dist = CAST_MIN + power * ((isRig(p.lure) ? RIG_CAST_MAX : CAST_MAX) - CAST_MIN), g = rodGeom();
   cast.lure = {
     st: 'fly', ax0: g.tx, ay0: g.ty, ax: g.tx, ay: g.ty, t: 0, T: Math.round(18 + dist * 2), h: 10 + dist * 2.2,
     x: p.x + Math.cos(p.fa) * dist, y: p.y + Math.sin(p.fa) * dist, out: 0, onWater: false, wakeT: 0, sub: 0, fish: null, clickT: 0,
-    kind: p.lure, z: 0, moving: false,
+    kind: p.lure, z: 0, moving: false, dist: cast.rigDist,
   };
   cast.flick = 12;
   SFX.cast(power);
@@ -2097,6 +2151,25 @@ function updateLine() {
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1], b = pts[i];
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.001, diff = (d - LINE_SEG) / d;
+      if (i === 1) { b.x -= dx * diff; b.y -= dy * diff; }
+      else { a.x += dx * diff * 0.5; a.y += dy * diff * 0.5; b.x -= dx * diff * 0.5; b.y -= dy * diff * 0.5; }
+    }
+  }
+  if (isRig(player.lure)) updateRigArm();
+}
+// Sivuhaara: ensimmäinen piste on pääsiimassa kiinni, muut roikkuvat vapaasti (painovoima, tuuli, hitaus)
+function updateRigArm() {
+  if (rigArm.length < 3) return;
+  const j = rigJunction(), wx = wind.sx * wind.gust * 0.02;
+  rigArm[0].px = rigArm[0].x; rigArm[0].py = rigArm[0].y; rigArm[0].x = j.x; rigArm[0].y = j.y;
+  for (let i = 1; i < rigArm.length; i++) {
+    const q = rigArm[i], vx = (q.x - q.px) * 0.94, vy = (q.y - q.py) * 0.94;
+    q.px = q.x; q.py = q.y;
+    q.x += vx + wx; q.y += vy + 0.2;
+  }
+  for (let it = 0; it < 4; it++) {
+    for (let i = 1; i < rigArm.length; i++) {
+      const a = rigArm[i - 1], b = rigArm[i], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.001, diff = (d - RIG_ARM_SEG) / d;
       if (i === 1) { b.x -= dx * diff; b.y -= dy * diff; }
       else { a.x += dx * diff * 0.5; a.y += dy * diff * 0.5; b.x -= dx * diff * 0.5; b.y -= dy * diff * 0.5; }
     }
@@ -2772,7 +2845,7 @@ const SPECIES = {
     speed: 0.013, fight: 0.034,       // uinti- ja pakonopeus (m / päivitys)
     bite: 'instant',                  // ahven nielaisee syötin heti
     interest: 1.1 / (60 * 22),          // todennäköisyys kiinnostua lähellä olevasta syötistä päivitystä kohden
-    lures: { bobber: 1, wobbler: 0.3, spoon: 0.7 },   // kiinnostus vieheittäin: ahven pitää madosta
+    lures: { bobber: 1, wobbler: 0.3, spoon: 0.7, rigworm: 0.75, rigboilie: 0.12 },   // kiinnostus vieheittäin: ahven pitää madosta
     energy: 4, regen: 2,              // voimien ja niiden palautumisen kertoimet
     pull: 0.8,                        // lajin vetovoima siiman rasitukseen
     pal: { back: '#34421f', body: '#7c8a3c', belly: '#d4cca4', bar: '#202a14', fin: '#d4542a', eye: '#101010' },
@@ -2786,7 +2859,7 @@ const SPECIES = {
     speed: 0.005, fight: 0.05, strike: 0.075,
     bite: 'instant',
     interest: 1.1 / (60 * 30), sight: 4.5,
-    lures: { bobber: 0.35, wobbler: 1.6, spoon: 1.3 },   // hauki iskee mieluummin uistimiin
+    lures: { bobber: 0.35, wobbler: 1.6, spoon: 1.3, rigworm: 0.2, rigboilie: 0.04 },   // hauki iskee mieluummin uistimiin
     energy: 3, regen: 4, pull: 1.1,
     pal: { back: '#2a3a1c', body: '#5c7434', belly: '#d8d4b0', bar: '#c8c878', fin: '#8a6a2a', eye: '#101010' },
   },
@@ -2943,11 +3016,37 @@ function spawnFish() {
   for (const k in SPECIES) for (let n = 0; n < SPECIES[k].count; n++) fishes.push(makeFish(k));
 }
 
+// Pohjaongen tila vedessä. Siima kulkee ongen kärjestä vedenpinnan läpäisykohdan (E0) kautta puntille (L).
+// Kun siima on kireä (löysää alle 0,5 m), se on suora ja nousee puntilta ylöspäin kulmassa; löysä siima
+// vajoaa pohjalle ja makaa sitä pitkin. Sivuhaara on kiinni siimassa L.dist puntin yläpuolella (siiman
+// pituutta pitkin) ja haaran päässä oleva syötti roikkuu RIG_ARM (10 cm) haaran kiinnityskohdan alapuolella,
+// mutta ei pohjan läpi. Syötti makaa pohjassa (lying), jos se ylettyy pohjaan asti.
+//   tf = siiman kireys 0–1, df(t) = siiman syvyys pinnan (t = 0) ja puntin (t = 1) välillä osuutena puntin syvyydestä
+function rigState(L) {
+  const p = player, d = Math.hypot(L.x - p.x, L.y - p.y) || 0.001, zS = L.z, tipH = RIG_TIP + playerLift() / Z_PX;
+  const slack = Math.max(0, L.out - Math.hypot(d, zS + tipH));   // siimaa ongen kärjestä puntille ylimääräisenä
+  const tf = clamp(1 - slack / 0.5, 0, 1), fe = tipH / (tipH + zS);
+  const ex = p.x + (L.x - p.x) * fe, ey = p.y + (L.y - p.y) * fe;
+  const dh = d * (1 - fe), Lw = Math.hypot(dh, zS);
+  const df = (t) => tf * t + (1 - tf) * Math.min(1, t / 0.15);
+  const tj = Lw > 0.01 ? clamp(1 - L.dist / Lw, 0, 1) : 0;
+  const jx = lerp(ex, L.x, tj), jy = lerp(ey, L.y, tj), floor = depthAt(jx, jy);
+  const zJ = Math.min(zS * df(tj), Math.max(0, floor - 0.01));
+  return { d, slack, tf, ex, ey, tj, df, jx, jy, zJ, zB: Math.max(0, Math.min(zJ + RIG_ARM, floor - 0.02)), lying: zJ + RIG_ARM >= floor - 0.04 };
+}
+
+// Siiman löysä (m): pohjaongella ongen kärjestä puntille kulkevan siiman pituus (3D), muilla vaakaetäisyys
+const lineSlack = (L) => {
+  const d = Math.hypot(L.x - player.x, L.y - player.y);
+  return Math.max(0, L.out - (isRig(L.kind) ? Math.hypot(d, L.z + RIG_TIP + playerLift() / Z_PX) : d));
+};
+
 // Syötin paikka (x, y ja syvyys z), kun koho kelluu vedessä ilman kalaa
 function baitPoint() {
   const L = cast.lure;
   if (!L || L.st !== 'float' || !L.onWater || L.fish) return null;
   if (isArt(L.kind)) return { x: L.x, y: L.y, z: L.z, lure: L.kind, moving: L.moving };
+  if (isRig(L.kind)) { const r = rigState(L); return { x: r.jx, y: r.jy, z: r.zB, lure: L.kind, moving: false, lying: r.lying }; }
   return { x: L.x, y: L.y, z: Math.min(cast.hookDepth, depthAt(L.x, L.y) - 0.05), lure: 'bobber', moving: false };
 }
 
@@ -2988,7 +3087,7 @@ function updateFishes() {
       }
       // Kala voi kiinnostua lähellä olevasta syötistä, jos se ui suunnilleen samalla syvyydellä
       if (bait && Math.hypot(f.x - bait.x, f.y - bait.y) < (sp.sight || 3) && Math.abs(f.z - bait.z) < 1.2
-        && (!isArt(bait.lure) || bait.moving) && Math.random() < sp.interest * sp.lures[bait.lure]) {
+        && (!isArt(bait.lure) || bait.moving) && Math.random() < sp.interest * sp.lures[bait.lure] * (bait.lying ? 0.2 : 1)) {
         f.mode = 'interest'; f.t = rand(240, 720);
       }
     } else if (f.mode === 'interest') {
@@ -3019,6 +3118,7 @@ function fishMouth(f) {
 function hookFish(f) {
   const L = cast.lure;
   L.fish = f;
+  if (isRig(L.kind)) { SFX.bell(); bellT = 150; }   // pohjaongen kello ilmoittaa syönnistä
   f.mode = 'fight'; f.energy = f.maxE * rand(0.85, 1); f.dirT = 0;
   L.tension = 0;
   ripples.push({ x: L.x, y: L.y, t: 0, life: 45, max: 5, a: 0.75 });
@@ -3043,7 +3143,7 @@ function updateFight(L, held) {
     }
     moveFish(f, sp.fight * (0.45 + 0.55 * f.energy / f.maxE), 0.1);
     f.z += clamp(f.tz - f.z, -0.012, 0.012);
-    f.energy -= 0.6 + (isArt(L.kind) ? 0 : Math.max(0, f.z - cast.hookDepth) * 1.6);
+    f.energy -= 0.6 + (isDirect(L.kind) ? 0 : Math.max(0, f.z - cast.hookDepth) * 1.6);
     // Kala taistelee ainakin, kunnes alle puolet voimista on jäljellä; sen jälkeen se voi lopettaa
     // satunnaisella hetkellä, viimeistään kun voimat loppuvat
     if (f.energy <= 0 || (f.energy < f.maxE * 0.5 && Math.random() < 1 / 240)) {
@@ -3095,7 +3195,7 @@ function updateFight(L, held) {
   // Koho seuraa kalaa; jos kala ui koukun syvyyttä syvemmälle, se vetää kohon pinnan alle
   L.x = f.x; L.y = f.y;
   L.onWater = f.mode !== 'land';
-  L.sub = f.mode === 'land' || isArt(L.kind) ? 0 : Math.max(0, f.z - cast.hookDepth);
+  L.sub = f.mode === 'land' || isDirect(L.kind) ? 0 : Math.max(0, f.z - cast.hookDepth);
   if (L.onWater && f.mode === 'fight' && ++L.wakeT % 10 === 0) ripples.push({ x: L.x, y: L.y, t: 0, life: 35, max: L.sub > 0 ? 5 : 3, a: 0.55 });
   // Lähelle kelattu kala nostetaan ilmaan
   if (L.out <= 1.2 && d < 1.9) { f.mode = 'caught'; f.caughtT = 75; SFX.splash(0.4); }
@@ -3104,6 +3204,7 @@ function updateFight(L, held) {
 // Siiman katkaisu. Koukussa ollut kala ui lopun siiman ja kohon kanssa hetken ja katoaa sitten
 // (tilalle syntyy uusi kala); ilman kalaa koho ajelehtii hetken. Ongen kärkeen solmitaan uusi koho ja koukku.
 let loose = [];
+let bellT = 0;   // pohjaongen kellon heilumisen kesto syönnin jälkeen (päivityksiä)
 function cutLine(snapped) {
   const L = cast.lure;
   if (!L || L.st === 'fly' || (L.fish && L.fish.mode === 'caught')) return;
@@ -3171,6 +3272,7 @@ function drawLoose(camXr, camYr) {
     const [ux, uy] = screenDir(-Math.cos(o.a), -Math.sin(o.a));
     if (o.onWater) plotLine(ctx, x, y, x + ux * 8, y + uy * 8 + 1, 'rgba(225, 230, 235, 0.45)');
     if (isArt(o.kind)) { if (!f) drawArtAt(o.kind, x, y - 1, 1, false); }
+    else if (isRig(o.kind)) { if (!f) drawSinkerAt(x, y - 1); }
     else { bobberBehind = behindPlayer(o.x, o.y); drawBobberAt(x, y, o.onWater, !o.onWater, ctx.globalAlpha); }
     ctx.globalAlpha = 1;
   }
@@ -3265,6 +3367,8 @@ function drawUnderwater(camXr, camYr) {
         g.globalAlpha = underVis(L.z);
         drawArtAt(L.kind, lx, Math.round(ly + L.z * Z_PX), wobblerDir(L, camXr), L.moving);
       }
+    } else if (isRig(L.kind)) {
+      drawRigUnder(g, L, camXr, camYr);
     } else {
       // Syötti ja koukku riippuvat kohon alla koukun syvyydellä (tai pohjassa, jos vesi on matalampaa)
       const hz = Math.min(cast.hookDepth, depthAt(L.x, L.y) - 0.03), hy = Math.round(ly + hz * Z_PX);
@@ -3283,6 +3387,27 @@ function drawUnderwater(camXr, camYr) {
   g.drawImage(pondMaskCanvas, PB.x0 - camXr, PB.y0 - camYr);
   g.globalCompositeOperation = 'source-over';
   ctx.drawImage(underCanvas, 0, 0);
+}
+
+// Pohjaonki veden alla: siima pinnalta puntille (kireänä suora, löysänä pohjalle vajoava ja pohjaa pitkin
+// makaava), sivuhaara siimassa RIG_DIST puntin yläpuolella ja haaran päässä roikkuva syötti. Syötti makaa
+// sivulla pohjassa, kun haara ulottuu pohjaan; muuten se roikkuu alaspäin ja heiluu hieman.
+function drawRigUnder(g, L, camXr, camYr) {
+  const wl = wobblerLine(camXr, camYr);
+  if (!wl) return;
+  const rs = rigState(L), zS = L.z, sy = wl.ey - zS * Z_PX, N = 14;
+  const P = (t) => [lerp(wl.wx, wl.ex, t), lerp(wl.wy, sy, t) + zS * rs.df(t) * Z_PX];
+  g.globalAlpha = underVis(zS * 0.5);
+  let [px, py] = P(0);
+  for (let i = 1; i <= N; i++) { const [qx, qy] = P(i / N); plotLine(g, px, py, qx, qy, 'rgba(225, 230, 235, 0.6)'); px = qx; py = qy; }
+  const [jx0, jy0] = P(rs.tj), jx = Math.round(jx0), jy = Math.round(jy0);
+  g.globalAlpha = underVis(zS);
+  drawSinkerAt(Math.round(wl.ex), Math.round(wl.ey));
+  g.globalAlpha = underVis(rs.zJ);
+  const side = (Math.floor(L.x * 7 + L.y * 3) & 1) ? 1 : -1;
+  const bx = rs.lying ? jx + side * 3 : jx + Math.round(Math.sin(time * 0.03 + L.x * 3) * 0.7), by = rs.lying ? jy + 1 : jy + 3;
+  plotLine(g, jx, jy, bx, by, 'rgba(200, 205, 210, 0.6)');
+  drawRigBait(L.kind, bx, by);
 }
 
 // Debug-tila (vesi piilotettuna): jokaisesta kalasta ja vedessä olevasta vaapusta pystyviiva pintaan ja
@@ -3310,6 +3435,11 @@ function drawDebugLines(camXr, camYr) {
   // Vedessä oleva vaappu (violetti)
   const L = cast.lure;
   if (L && isArt(L.kind) && L.st === 'float' && L.onWater && !L.fish) depthLine(L.x, L.y, L.z, '230, 130, 240');
+  // Pohjaongen puntti (violetti) ja syötti (keltainen)
+  if (L && isRig(L.kind) && L.st === 'float' && L.onWater && !L.fish) {
+    const rs = rigState(L);
+    depthLine(L.x, L.y, L.z, '230, 130, 240'); depthLine(rs.jx, rs.jy, rs.zB, '255, 220, 120');
+  }
   if (state === 'play' && aiming()) {
     const mx = Math.round(mouseX), my = Math.round(mouseY);
     if (waterPx(mx + camXr, my + camYr)) {
@@ -3871,6 +4001,7 @@ function update() {
   updateDayPhase();
   updatePlayer();
   if (isReeling()) handCrank.a += 0.22;
+  if (bellT > 0) bellT--;
   if (state === 'sleep') { pressed = {}; return; }
   updateWeather();
   burnFire(clockStep);
@@ -3930,6 +4061,12 @@ function drawHeldRod(camXr, camYr) {
   bobberBehind = VIEW_INFO[player.view].away;   // poispäin katsottaessa onki ja siima ovat hahmon takana
   const hx = g.hx - camXr, hy = g.hy - camYr, tx = g.tx - camXr, ty = g.ty - camYr;
   const dx = tx - hx, dy = ty - hy, l = Math.hypot(dx, dy), ux = dx / l, uy = dy / l;
+  // Pohjaongen kello ongen kärjessä; syönnin jälkeen se heiluu
+  if (isRig(player.lure)) {
+    const sh = bellT > 0 ? Math.round(Math.sin(time * 1.3) * 1.6) : 0, bx = Math.round(tx) + sh;
+    dot(Math.round(tx), Math.round(ty) + 1, '#d8d8d0');
+    dot(bx, Math.round(ty) + 2, '#e8c040'); dot(bx + 1, Math.round(ty) + 2, '#c89828'); dot(bx, Math.round(ty) + 3, '#a87818'); dot(bx + 1, Math.round(ty) + 3, '#e8c040');
+  }
   // Vapa on vaalea, ja sen alla kulkee tumma reunaviiva, jotta se erottuu sekä metsästä että vedestä
   plotLine(ctx, hx + ux * 2, hy + uy * 2 + 1, tx, ty + 1, 'rgba(14, 10, 8, 0.7)');
   plotLine(ctx, hx - ux * 3, hy - uy * 3, hx + ux * 1, hy + uy * 1, '#d8a868');   // korkkikahva
@@ -3942,6 +4079,14 @@ function drawHeldRod(camXr, camYr) {
   for (let i = 1; i < line.length; i++) {
     const a = line[i - 1], b = line[i];
     plotLine(ctx, a.x - camXr, a.y - camYr, b.x - camXr, b.y - camYr, i <= BOB_I ? 'rgba(225, 230, 235, 0.6)' : 'rgba(200, 205, 210, 0.45)');
+  }
+  if (isRig(player.lure)) {
+    // Puntti roikkuu siiman päässä; sivuhaara roikkuu pääsiimasta erillään ja heiluu vapaasti, päässä syötti
+    const e = line[line.length - 1];
+    for (let i = 1; i < rigArm.length; i++) plotLine(ctx, rigArm[i - 1].x - camXr, rigArm[i - 1].y - camYr, rigArm[i].x - camXr, rigArm[i].y - camYr, 'rgba(210, 214, 218, 0.8)');
+    if (rigArm.length) { const t = rigArm[rigArm.length - 1]; drawRigBait(player.lure, Math.round(t.x - camXr), Math.round(t.y - camYr)); }
+    drawSinkerAt(Math.round(e.x - camXr), Math.round(e.y - camYr + 1));
+    return;
   }
   if (player.lure === 'spoon') {
     // Lippa roikkuu siiman päässä: pieni vihreä-oranssi lehti ja koukku alla
@@ -3967,6 +4112,20 @@ function drawHeldRod(camXr, camYr) {
   const k = line[line.length - 1], kx = Math.round(k.x - camXr), ky = Math.round(k.y - camYr);
   drawHookBait(kx, ky);
 }
+
+// Puntti (lyijypainon): rengas ylhäällä ja pyöreähkö, tumma harmaa runko
+function drawSinkerAt(x, y) {
+  dot(x, y - 2, '#c8ccd0');
+  ctx.fillStyle = '#4e525a'; ctx.fillRect(x - 1, y - 1, 3, 2);
+  dot(x - 1, y - 1, '#8e929a'); dot(x, y + 1, '#3a3e44');
+}
+// Syöttipallo (boilie): ruskea pallo (suurennettu kaksi pikseliä), koukun kärki sen vieressä
+function drawBoilieAt(kx, ky) {
+  dot(kx - 1, ky - 1, '#9aa0a8');
+  ctx.fillStyle = '#6a3c1c'; ctx.fillRect(kx - 1, ky, 2, 2);
+  dot(kx - 1, ky, '#9a6234'); dot(kx, ky + 1, '#44250f');
+}
+const drawRigBait = (kind, x, y) => (kind === 'rigboilie' ? drawBoilieAt(x, y) : drawHookBait(x, y));
 
 function drawHookBait(kx, ky) {
   dot(kx, ky, '#c8ccd0'); dot(kx + 1, ky, '#9aa0a8'); dot(kx + 1, ky - 1, '#c8ccd0');
@@ -4427,10 +4586,10 @@ function drawArms(sx, sy, camXr, camYr) {
 // suora viiva kärjen korkeudelta vaapun syvyyteen leikkaa vedenpinnan. Palauttaa ruutupisteet tai null.
 function wobblerLine(camXr, camYr) {
   const L = cast.lure;
-  if (!L || !isArt(L.kind) || L.st !== 'float' || !L.onWater) return null;
+  if (!L || !isDirect(L.kind) || L.st !== 'float' || !L.onWater) return null;
   const f = L.fish;
   if (f && (f.mode === 'land' || f.mode === 'caught')) return null;
-  const d = Math.hypot(L.x - player.x, L.y - player.y), slack = Math.max(0, L.out - d);
+  const slack = lineSlack(L);
   if (!f && L.z < 0.03 && slack > 0.3) return null;   // löysä siima pinnalla kelluvaan vaappuun
   const g = rodGeom(), tx = g.tx - camXr, ty = g.ty - camYr, gy = isoY(player.x, player.y) - camYr;
   let sx, sy, ex, ey;
@@ -4451,7 +4610,13 @@ function drawCastLine(g, camXr, camYr) {
   if (L.st === 'fly') {
     plotLine(ctx, tx, ty, L.ax - camXr, L.ay - camYr, col);
     if (isArt(L.kind)) drawArtAt(L.kind, Math.round(L.ax - camXr), Math.round(L.ay - camYr), L.ax > L.ax0 ? 1 : -1, false);
-    else drawBobberAt(Math.round(L.ax - camXr), Math.round(L.ay - camYr), false);
+    else if (isRig(L.kind)) {
+      // Puntti lentää edellä, sivuhaara ja syötti perässä
+      const fx = Math.round(L.ax - camXr), fy = Math.round(L.ay - camYr);
+      plotLine(ctx, fx, fy - 2, fx + (L.ax > L.ax0 ? -3 : 3), fy - 4, 'rgba(210, 214, 218, 0.8)');
+      drawRigBait(L.kind, fx + (L.ax > L.ax0 ? -3 : 3), fy - 4);
+      drawSinkerAt(fx, fy);
+    } else drawBobberAt(Math.round(L.ax - camXr), Math.round(L.ay - camYr), false);
     return;
   }
   if (L.fish && L.fish.mode === 'caught') {
@@ -4478,7 +4643,7 @@ function drawCastLine(g, camXr, camYr) {
     return;
   }
   const lx = isoX(L.x, L.y) - camXr, ly = lureY(L) - camYr;
-  const d = Math.hypot(L.x - player.x, L.y - player.y), slack = Math.max(0, L.out - d);
+  const slack = lineSlack(L);
   // Löysä siima lepää pinnalla tai laiturilla
   const restY = (wx, wy) => isoY(wx, wy) - camYr - (onDock(wx, wy) ? DOCK_Z : 0);
   const curve = (x0, y0, cx, cy, x1, y1) => {
@@ -4581,6 +4746,15 @@ function drawLure(camXr, camYr) {
     if (L.z > 0.05) return;
     ctx.fillStyle = `rgba(${env.ring}, 0.5)`; ctx.fillRect(x - 2, y + 1, 5, 1);
     drawArtAt(L.kind, x, y, wobblerDir(L, camXr), L.moving);
+    return;
+  }
+  if (isRig(L.kind)) {
+    // Kalan suussa olevaa pohjaonkea ei piirretä; maalle jäänyt makaa kyljellään, vedessä puntti uppoaa heti
+    if (f) return;
+    if (!L.onWater) { drawSinkerAt(x, y - 1); drawRigBait(L.kind, x + 4, y); return; }
+    if (L.z > 0.05) return;
+    ctx.fillStyle = `rgba(${env.ring}, 0.5)`; ctx.fillRect(x - 2, y + 1, 5, 1);
+    drawSinkerAt(x, y);
     return;
   }
   // Kalan riuhtoessa koho nykii pinnalla
@@ -5165,6 +5339,8 @@ const LURES = {
   bobber: { name: 'BOBBER', reticle: drawBobberReticle },     // koho ja koukku
   wobbler: { name: 'WOBBLER', reticle: drawWobblerReticle },  // vaappu
   spoon: { name: 'SPOON', reticle: drawSpoonReticle },        // lippa
+  rigworm: { name: 'BOTTOM RIG  WORM', reticle: (x, y) => drawRigReticle(x, y, 'rigworm') },        // pohjaonki ja mato
+  rigboilie: { name: 'BOTTOM RIG  BOILIE', reticle: (x, y) => drawRigReticle(x, y, 'rigboilie') },  // pohjaonki ja boilie
 };
 
 function drawReticle() {
@@ -5288,6 +5464,26 @@ function drawSpoonReticle(x, y) {
   add(flip ? -1 : 2, flip ? -2 : 1, '#ffffff');                           // kiiltopiste
   add(6, -1, '#8a9098'); add(7, -1, '#6a7078');                         // siimalenkki (nokka oikealla)
   add(-5, 0, '#8a9098'); add(-6, 0, '#b0b6bc'); add(-7, -1, '#c0c6cc'); add(-7, 1, '#c0c6cc'); add(-8, -1, '#6a7078'); add(-8, 1, '#6a7078');   // koukku
+  ctx.fillStyle = 'rgba(8, 12, 10, 0.5)';
+  for (const [dx, dy] of px) ctx.fillRect(x + dx + 1, y + dy + 1, 1, 1);
+  for (const [dx, dy, col] of px) { ctx.fillStyle = col; ctx.fillRect(x + dx, y + dy, 1, 1); }
+}
+
+// Pohjaonki tähtäimenä: siima, puntti ja sivuhaara, jonka päässä on syötti (mato tai boilie); haara heiluu hieman
+function drawRigReticle(x, y, kind) {
+  const sw = Math.round(Math.sin(time * 0.07) * 0.7);
+  const px = [];
+  const add = (dx, dy, col) => px.push([dx, dy, col]);
+  for (let dy = -6; dy <= 1; dy++) add(0, dy, '#d8dcde');                       // pääsiima
+  add(0, 2, '#c8ccd0'); for (const dx of [-1, 0, 1]) { add(dx, 3, '#4e525a'); add(dx, 4, '#4e525a'); }
+  add(-1, 3, '#8e929a'); add(0, 5, '#3a3e44');                                   // puntti
+  add(1, -2, '#d8dcde'); add(2, -2 + 0, '#d8dcde'); add(3 + sw, -1, '#d8dcde'); // sivuhaara
+  if (kind === 'rigboilie') {
+    for (const [dx, dy] of [[3, 0], [4, 0], [3, 1], [4, 1]]) add(dx + sw, dy, '#6a3c1c');
+    add(3 + sw, 0, '#9a6234'); add(4 + sw, 1, '#44250f');
+  } else {
+    add(3 + sw, 0, '#c8ccd0'); add(4 + sw, 0, '#9aa0a8'); add(3 + sw, 1, '#e08a96'); add(3 + sw, 2, '#c86a78'); add(2 + sw, 2, '#b85a68');
+  }
   ctx.fillStyle = 'rgba(8, 12, 10, 0.5)';
   for (const [dx, dy] of px) ctx.fillRect(x + dx + 1, y + dy + 1, 1, 1);
   for (const [dx, dy, col] of px) { ctx.fillStyle = col; ctx.fillRect(x + dx, y + dy, 1, 1); }
@@ -5540,7 +5736,7 @@ function render() {
     text(help[0], W / 2, ty + 140, 4, '#94b0c2');
     text(help[1], W / 2, ty + 148, 4, '#94b0c2');
     if (!touch.on) {
-      text('Q lure · wheel hook / reel speed · C cut line · E boat · V cheat', W / 2, ty + 156, 4, '#94b0c2');
+      text('Q lure · wheel hook / reel speed / bait · C cut line · E boat · V cheat', W / 2, ty + 156, 4, '#94b0c2');
       text('E firewood · Z light fire · T time speed · L sync clock · P pause · M sound', W / 2, ty + 164, 4, '#94b0c2');
     }
     text('stand still and the forest animals come closer', W / 2, ty + 175, 4, '#c0a070');
@@ -5559,6 +5755,9 @@ function render() {
     if (player.rod && isArt(player.lure)) {
       line(player.lure === 'spoon' ? 'SPOON' : 'WOBBLER', '#a8c0d8');
       line('REEL ' + cast.reelSpeed + ' cm/s' + (touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
+    } else if (player.rod && isRig(player.lure)) {
+      line(LURES[player.lure].name, '#a8c0d8');
+      line('BAIT ' + Math.round(cast.rigDist * 100) + ' cm' + (cast.lure ? '' : touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
     } else if (player.rod) {
       // Koho-ongella koukun syvyyden perään tieto, jos syötti on pohjassa tai koho kuivalla maalla
       const L = cast.lure, out = L && L.st === 'float' && !L.fish;
@@ -5573,6 +5772,15 @@ function render() {
       else {
         const bottom = L.z >= depthAt(L.x, L.y) - 0.07;
         line('DEPTH ' + (L.z * 100).toFixed(1) + ' cm' + (bottom ? '  ON BOTTOM' : '') + (water.show || bottom ? '' : '  BOTTOM +' + Math.max(0, depthAt(L.x, L.y) - L.z).toFixed(2) + ' m'), bottom ? '#ffcd75' : '#a8c0d8');
+      }
+    }
+    // Pohjaongen puntin syvyys; kun puntti on pohjassa, muistutus kelata siima kireälle (syötti ei saa maata pohjassa)
+    if (L && isRig(L.kind) && L.st === 'float' && !L.fish) {
+      if (!L.onWater) line('SINKER -  ON LAND', '#ffcd75');
+      else {
+        const bottom = L.z >= depthAt(L.x, L.y) - 0.07, rs = rigState(L);
+        line('SINKER ' + (L.z * 100).toFixed(1) + ' cm' + (bottom ? '  ON BOTTOM' : '') + (water.show || bottom ? '' : '  BOTTOM +' + Math.max(0, depthAt(L.x, L.y) - L.z).toFixed(2) + ' m'), bottom ? '#ffcd75' : '#a8c0d8');
+        if (bottom && rs.lying) line(rs.tf < 1 ? 'BAIT ON BOTTOM - REEL LINE TIGHT' : 'BAIT ON BOTTOM', '#e0a0a0');
       }
     }
     if (cast.lure && cast.lure.st === 'float') line('LINE ' + cast.lure.out.toFixed(1) + ' / ' + LINE_MAX + ' m', '#c8d8e0');
