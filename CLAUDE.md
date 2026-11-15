@@ -88,7 +88,7 @@ Polttopuukatos → Tähtäin ja vieheet (`LURES`) → Pelisilmukka.
 3. `snapStars('a')` → `drawReflections` (pelaaja, vene, sorsat yhdessä syvyyslajitellussa kerroksessa,
    maskattu `pondMaskCanvas`illa) → lumpeet, usva, laituri, viehe, varjot
 4. Syvyyslajiteltu lista (`d = x + y`), tyypit `k`: 0 puu, 1 ruoho/kaisla, 2 teltta, 3 nuotio, 4 eläin,
-   5 sorsa, 6 pelaaja, 7 vesikivi, 8 vene, 9 liiteri. Pelaajan edessä olevat puut menevät `frontCtx`-
+   5 sorsa, 6 pelaaja, 7 vesikivi, 8 vene, 9 liiteri, 10 norppa. Pelaajan edessä olevat puut menevät `frontCtx`-
    kerrokseen, johon leikataan näkymäaukko pelaajan kohdalle.
 5. Lentävät sorsat ja linnut → partikkelit → `snapStars('b')` → `drawWeather` (sää, yön valokartta,
    hehkut ja tähdet yöpeitteen päällä) → UI (kello, tuuliviiri, tähtäin, palkit).
@@ -119,6 +119,8 @@ Polttopuukatos → Tähtäin ja vieheet (`LURES`) → Pelisilmukka.
 - Eläimet: `ANIMAL_KINDS`, `spawnAnimal`, `updateAnimals` (tilat lurk → approach → forage → leave, flee, home);
   enintään 2 kerrallaan, uusi 800–2200 päivityksen välein.
 - Sorsat: `makeDuck`, `updateDucks`, `takeOff`, `scramble`, `duckSplash`; ääni `SFX.duckWater(land, v)`.
+- Norppa: `seal` (tilat rest, hop, roll, swim, surf, haul), `makeSeal`, `updateSeal`, `drawSeal` (laiturilla ja pää pinnalla), `drawSealUnder`
+  (veden alla); äänet `SFX.sealSplash`, `SFX.sealBreath`. Kuvat `SEAL_SPR` piirretään koodissa.
 - Ilmoitukset: `notify(text, t, key)` – sama `key` korvaa edellisen bannerin.
 
 ## Testaus

@@ -1703,6 +1703,13 @@ const SFX = {
     }
     for (let k = 0, n = Math.floor(rand(4, 8)); k < n; k++) droplet(rand(0.1, 0.75), rand(0.012, 0.03) * v);
   },
+  // Norpan veteen pyörähdys: raskas läsähdys, matala molahdus ja pisaroiden ropina; hengitys on pehmeä puhahdus
+  sealSplash: (v = 1) => {
+    noiseBurst(0.5, 650, 'lowpass', 0.3 * v, 1); noiseBurst(0.3, 2400, 'bandpass', 0.12 * v, 1);
+    tone(170, 0.2, 'sine', 0.13 * v, 60);
+    for (let k = 0, n = Math.floor(rand(6, 11)); k < n; k++) droplet(rand(0.12, 0.9), rand(0.015, 0.04) * v);
+  },
+  sealBreath: () => { softNoise(0.4, 1500, 'bandpass', 0.05, 1.2, 0.06, 0, 600); softNoise(0.55, 450, 'lowpass', 0.04, 0.8, 0.1, 0.08, 250); },
   // Nuotion ritinä: joukko lyhyitä napsahduksia
   crackle: (v = 1) => { for (let k = 0, n = Math.floor(rand(3, 8)); k < n; k++) setTimeout(() => noiseBurst(rand(0.008, 0.02), rand(2500, 6500), 'bandpass', rand(0.04, 0.11) * v, 3), rand(0, 220)); },
   flap: () => { for (let k = 0; k < 8; k++) setTimeout(() => noiseBurst(0.05, rand(900, 1600), 'bandpass', 0.12, 2), k * 70); },
@@ -1737,6 +1744,7 @@ function setupWorld() {
   catches = [];
   fire = { wood: 3, emb: 1, lit: true, barT: 0 };
   ducks = [makeDuck(C + rand(-8, 8), C + rand(-8, 8), true, false), makeDuck(C + rand(-8, 8), C + rand(-8, 8), false, false)];
+  seal = makeSeal();
   weatherSeed = Math.floor(Math.random() * 1e9); weatherPlans.clear();
   weather = { kind: 'clear', rain: 0, fog: 0 };
   wind = { a: rand(0, Math.PI * 2), s: 0.25, ta: 0, ts: 0.25, t: 0, gust: 0.25, sx: 0, sy: 0, wx: 0, wy: 0 };
@@ -3357,6 +3365,7 @@ function drawUnderwater(camXr, camYr) {
     const hooked = L && L.fish === f;
     drawFishImg(f, x, y, sx < 0, f.anim * (hooked && f.mode === 'fight' ? 3 : 1), fishDir(f));
   }
+  drawSealUnder(g, camXr, camYr);
   if (L && L.st === 'float' && L.onWater) {
     const lx = Math.round(isoX(L.x, L.y) - camXr), ly = Math.round(isoY(L.x, L.y) - camYr);
     if (L.fish) {
@@ -3662,6 +3671,212 @@ function drawDuck(d, sx, sy) {
   // Vesiraja: alin pikselirivi jää veden alle
   ctx.fillStyle = `rgba(${env.ring}, 0.35)`;
   ctx.fillRect(sx - 4, sy + 1, 7, 1);
+}
+
+// ---------------------------------------------------------------------------
+// Norppa (saimaannorppa): lepää pelin alussa laiturin nokassa naama oikealle. Jos pelaaja tulee lähelle, se
+// hypähtelee makuultaan laiturin nokkaan ja pyörähtää veteen (läsähdys ja pyöreät aallot); se voi myös lähteä
+// uimaan ilman syytä. Vedessä se uiskentelee veden alla ja tulee välillä pinnalle hengittämään, jolloin vain
+// pää näkyy. Kun pelaaja ei ole lähellä, se voi nousta takaisin laiturin nokkaan (hypähtää laiturille), mutta
+// ei koskaan maalle. Tilat: rest (lepää), hop (hypähtelee laiturilla), roll (pyörähtää veteen), swim (uiskentelee
+// veden alla), surf (pää pinnalla), haul (hypähtää takaisin laiturille).
+// ---------------------------------------------------------------------------
+const SEAL_PAL = { k: '#14181c', d: '#262c32', m: '#38414a', g: '#535d66', r: '#7a838b', l: '#9aa2a8', w: '#d8dde0', f: '#1c2126' };
+function sealCanvas(w, h, pts, rings, extra) {
+  const c = makeCanvas(w, h), g = c.getContext('2d');
+  polyFill(g, pts, SEAL_PAL.m);
+  // Selkä tummempi, vatsa vaaleampi: sävy lasketaan sarakkeen ylä- ja alareunasta
+  const d = g.getImageData(0, 0, w, h).data, top = [], bot = [];
+  for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) if (d[(y * w + x) * 4 + 3]) { if (top[x] === undefined) top[x] = y; bot[x] = y; }
+  for (let x = 0; x < w; x++) {
+    if (top[x] === undefined) continue;
+    g.fillStyle = SEAL_PAL.d; g.fillRect(x, top[x], 1, Math.min(2, bot[x] - top[x] + 1));
+    g.fillStyle = SEAL_PAL.g; g.fillRect(x, bot[x], 1, 1);
+  }
+  g.fillStyle = SEAL_PAL.r;
+  for (const [x, y] of rings) g.fillRect(x, y, 1, 1);
+  for (const [x, y, ch] of extra) { g.fillStyle = SEAL_PAL[ch]; g.fillRect(x, y, 1, 1); }
+  return c;
+}
+const SEAL_SPR = (() => {
+  // Makaava norppa (22 x 10), naama oikealle: häntäevät vasemmalla, selkä kaartuu, kaula painuu ja pää on kohotettuna
+  const rest = sealCanvas(22, 10,
+    [[0, 9], [0, 8], [2, 7], [4, 5], [7, 3], [10, 2], [13, 2], [15, 3], [16, 1], [18, 0], [20, 0], [21, 1], [21, 3], [20, 4], [18, 5], [17, 6], [17, 10], [0, 10]],
+    [[5, 6], [6, 5], [7, 6], [9, 4], [10, 4], [11, 5], [12, 4], [13, 5], [8, 7], [10, 7], [3, 8], [12, 7], [14, 7], [6, 8], [15, 6], [16, 4], [14, 4]],
+    [[16, 3, 'l'], [17, 4, 'l'], [16, 5, 'r'], [17, 2, 'r'], [18, 4, 'l'], [19, 4, 'l'], [19, 2, 'k'], [21, 2, 'k'], [20, 5, 'w'], [21, 4, 'w'], [1, 9, 'f'], [0, 9, 'f'], [2, 9, 'f'], [15, 8, 'f'], [16, 8, 'f']]);
+  // Veden alla uiva norppa (20 x 7) kahdella pyrstön asennolla
+  const swimPts = [[0, 3], [2, 2], [5, 1], [9, 0], [13, 1], [16, 2], [19, 3], [16, 4], [13, 5], [9, 6], [5, 5], [2, 4]];
+  const swimRings = [[6, 2], [9, 2], [12, 3], [8, 4], [11, 4]];
+  const swim = [0, 1].map((k) => sealCanvas(20, 7, swimPts, swimRings, [[k ? 0 : 1, k ? 1 : 5, 'f'], [k ? 0 : 1, k ? 5 : 1, 'f'], [10, 6, 'f'], [17, 2, 'k']]));
+  // Pää veden pinnalla (7 x 7): kupera pää, kaksi silmää, tumma nenä, vaalea kuono ja viikset
+  const head = sealCanvas(7, 7, [[1, 6], [0, 4], [1, 1], [3, 0], [5, 1], [6, 4], [5, 6]], [],
+    [[1, 3, 'k'], [5, 3, 'k'], [3, 4, 'k'], [2, 5, 'l'], [3, 5, 'l'], [4, 5, 'l'], [0, 5, 'w'], [6, 5, 'w'], [0, 4, 'w'], [6, 6, 'w']]);
+  return { rest, swim, head };
+})();
+
+let seal = null;
+const dockPt = (t, s) => [dock.x0 + dock.ux * t + dock.px * s, dock.y0 + dock.uy * t + dock.py * s];
+const SEAL_T = DOCK_LEN - 1.0;   // lepopaikka laiturin nokassa (etäisyys rannasta)
+const sealFree = (x, y) => shoreDist(x, y) < -1.2 && depthAt(x, y) > 0.4 && !onDock(x, y, 0.6) && !waterRocks.some((r) => Math.hypot(r.x - x, r.y - y) < 0.9);
+const sealFace = (a) => (screenDir(Math.cos(a), Math.sin(a))[0] >= 0 ? 1 : -1);
+
+function makeSeal() {
+  const [x, y] = dockPt(SEAL_T, 0);
+  return { st: 'rest', x, y, t: SEAL_T, z: 0, a: 0, face: 1, anim: 0, timer: 0, hopT: rand(1500, 3500), leaveT: rand(4000, 10000),
+    target: SEAL_T, flee: false, from: null, to: null, tx: x, ty: y, tz: 1.2, swimT: 0, waterT: 0, haulAfter: 0, haul: false, lookT: 0 };
+}
+
+function sealSplash(S, n, big) {
+  duckSplash(S, n, big);   // roiskeet ja renkaat
+  ripples.push({ x: S.x, y: S.y, t: -9, life: 75, max: big ? 12 : 8, a: 0.6 }, { x: S.x, y: S.y, t: -18, life: 75, max: big ? 15 : 10, a: 0.42 });
+  SFX.sealSplash(big ? 1 : 0.5);
+}
+
+function startSealRoll(S) {
+  // Pyörähtää laiturin sivulta veteen (venettä vastapäiseltä puolelta), tai nokan yli
+  const bs = boat ? Math.sign(dockLocal(boat.x, boat.y)[1]) || 1 : 1;
+  let to = dockPt(S.t, -bs * (DOCK_W / 2 + 0.9));
+  if (shoreDist(to[0], to[1]) > -0.3) to = dockPt(DOCK_LEN + 1.0, 0);
+  S.st = 'roll'; S.timer = 0; S.from = [S.x, S.y]; S.to = to;
+}
+function startSealHop(S, t, flee) {
+  S.st = 'hop'; S.target = t; S.flee = flee; S.timer = 0;
+  S.face = (t >= S.t ? 1 : -1) * (screenDir(dock.ux, dock.uy)[0] >= 0 ? 1 : -1);
+}
+function newSealTarget(S) {
+  for (let k = 0; k < 30; k++) {
+    const a = rand(0, Math.PI * 2), r = rand(3, POND_R * 0.75);
+    const x = C + Math.cos(a) * r, y = C + Math.sin(a) * r;
+    if (sealFree(x, y) && depthAt(x, y) > 1.0) { S.tx = x; S.ty = y; return; }
+  }
+}
+function sealDive(S) {
+  S.st = 'swim'; S.z = 0.25; S.swimT = rand(1200, 3000); newSealTarget(S);
+  ripples.push({ x: S.x, y: S.y, t: 0, life: 45, max: 5, a: 0.6 });
+  SFX.duckWater(false, 0.5);
+}
+
+function updateSeal() {
+  const S = seal, p = player;
+  if (!S) return;
+  S.anim++;
+  const dp = Math.hypot(p.x - S.x, p.y - S.y), [pt] = dockLocal(p.x, p.y);
+  if (S.st === 'rest') {
+    [S.x, S.y] = dockPt(S.t, 0);
+    if (dp < 2.4) startSealRoll(S);
+    else if (dp < 5.2) {
+      // Pelaaja lähestyy rannan puolelta: hypähtele nokkaan ja pyörähdä veteen
+      if (S.t < DOCK_LEN - 0.55 && pt < S.t) startSealHop(S, DOCK_LEN - 0.5, true); else if (dp < 3.6) startSealRoll(S);
+    } else {
+      if (--S.leaveT <= 0) startSealRoll(S);                       // lähtee uimaan omia aikojaan
+      else if (--S.hopT <= 0) {                                    // pieni hypähdys laiturilla
+        S.hopT = rand(1500, 3500);
+        const t = rand(DOCK_LEN - 3.2, DOCK_LEN - 0.7);
+        if (Math.abs(t - S.t) > 0.4) startSealHop(S, t, false);
+      }
+    }
+  } else if (S.st === 'hop') {
+    // Makuultaan hypähtelevä liike: jokainen hypähdys (26 päivitystä) siirtää 0,42 m ja päättyy tömähdykseen
+    const HOP = 26, dir = S.target >= S.t ? 1 : -1;
+    if (dp < 2.4) { startSealRoll(S); return; }
+    if (S.timer < 18) S.t = clamp(S.t + dir * (0.42 / 18), 0, DOCK_LEN - 0.35);
+    [S.x, S.y] = dockPt(S.t, 0);
+    if (++S.timer >= HOP) {
+      S.timer = 0; SFX.thud();
+      if (Math.abs(S.target - S.t) < 0.25 || (dir > 0 ? S.t >= S.target : S.t <= S.target)) {
+        if (S.flee) startSealRoll(S); else S.st = 'rest';
+      }
+    }
+  } else if (S.st === 'roll') {
+    const u = ++S.timer / 22;
+    S.x = lerp(S.from[0], S.to[0], u * u); S.y = lerp(S.from[1], S.to[1], u * u);
+    if (u >= 1) {
+      S.x = S.to[0]; S.y = S.to[1]; S.st = 'swim'; S.z = 0.2; S.swimT = rand(1200, 3000); S.waterT = 0;
+      S.haulAfter = rand(3600, 9000); S.haul = false; newSealTarget(S); S.a = Math.atan2(S.ty - S.y, S.tx - S.x);
+      sealSplash(S, 12, true);
+    }
+  } else if (S.st === 'swim') {
+    S.waterT++; S.swimT--;
+    // Takaisin laiturille vain kun pelaaja ei ole lähellä nokkaa
+    const [hx, hy] = dockPt(DOCK_LEN + 1.0, 0), dTip = Math.hypot(p.x - hx, p.y - hy);
+    if (!S.haul && S.waterT > S.haulAfter && dTip > 9) S.haul = true;
+    if (S.haul && dTip < 6) S.haul = false;
+    const tx = S.haul ? hx : S.tx, ty = S.haul ? hy : S.ty;
+    S.a += angDiff(S.a, Math.atan2(ty - S.y, tx - S.x)) * 0.05;
+    const v = 0.03, nx = S.x + Math.cos(S.a) * v, ny = S.y + Math.sin(S.a) * v;
+    if (sealFree(nx, ny) || (S.haul && Math.hypot(nx - hx, ny - hy) < 2.5 && shoreDist(nx, ny) < -0.3)) { S.x = nx; S.y = ny; }
+    else { S.a += (Math.random() < 0.5 ? -1 : 1) * rand(0.8, 1.8); newSealTarget(S); }
+    S.face = sealFace(S.a);
+    S.tz = clamp(1.2 + Math.sin(S.anim * 0.01) * 0.6, 0.4, Math.max(0.2, depthAt(S.x, S.y) - 0.25));
+    S.z += clamp(S.tz - S.z, -0.012, 0.012);
+    if (Math.hypot(S.tx - S.x, S.ty - S.y) < 0.8 && !S.haul) newSealTarget(S);
+    if (S.haul && Math.hypot(hx - S.x, hy - S.y) < 0.7) {
+      S.st = 'haul'; S.timer = 0; S.from = [S.x, S.y]; S.to = dockPt(SEAL_T, 0); S.face = screenDir(dock.ux, dock.uy)[0] >= 0 ? 1 : -1;
+      sealSplash(S, 6, false);
+    } else if (S.swimT <= 0 && !S.haul && depthAt(S.x, S.y) > 0.6) {
+      // Pinnalle hengittämään: pelkkä pää näkyy
+      S.st = 'surf'; S.timer = rand(150, 290); S.lookT = rand(50, 100); S.z = 0;
+      ripples.push({ x: S.x, y: S.y, t: 0, life: 50, max: 4.5, a: 0.55 }, { x: S.x, y: S.y, t: -10, life: 50, max: 7, a: 0.35 });
+      SFX.sealBreath();
+    }
+  } else if (S.st === 'surf') {
+    S.timer--;
+    S.x += Math.cos(S.a) * 0.004; S.y += Math.sin(S.a) * 0.004;
+    if (--S.lookT <= 0) { S.face = -S.face; S.lookT = rand(60, 120); }
+    if (dp < 2.4 || S.timer <= 0) sealDive(S);
+  } else if (S.st === 'haul') {
+    const u = ++S.timer / 18;
+    S.x = lerp(S.from[0], S.to[0], u); S.y = lerp(S.from[1], S.to[1], u);
+    if (u >= 1) {
+      S.st = 'rest'; S.t = SEAL_T; S.leaveT = rand(4000, 10000); S.hopT = rand(1500, 3500);
+      [S.x, S.y] = dockPt(S.t, 0); SFX.thud();
+    }
+  }
+}
+
+// Norppa laiturilla, lentoradalla tai pinnalla pää esillä (syvyyslajitellussa listassa)
+const sealShown = () => seal && (seal.st === 'rest' || seal.st === 'hop' || seal.st === 'roll' || seal.st === 'haul' || seal.st === 'surf');
+function drawSeal(camXr, camYr) {
+  const S = seal, sx = Math.round(isoX(S.x, S.y) - camXr), sy = isoY(S.x, S.y) - camYr;
+  if (S.st === 'surf') {
+    // Pää veden pinnalla pieni keinunta mukana; pinnan rengas ja tumma heijastus pään alla
+    const bob = Math.round(Math.sin(S.anim * 0.05) * 0.6), y = Math.round(sy);
+    ctx.fillStyle = 'rgba(8, 14, 18, 0.35)'; ctx.fillRect(sx - 3, y + 1, 7, 1);
+    ctx.fillStyle = `rgba(${env.ring}, 0.5)`; ctx.fillRect(sx - 4, y, 9, 1);
+    ctx.save(); ctx.beginPath(); ctx.rect(sx - 6, y - 8, 13, 8 + bob); ctx.clip();
+    drawImg(SEAL_SPR.head, sx - 3, y - 6 + bob, S.face < 0);
+    ctx.restore();
+    return;
+  }
+  const img = SEAL_SPR.rest, flip = S.face < 0;
+  if (S.st === 'roll' || S.st === 'haul') {
+    // Pyörähdys veteen / hyppy laiturille: lähtö- ja tulopisteen välillä kaarella, kuva kallistuu
+    const u = S.st === 'roll' ? Math.min(1, S.timer / 22) : Math.min(1, S.timer / 18);
+    const lift = S.st === 'roll' ? DOCK_Z * (1 - u * u) : DOCK_Z * u - Math.sin(Math.PI * u) * 4;
+    const side = Math.sign(isoX(S.to[0], S.to[1]) - isoX(S.from[0], S.from[1])) || 1;
+    ctx.save();
+    ctx.translate(sx, Math.round(sy - lift));
+    ctx.rotate((S.st === 'roll' ? u * u : 1 - u) * 1.1 * side);
+    drawImg(img, -(img.width >> 1), -img.height + 2, flip);
+    ctx.restore();
+    return;
+  }
+  // Laiturilla makaava norppa: varjo ja kuva; hypähdyksessä kuva nousee kaarella
+  const arc = S.st === 'hop' ? Math.round(Math.sin(Math.PI * Math.min(1, S.timer / 18)) * 3) : 0;
+  const base = Math.round(sy - DOCK_Z);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; ctx.fillRect(sx - 9, base - 1, 19, 2);
+  drawImg(img, sx - (img.width >> 1), base - img.height + 1 - arc, flip);
+}
+
+// Veden alla uiva norppa (tumma hahmo, häivytys syvyyden mukaan); pinnalla olevan pään alla näkyy vaalea vartalo
+function drawSealUnder(g, camXr, camYr) {
+  const S = seal;
+  if (!S || (S.st !== 'swim' && S.st !== 'surf')) return;
+  const x = Math.round(isoX(S.x, S.y) - camXr), z = S.st === 'surf' ? 0.5 : S.z, y = Math.round(isoY(S.x, S.y) - camYr + z * Z_PX);
+  if (x < -14 || x > W + 14 || y < -10 || y > H + 20) return;
+  g.globalAlpha = underVis(z) * (S.st === 'surf' ? 0.8 : 0.95);
+  drawImg(SEAL_SPR.swim[(S.anim >> 3) % 2], x - 10, y - 3, S.face < 0);
+  g.globalAlpha = 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -4019,6 +4234,7 @@ function update() {
   updateCampfire();
   updateBoat();
   updateDucks();
+  updateSeal();
   updateFishes();
   updateLoose();
   updateAnimals();
@@ -5256,6 +5472,7 @@ function drawWorld() {
   list.push({ d: SHED.x0 + SHED.y0 + (SHED.L + SHED.D) / 2, k: 9 });
   if (boat && !boatBehindDock) list.push({ d: boat.x + boat.y, k: 8 });
   list.push({ d: CAMP.cx + CAMP.cy + 1, k: 3 });
+  if (sealShown()) list.push({ d: seal.x + seal.y + 0.02, k: 10 });
   for (const a of animals) list.push({ d: a.x + a.y, k: 4, a });
   if (water.show) for (const o of waterRocks) list.push({ d: o.x + o.y, k: 7, o });
   for (const dk of ducks) if (dk.z < 3) list.push({ d: dk.x + dk.y, k: 5, dk });
@@ -5284,6 +5501,8 @@ function drawWorld() {
       drawAnimal(o.a, isoX(o.a.x, o.a.y) - camXr, isoY(o.a.x, o.a.y) - camYr);
     } else if (o.k === 5) {
       drawDuck(o.dk, isoX(o.dk.x, o.dk.y) - camXr, isoY(o.dk.x, o.dk.y) - camYr);
+    } else if (o.k === 10) {
+      drawSeal(camXr, camYr);
     } else if (o.k === 9) {
       drawShed(camXr, camYr);
     } else if (o.k === 8) {

@@ -143,6 +143,13 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
   Tuulen suunta ja voimakkuus vaihtelevat ja kallistavat sadetta. Sään ja ajan vaihtumisesta ei tule
   ilmoituksia; kellon vieressä on sääkuvake (aurinko tai yöllä kuu, pilvi ja pisarat, usvajuovat),
   sen alla kompassi, jonka nuoli näyttää tuulen suunnan, ja palkit tuulen voimakkuudelle (0–3).
+- **Norppa** (saimaannorppa): lepää pelin alussa laiturin nokassa naama oikealle. Jos pelaaja tulee lähelle, se hypähtelee
+  makuultaan laiturin nokkaan ja pyörähtää veteen; vedessä kuuluu läsähdys, roiskuu pisaroita ja lammelle leviää pyöreitä
+  aaltoja. Se voi lähteä uimaan myös ilman, että pelaaja menee sen lähelle (keskimäärin parin minuutin välein), ja se hypähtelee
+  välillä pienen matkan laiturilla. Vedessä norppa uiskentelee veden alla (näkyy tummana hahmona; huijaustilassa tarkemmin) ja
+  tulee välillä pinnalle hengittämään, jolloin vain sen pää näkyy veden päällä; liian lähelle tuleva pelaaja saa sen sukeltamaan
+  takaisin. Kun pelaaja ei ole lähellä laiturin nokkaa, norppa voi hypähtää takaisin laiturin nokkaan lepäämään, mutta se ei koskaan
+  nouse maalle (`seal`, `updateSeal`).
 - **Eläimet**: oravat, jänikset ja hiiret liikkuvat metsän laidassa ja tulevat välillä penkereelle.
   Niitä on liikkeellä kerrallaan enintään kaksi, ja uusia tulee harvakseltaan.
   Ne pakenevat, jos pelaaja tulee liian lähelle; paikallaan pysyvän pelaajan luo ne uskaltautuvat lähemmäs.
