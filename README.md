@@ -74,7 +74,9 @@ ongen kahvasta hieman hahmon edessä (ei suorana alaspäin) ja vasen käsi pitä
 taakse (`ARM_DEPTH`), jolloin esim. itään katsottaessa vasen käsi ei näy ongen läpi. Kelatessa (hiiri pohjassa, viehe
 vedessä) vasen käsi kiertää kampea samaa vauhtia kuin tähtäimen kela. Kampi pyörii pystytasossa ongen suuntaan: oikealle
 katsoessa kierto on myötäpäivään, vasemmalle katsoessa vastapäivään ja kameraa kohti (tai siitä poispäin) katsoessa taso
-on sivuttain, jolloin käsi liikkuu vain ylös ja alas (viistosti katsoessa liike on litistynyt ellipsi). Poispäin katsottaessa (NE, N, NW) kädet ovat
+on sivuttain, jolloin käsi liikkuu vain ylös ja alas (viistosti katsoessa liike on litistynyt ellipsi). Kameraa kohti katsoessa
+kelaava kämmen on siirretty vasemmalle (`REEL_HAND_OFF`), jotta kämmenet eivät ole päällekkäin; oikea käsi piirretään aina vasemman
+käden päälle. Poispäin katsottaessa (NE, N, NW) kädet ovat
 hahmon edessä, joten kämmeniä ei näy: sivuilla näkyy vain olkavarsi kiinni kehon kyljessä, ja kyynärtaipeessa käsi kääntyy sisään vatsan taakse piiloon
 (kelatessa vasen kyynärpää liikkuu hieman).
 Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poistetaan (SE ja SW:ssä myös repun takaa pilkistävä käsi).

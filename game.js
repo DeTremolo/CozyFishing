@@ -4788,6 +4788,9 @@ const SHOULDER_R = { S: [-4, -10], SE: [-3, -10], E: [2, -10], NE: [5, -11], N: 
 const SHOULDER_L = { S: [4, -10], SE: [4, -10], E: [1, -11], N: [-6, -11], NW: [-6, -11], W: [-3, -10], SW: [3, -10] };
 // Kumpi käsi on ongen takana (far: piirretään ennen onkea, jolloin onki peittää sen) ja kumpi edessä (near).
 // Itään katsottaessa oikea käsi on kameraa kohti ja vasen ongen takana, länteen katsottaessa päinvastoin.
+// Kelaavan käden siirtymä ruudulla (x, y) suunnittain: kameraa kohti katsoessa oikea käsi on kahvassa suoraan kelan alla,
+// joten kela-käsi siirretään vasemmalle, jotta kämmenet eivät ole päällekkäin
+const REEL_HAND_OFF = { S: [-4, 0] };
 const ARM_DEPTH = {
   S: { L: 'near', R: 'near' }, SE: { L: 'far', R: 'near' }, E: { L: 'far', R: 'near' }, NE: { R: 'near' },
   N: { L: 'near', R: 'near' }, NW: { L: 'near' }, W: { L: 'near', R: 'far' }, SW: { L: 'near', R: 'far' },
@@ -4819,15 +4822,16 @@ function drawArms(sx, sy, camXr, camYr, phase) {
   const dir = playerDir(), depth = ARM_DEPTH[dir], rate = isReeling() ? handCrank.a : null;
   const g = rodGeom(), gx = g.hx - camXr, gy = g.hy - camYr, l = Math.hypot(g.tx - g.hx, g.ty - g.hy) || 1;
   const outwards = (x) => (dir === 'E' || dir === 'W' ? 0 : x < 0 ? -1.5 : 1.5), away = VIEW_INFO[player.view].away;
-  if (depth.R === phase) { const s0 = SHOULDER_R[dir]; drawArm(sx + s0[0], sy + s0[1], gx, gy, outwards(s0[0]), away); }
+  // Vasen käsi ensin, jolloin oikea käsi (ote kahvasta) jää sen päälle
   if (depth.L === phase && SHOULDER_L[dir]) {
     // Kampi pyörii pystytasossa ongen suuntaan: oikealle katsoessa kierto näkyy myötäpäivään, vasemmalle vastapäivään
     // (vaakakomponentti kerrotaan katsesuunnan x-komponentilla), ja kameraa kohti tai poispäin katsoessa taso on
     // sivuttain, jolloin käsi liikkuu vain ylös ja alas.
     const s0 = SHOULDER_L[dir], c = rate === null ? 0 : Math.cos(rate) * 1.6 * player.gux, d = rate === null ? 0 : Math.sin(rate) * 1.6;
     if (away) drawArm(sx + s0[0], sy + s0[1], 0, 0, outwards(s0[0]), true, c * 0.9, d * 0.9);
-    else drawArm(sx + s0[0], sy + s0[1], gx + ((g.tx - g.hx) / l) * 3 + 0.5 + c, gy + ((g.ty - g.hy) / l) * 3 + 1 + d, outwards(s0[0]), false);
+    else { const off = REEL_HAND_OFF[dir] || [0, 0]; drawArm(sx + s0[0], sy + s0[1], gx + ((g.tx - g.hx) / l) * 3 + 0.5 + c + off[0], gy + ((g.ty - g.hy) / l) * 3 + 1 + d + off[1], outwards(s0[0]), false); }
   }
+  if (depth.R === phase) { const s0 = SHOULDER_R[dir]; drawArm(sx + s0[0], sy + s0[1], gx, gy, outwards(s0[0]), away); }
 }
 
 // Vaapulla kelattaessa siima kulkee ongen kärjestä lähes suorana (pieni painovoiman notko) vaappuun tai
