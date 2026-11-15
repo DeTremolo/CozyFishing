@@ -221,6 +221,8 @@ Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan su
   Mato ja boilie eivät kellu, joten ne roikkuvat sivuhaaran mukana alaspäin kohti pohjaa. Sivuhaara on mallinnettu
   pääsiimasta erillään (oma siimaketju), joten onkea heiluteltaessa haara ja syötti heiluvat vapaasti. Pohjaonki heitetään
   kauemmas kuin muut vieheet (enintään 24 m, lippa 16 m).
+  Siima roikkuu ongen kärjestä suoraan alas: siiman vaakaetäisyydet mitataan ongen kärjen kohdalta maan pinnalta (hahmon
+  edestä), ei hahmon jalkojen kohdalta, joten aivan hahmon eteen päästetty puntti roikkuu kärjen alla.
   Puntti painuu pohjaan melko nopeasti (1 m/s). Siiman pituus otetaan huomioon: siima kulkee ongen kärjestä (3 m
   vedenpinnan yläpuolella) puntille, ja jos siimaa ei ole riittävästi, puntti ei painu suoraan alas vaan kaartuu kireän
   siiman varassa kohti vapaa; siimaa voi päästää kelalta oikealla hiirennapilla. Kelattaessa (1,2 m/s) puntti
