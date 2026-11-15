@@ -15,3 +15,5 @@ The game includes the following third-party component, used under its own licenc
 
 All other code, graphics and sounds in this game are original works of DeTremolo Games
 (sounds are synthesised in code at run time; no third-party audio is included).
+
+Contact: DeTremolo Games <detremologames@gmail.com>

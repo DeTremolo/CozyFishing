@@ -290,3 +290,4 @@ Paikallisesti: `python3 -m http.server` repon juuressa ja selaimella http://loca
 - `CLAUDE.md` – kehittäjän ja Claude Coden ohjeet
 
 Lisenssi: ks. [`LICENSE`](LICENSE) ja [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+Yhteystiedot: DeTremolo Games, detremologames@gmail.com.

@@ -10,7 +10,7 @@ ajantasainen toiminnallinen kuvaus (kaikki mekaniikat, näppäimet ja luvut).
   Web Audio. Ei build-vaihetta, ei riippuvuuksia, ei kehyksiä. `index.html` aukeaa suoraan selaimessa.
 - **Repo**: `DeTremolo/CozyFishing` (GitHub). Kehityshaara `lampi`, julkaisuhaara `main`
   (GitHub Pages julkaisee `main`-haaran juuren).
-- **Omistaja**: DeTremolo (DeTremolo Games). Käyttäjä kirjoittaa suomeksi ja vastaukset annetaan suomeksi.
+- **Omistaja ja julkaisija**: DeTremolo Games (detremologames@gmail.com). Käyttäjä kirjoittaa suomeksi ja vastaukset annetaan suomeksi.
 
 ## Työskentelytapa (käyttäjän toiveet)
 
@@ -23,10 +23,9 @@ ajantasainen toiminnallinen kuvaus (kaikki mekaniikat, näppäimet ja luvut).
    pidetään ajan tasalla. Kosketusnapit ovat `index.html`:ssä ja `touch.js`:ssä.
 4. **Commit** `lampi`-haaraan ja **push** jokaisen valmiin kokonaisuuden jälkeen.
    - Commit-viesti englanniksi, lyhyt otsikko + tarvittaessa selittävä runko.
-   - Tekijä (author): `DeTremolo` ja käyttäjän sähköposti; committer: `Claude <noreply@anthropic.com>`
+   - Tekijä (author): `DeTremolo Games <detremologames@gmail.com>`; committer: `Claude <noreply@anthropic.com>`
      (muuten GitHub näyttää commitin "Unverified"). Esim.
-     `git -c user.name=Claude -c user.email=noreply@anthropic.com commit --author="DeTremolo <sähköposti>" ...`
-     Käytä samaa sähköpostia kuin aiemmissa commiteissa (`git log -1 --format='%an <%ae>'`).
+     `git -c user.name=Claude -c user.email=noreply@anthropic.com commit --author="DeTremolo Games <detremologames@gmail.com>" ...`
    - Viestin loppuun istunnon antamat attribuutiorivit (Co-Authored-By jne.), jos ympäristö niitä pyytää.
 5. **Mainiin yhdistäminen vain pyynnöstä** ("tee merge päähaaraan", "yhdistä main-haaraan"):
    `git checkout main && git merge --ff-only lampi && git push origin main && git checkout lampi`.
