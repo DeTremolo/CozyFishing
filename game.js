@@ -4791,7 +4791,7 @@ const SHOULDER_L = { S: [4, -10], SE: [4, -10], E: [1, -11], N: [-6, -11], NW: [
 // Itään katsottaessa oikea käsi on kameraa kohti ja vasen ongen takana, länteen katsottaessa päinvastoin.
 // Kelaavan käden siirtymä ruudulla (x, y) suunnittain: kameraa kohti katsoessa oikea käsi on kahvassa suoraan kelan alla,
 // joten kela-käsi siirretään vasemmalle, jotta kämmenet eivät ole päällekkäin
-const REEL_HAND_OFF = { S: [-6, -2] };
+const REEL_HAND_OFF = { S: [6, 0] };
 const ARM_DEPTH = {
   S: { L: 'near', R: 'near' }, SE: { L: 'far', R: 'near' }, E: { L: 'far', R: 'near' }, NE: { R: 'near' },
   N: { L: 'near', R: 'near' }, NW: { L: 'near' }, W: { L: 'near', R: 'far' }, SW: { L: 'near', R: 'far' },
