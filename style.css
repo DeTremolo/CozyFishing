@@ -74,45 +74,59 @@ body.touch #touch-ui {
 }
 .tbtn.down { background: rgba(148, 176, 194, 0.5); }
 
-/* Pikkunapit pystyriviin vasempaan reunaan rannekellon alle */
-.top-buttons {
+/* Järjestelmänapit (tauko, ääni, koko näyttö) vaakariviin ylälaitaan keskelle */
+.sys-buttons {
   position: absolute;
-  top: calc(max(0px, env(safe-area-inset-top)) + 24vh);   /* rannekellon alapuolelle */
-  left: max(10px, env(safe-area-inset-left));
+  top: max(6px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
   gap: 8px;
 }
-.top-buttons .tbtn { position: static; width: 40px; height: 32px; font-size: 12px; }
-.top-buttons .tbtn[hidden] { display: none; }
-body.menu .top-buttons #btn-pause, body.menu .action-buttons { display: none; }
+.sys-buttons .tbtn { position: static; width: 44px; height: 34px; font-size: 12px; }
+.sys-buttons .tbtn[hidden] { display: none; }
+body.menu .sys-buttons #btn-pause, body.menu .action-buttons, body.menu #btn-light { display: none; }
 
-/* Ongen ja taskulampun napit oikeaan reunaan */
+/* Otsalampun nappi näkyy aina vasemmassa alakulmassa */
+#btn-light {
+  left: max(14px, env(safe-area-inset-left));
+  bottom: 14px;
+  width: 78px; height: 44px; font-size: 9px; color: #94b0c2;
+}
+#btn-light.on { color: #ffcd75; border-color: #ffcd75; background: rgba(120, 90, 40, 0.45); }
+
+/* Toimintonapit oikeaan reunaan pystyriviin (pääpainike alimpana peukalon alla). Ryhmät näytetään
+   tilan mukaan: st-hand = ei onkea kädessä, st-ready = onki kädessä mutta ei heitetty, st-out = heitetty */
 .action-buttons {
   position: absolute;
-  right: max(18px, env(safe-area-inset-right));
-  bottom: 22%;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: 14px;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 8px;
 }
-.action-buttons .tbtn { position: static; width: 82px; height: 46px; font-size: 9px; color: #94b0c2; }
-.action-buttons .tbtn.on { color: #ffcd75; border-color: #ffcd75; background: rgba(120, 90, 40, 0.45); }
-/* Nukkumaan voi mennä vain teltan ovella */
-#btn-sleep { display: none; color: #ffcd75; }
-body.can-sleep #btn-sleep { display: block; }
-/* Heitto ja kelaus vain onki kädessä (napin pohjassa pitäminen lataa heittoa tai kelaa) */
-#btn-cast { display: none; color: #a7d8f0; }
-body.has-rod #btn-cast { display: block; }
-#btn-cut { display: none; color: #e0a0a0; }
-body.line-out #btn-cut { display: block; }
-#btn-lure { display: none; color: #a8c0d8; }
-#btn-boat { display: none; color: #ffcd75; }
-#btn-wood, #btn-ignite { display: none; color: #ff8c1a; }
-body.near-fire #btn-wood { display: block; }
-body.can-ignite #btn-ignite { display: block; }
-body.can-boat #btn-boat { display: block; }
-body.can-lure #btn-lure { display: block; }
+.action-buttons .tbtn { position: static; width: 104px; height: 44px; font-size: 9px; color: #94b0c2; }
+.action-buttons .tbtn.big { height: 58px; font-size: 11px; }
+.action-buttons > * { display: none; }
+.stepper { align-items: center; gap: 4px; }
+.stepper .tbtn { width: 38px; height: 44px; font-size: 16px; color: #f4f4f4; }
+#step-label { display: block; min-width: 56px; text-align: center; font-size: 8px; line-height: 1.5; color: #e0b0b8; }
+#btn-cast { color: #a7d8f0; }
+#btn-rod, #btn-act { color: #ffcd75; }
+#btn-cut { color: #e0a0a0; }
+#btn-pay { color: #e0b0b8; }
+#btn-lure { color: #a8c0d8; }
+/* Ei onkea kädessä: ongen otto ja (jos jotain voi tehdä) tee-painike */
+body.st-hand #btn-rod { display: block; }
+body.st-hand.has-act #btn-act { display: block; }
+/* Onki kädessä, ei heitetty: heitto, vieheen vaihto, korkeuden säätö ja ongen laitto pois */
+body.st-ready #btn-cast, body.st-ready #btn-lure, body.st-ready #btn-rod { display: block; }
+body.st-ready #stepper { display: flex; }
+/* Heitetty: kelaus (pidä pohjassa), siiman vapautus, kelausnopeus (vain uistimilla) ja katkaisu */
+body.st-out #btn-cast, body.st-out #btn-pay, body.st-out #btn-cut { display: block; }
+body.st-out.art #stepper { display: flex; }
+.action-buttons .tbtn.down { background: rgba(148, 176, 194, 0.5); }
 
 .stick {
   display: none;

@@ -15,15 +15,15 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 |---|---|---|
 | WASD / nuolinäppäimet | vedä sormella missä tahansa | kävely |
 | hiiri | – | tähtäin: hahmo ja otsalamppu kääntyvät sen suuntaan |
-| hiiren nappi pohjassa | CAST / REEL | onki kädessä: heiton lataus (heitto lähtee napin vapautuessa) tai siiman kelaus |
-| R | ROD | onki käteen / takaisin repun kylkeen |
+| hiiren nappi pohjassa | CAST / REEL (pidä pohjassa) | onki kädessä: heiton lataus (heitto lähtee napin vapautuessa) tai siiman kelaus |
+| R | TAKE ROD / STOW ROD | onki käteen / takaisin repun kylkeen |
 | F | LAMP | otsalamppu päälle / pois |
-| E (teltan ovella) | SLEEP | nukkumaan aamuun kello 7.00 asti; mikä tahansa näppäin herättää |
-| E (nuotion vieressä) | WOOD | lisää nuotioon klapi (kun nuotio ei ole täynnä) |
-| Z (nuotion vieressä) | LIGHT | sytytä sammunut nuotio (kun siinä on puita) |
-| hiiren oikea nappi pohjassa | – | vapauta siimaa kelalta (enintään 30 m ulkona) |
+| E (teltan ovella) | SLEEP (tee-painike) | nukkumaan aamuun kello 7.00 asti; mikä tahansa näppäin herättää |
+| E (nuotion vieressä) | ADD WOOD (tee-painike) | lisää nuotioon klapi (kun nuotio ei ole täynnä) |
+| Z (nuotion vieressä) | LIGHT FIRE (tee-painike) | sytytä sammunut nuotio (kun siinä on puita) |
+| hiiren oikea nappi pohjassa | PAY OUT (pidä pohjassa) | vapauta siimaa kelalta (enintään 30 m ulkona) |
 | Q | LURE | vaihda viehe: koho ja mato / vaappu / lippa / pohjaonki ja mato / pohjaonki ja boilie (vain kun siima on kelattu sisään) |
-| hiiren rulla tai - / + | – | koholla koukun syvyys 0,1–1,5 m ja pohjaongella syötin etäisyys puntista 20–120 cm (vain kun siima on kelattu sisään); uistimilla kelausnopeus 10–100 cm/s |
+| hiiren rulla tai - / + | − / + | koholla koukun syvyys 0,1–1,5 m ja pohjaongella syötin etäisyys puntista 20–120 cm (vain kun siima on kelattu sisään); uistimilla kelausnopeus 10–100 cm/s |
 | T / Shift+T | – | ajan nopeus 1x–10x todelliseen aikaan verrattuna (nopeampi / hitaampi) |
 | L | – | kelaa kello nopeasti (60 min/s) selaimen paikalliseen kellonaikaan; perillä nopeus palaa 1x:ään |
 | V | – | huijaustila (cheat mode) päälle / pois: vesi piilotetaan, kalat ja pohja näkyvät, debug-viivat |
@@ -33,6 +33,15 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 | H | – | kalan voimapalkki näkyviin / piiloon (vain huijaustilassa) |
 | P | II | tauko |
 | M | ♪ | äänet päälle / pois |
+| – | ⛶ | koko näyttö (vain kosketusnäytöllä) |
+
+**Kosketusohjaus:** liiketikku syntyy siihen, mihin sormi painetaan. Oikean reunan napit vaihtuvat tilan mukaan, ja otsalampun
+nappi (LAMP) on vasemmassa alakulmassa kaikissa tiloissa; tauko, ääni ja koko näyttö ovat ylälaidassa.
+- *Ei onkea kädessä:* TAKE ROD sekä tee-painike, joka näkyy vain kun jotain voi tehdä ja vaihtuu tilanteen mukaan
+  (SLEEP teltalla, ADD WOOD ja LIGHT FIRE nuotiolla, BOAT veneen luona, GO ASHORE veneestä rantaan).
+- *Onki kädessä, ei heitetty:* CAST (pidä pohjassa, heitto lähtee irrotettaessa), LURE (vieheen vaihto), − / + (koho: koukun
+  syvyys HOOK, pohjaonki: syötin etäisyys BAIT, uistin: kelausnopeus SPEED; pidä pohjassa toistaaksesi) ja STOW ROD.
+- *Heitetty:* REEL (pidä pohjassa), PAY OUT (pidä pohjassa), CUT sekä uistimilla kelausnopeuden − / +.
 
 Oikeassa yläkulmassa näkyy jatkuvasti ruudunpäivitysnopeus ja yhden ruudun laskenta-aika (esim. `60 FPS  4.2 MS`; päivitykset ja
 piirtokomennot, keskiarvo puolen sekunnin ajalta).

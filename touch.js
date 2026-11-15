@@ -44,6 +44,7 @@
     moveId = null;
     touch.mx = touch.my = 0;
     touch.cast = false;
+    mouseHeld2 = false;
     hideStick();
   }
 
@@ -68,7 +69,7 @@
 
   addEventListener('touchstart', (e) => {
     setTouchMode(true);
-    e.preventDefault();        // estää zoomauksen, vierityksen ja selaimen hiiriemulaation
+    if (e.cancelable) e.preventDefault();        // estää zoomauksen, vierityksen ja selaimen hiiriemulaation
     for (const t of e.changedTouches) {
       const s = { x: t.clientX, y: t.clientY, startState: state, move: false };
       sticks[t.identifier] = s;
@@ -80,7 +81,7 @@
   }, { passive: false });
 
   addEventListener('touchmove', (e) => {
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     for (const t of e.changedTouches) {
       const s = sticks[t.identifier];
       if (s && s.move) stickUpdate(s, t);
@@ -88,7 +89,7 @@
   }, { passive: false });
 
   function touchEnd(e) {
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     // Ääni ja koko näyttö sallitaan vasta sormen noston jälkeen
     initAudio();
     for (const t of e.changedTouches) {
@@ -111,13 +112,13 @@
   function button(id, action, onEnd) {
     const b = document.getElementById(id);
     b.addEventListener('touchstart', (e) => {
-      e.preventDefault(); e.stopPropagation();
+      if (e.cancelable) e.preventDefault(); e.stopPropagation();
       setTouchMode(true);
       b.classList.add('down');
       if (!onEnd) action();
     }, { passive: false });
     b.addEventListener('touchend', (e) => {
-      e.preventDefault(); e.stopPropagation();
+      if (e.cancelable) e.preventDefault(); e.stopPropagation();
       b.classList.remove('down');
       initAudio();
       if (onEnd) action();
@@ -125,25 +126,71 @@
     b.addEventListener('touchcancel', () => b.classList.remove('down'));
   }
 
+  // Napit: ROD ottaa ongen käteen / laittaa sen pois, LAMP otsalamppu, LURE vaihtaa vieheen, CUT katkaisee siiman
   button('btn-rod', () => { if (state === 'play') pressed.KeyR = true; });
   button('btn-light', () => { if (state === 'play') pressed.KeyF = true; });
-  button('btn-sleep', () => { if (canSleep()) pressed.KeyE = true; });
   button('btn-cut', () => { if (state === 'play') pressed.KeyC = true; });
   button('btn-lure', () => { if (state === 'play') pressed.KeyQ = true; });
-  button('btn-boat', () => { if (state === 'play') pressed.KeyE = true; });
-  button('btn-wood', () => { if (state === 'play') pressed.KeyE = true; });
-  button('btn-ignite', () => { if (state === 'play') pressed.KeyZ = true; });
-  // Heittonappia pidetään pohjassa: heitto lähtee sormen noustessa katsesuuntaan
+
+  // Tee-painike: näyttää sen, minkä pelaaja voi juuri nyt tehdä (sama valinta kuin näppäimillä E ja Z)
+  function contextAction() {
+    if (!player || state !== 'play' || player.rod) return null;
+    if (canLightFire()) return { label: 'LIGHT FIRE', key: 'KeyZ' };
+    const dtt = Math.hypot(player.x - TENT_DOOR.x, player.y - TENT_DOOR.y), dff = Math.hypot(player.x - CAMP.cx - 0.5, player.y - CAMP.cy - 0.5);
+    if (nearFire() && !(canSleep() && dtt < dff)) return fireFull() ? null : { label: 'ADD WOOD', key: 'KeyE' };
+    if (canSleep()) return { label: 'SLEEP', key: 'KeyE' };
+    if (canBoard()) return { label: 'BOAT', key: 'KeyE' };
+    if (player.boat && canLeave()) return { label: 'GO ASHORE', key: 'KeyE' };
+    return null;
+  }
+  let actKey = null;
+  button('btn-act', () => { if (state === 'play' && actKey) pressed[actKey] = true; });
+
+  // Heitto- ja kelausnappia pidetään pohjassa: heitto lähtee sormen noustessa katsesuuntaan, ja heitetyn
+  // vieheen kanssa pohjassa pitäminen kelaa siimaa sisään (sama kuin hiiren vasen nappi)
   const castBtn = document.getElementById('btn-cast');
   castBtn.addEventListener('touchstart', (e) => {
-    e.preventDefault(); e.stopPropagation();
+    if (e.cancelable) e.preventDefault(); e.stopPropagation();
     setTouchMode(true);
     castBtn.classList.add('down');
     touch.cast = state === 'play';
   }, { passive: false });
-  const castUp = (e) => { e.preventDefault(); e.stopPropagation(); castBtn.classList.remove('down'); touch.cast = false; initAudio(); };
+  const castUp = (e) => { if (e.cancelable) e.preventDefault(); e.stopPropagation(); castBtn.classList.remove('down'); touch.cast = false; initAudio(); };
   castBtn.addEventListener('touchend', castUp, { passive: false });
   castBtn.addEventListener('touchcancel', castUp, { passive: false });
+
+  // Siiman vapautus: pohjassa pitäminen päästää siimaa kelalta (sama kuin hiiren oikea nappi)
+  const payBtn = document.getElementById('btn-pay');
+  payBtn.addEventListener('touchstart', (e) => {
+    if (e.cancelable) e.preventDefault(); e.stopPropagation();
+    setTouchMode(true);
+    payBtn.classList.add('down');
+    if (state === 'play') mouseHeld2 = true;
+  }, { passive: false });
+  const payUp = (e) => { if (e.cancelable) e.preventDefault(); e.stopPropagation(); payBtn.classList.remove('down'); mouseHeld2 = false; initAudio(); };
+  payBtn.addEventListener('touchend', payUp, { passive: false });
+  payBtn.addEventListener('touchcancel', payUp, { passive: false });
+
+  // Plus ja miinus: koho-ongella koukun syvyys, pohjaongella syötin etäisyys, uistimilla kelausnopeus
+  // (sama kuin hiiren rulla). Pohjassa pitäminen toistaa askeleen.
+  function repeatButton(id, key) {
+    const b = document.getElementById(id);
+    let t1 = 0, t2 = 0;
+    const stop = (e) => { if (e.cancelable) e.preventDefault(); e.stopPropagation(); b.classList.remove('down'); clearTimeout(t1); clearInterval(t2); initAudio(); };
+    b.addEventListener('touchstart', (e) => {
+      if (e.cancelable) e.preventDefault(); e.stopPropagation();
+      setTouchMode(true);
+      b.classList.add('down');
+      const step = () => { if (state === 'play') pressed[key] = true; };
+      step();
+      t1 = setTimeout(() => { t2 = setInterval(step, 130); }, 400);
+    }, { passive: false });
+    b.addEventListener('touchend', stop, { passive: false });
+    b.addEventListener('touchcancel', stop, { passive: false });
+  }
+  repeatButton('btn-minus', 'Minus');
+  repeatButton('btn-plus', 'Equal');
+
   button('btn-pause', () => { if (state === 'play') { pressed.KeyP = true; releaseAll(); } });
   button('btn-sound', () => { pressed.KeyM = true; });
   button('btn-full', () => {
@@ -152,20 +199,27 @@
   }, true);
   if (!document.fullscreenEnabled) document.getElementById('btn-full').hidden = true;
 
-  // Napit näyttävät, onko onki kädessä ja valo päällä
+  // Napit seuraavat pelin tilaa: st-hand (ei onkea kädessä), st-ready (onki kädessä, ei heitetty), st-out (heitetty)
   const rodBtn = document.getElementById('btn-rod'), lightBtn = document.getElementById('btn-light');
+  const actBtn = document.getElementById('btn-act'), stepLabel = document.getElementById('step-label');
   setInterval(() => {
-    rodBtn.classList.toggle('on', !!(player && player.rod));
+    const play = state === 'play', rod = !!(player && player.rod), out = !!(cast && cast.lure);
+    const b = document.body.classList;
     lightBtn.classList.toggle('on', !!(player && player.light));
-    document.body.classList.toggle('menu', state !== 'play' && state !== 'pause');
-    document.body.classList.toggle('can-sleep', canSleep());
-    document.body.classList.toggle('near-fire', !!player && nearFire() && !fireFull());
-    document.body.classList.toggle('can-ignite', !!player && canLightFire());
-    document.body.classList.toggle('can-boat', !!player && (canBoard() || (player.boat && canLeave())));
-    document.body.classList.toggle('can-lure', !!(player && player.rod) && !(cast && cast.lure) && state === 'play');
-    document.body.classList.toggle('has-rod', !!(player && player.rod) && state === 'play');
-    castBtn.textContent = cast && cast.lure ? 'REEL' : 'CAST';
-    document.body.classList.toggle('line-out', !!(cast && cast.lure && cast.lure.st === 'float') && state === 'play');
+    b.toggle('menu', state !== 'play' && state !== 'pause');
+    b.toggle('st-hand', play && !rod);
+    b.toggle('st-ready', play && rod && !out);
+    b.toggle('st-out', play && rod && out);
+    b.toggle('art', !!(player && isArt(player.lure)));
+    rodBtn.textContent = rod ? 'STOW ROD' : 'TAKE ROD';
+    castBtn.textContent = out ? 'REEL' : 'CAST';
+    const ctx = contextAction();
+    actKey = ctx ? ctx.key : null;
+    b.toggle('has-act', !!ctx);
+    if (ctx) actBtn.textContent = ctx.label;
+    if (player && cast) {
+      stepLabel.textContent = isArt(player.lure) ? 'SPEED ' + cast.reelSpeed : isRig(player.lure) ? 'BAIT ' + Math.round(cast.rigDist * 100) : 'HOOK ' + cast.hookDepth.toFixed(1);
+    }
   }, 100);
 
   // Oikea hiiri käytössä (esim. kosketusnäytöllinen läppäri) -> takaisin näppäimistöohjaukseen

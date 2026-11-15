@@ -35,7 +35,7 @@ ajantasainen toiminnallinen kuvaus (kaikki mekaniikat, näppäimet ja luvut).
 | Tiedosto | Sisältö |
 |---|---|
 | `game.js` | Koko peli (~5500 riviä): kartta, grafiikka (kaikki spritet piirretään koodissa), fysiikka, kalat, äänet, UI |
-| `touch.js` | Kosketusohjaus: liiketikku ja napit (ROD, LAMP, SLEEP, CUT, CAST, LURE, BOAT, WOOD, LIGHT, II, ♪, ⛶) |
+| `touch.js` | Kosketusohjaus: liiketikku ja tilan mukaan vaihtuvat napit (st-hand / st-ready / st-out: ROD, tee-painike, CAST/REEL, PAY OUT, LURE, − / +, CUT; LAMP aina; II, ♪, ⛶) |
 | `index.html`, `style.css` | Canvas, kosketusnapit, pystyasentokehote |
 | `img/watch.png` | Rannekellon taulu (49×49), generoitu skriptillä `tools/mkwatch.py` |
 | `fonts/` | Press Start 2P -fontti (OFL) |

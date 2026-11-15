@@ -24,23 +24,28 @@
       }
     });
   </script>
-  <!-- Kosketusohjaimet: näkyvät vain kosketusnäytöllä -->
+  <!-- Kosketusohjaimet: näkyvät vain kosketusnäytöllä. Oikean reunan napit vaihtuvat tilan mukaan
+       (ei onkea kädessä / onki kädessä / viehe heitetty), otsalampun nappi näkyy aina. -->
   <div id="touch-ui">
-    <div class="top-buttons">
+    <div class="sys-buttons">
       <button id="btn-pause" class="tbtn" aria-label="Pause">II</button>
       <button id="btn-sound" class="tbtn" aria-label="Sound">&#9834;</button>
       <button id="btn-full" class="tbtn" aria-label="Full screen">&#9974;</button>
     </div>
+    <button id="btn-light" class="tbtn" aria-label="Headlamp">LAMP</button>
     <div class="action-buttons">
-      <button id="btn-cut" class="tbtn" aria-label="Cut line">CUT</button>
+      <!-- alhaalta ylös: pääpainike, sivupainikkeet; ryhmät näytetään tilan mukaan -->
+      <button id="btn-cast" class="tbtn big" aria-label="Cast or reel">CAST</button>
+      <button id="btn-pay" class="tbtn" aria-label="Pay out line">PAY OUT</button>
       <button id="btn-lure" class="tbtn" aria-label="Change lure">LURE</button>
-      <button id="btn-cast" class="tbtn" aria-label="Cast or reel">CAST</button>
-      <button id="btn-rod" class="tbtn" aria-label="Rod">ROD</button>
-      <button id="btn-light" class="tbtn" aria-label="Headlamp">LAMP</button>
-      <button id="btn-sleep" class="tbtn" aria-label="Sleep">SLEEP</button>
-      <button id="btn-boat" class="tbtn" aria-label="Boat">BOAT</button>
-      <button id="btn-wood" class="tbtn" aria-label="Add firewood">WOOD</button>
-      <button id="btn-ignite" class="tbtn" aria-label="Light the fire">LIGHT</button>
+      <div id="stepper" class="stepper">
+        <button id="btn-minus" class="tbtn" aria-label="Decrease">-</button>
+        <span id="step-label">HOOK</span>
+        <button id="btn-plus" class="tbtn" aria-label="Increase">+</button>
+      </div>
+      <button id="btn-cut" class="tbtn" aria-label="Cut line">CUT</button>
+      <button id="btn-rod" class="tbtn big" aria-label="Rod">ROD</button>
+      <button id="btn-act" class="tbtn" aria-label="Action">ACT</button>
     </div>
   </div>
   <div id="rotate">Turn your phone sideways</div>
