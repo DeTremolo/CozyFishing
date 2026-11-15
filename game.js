@@ -2653,7 +2653,7 @@ function buildDarkLut(maxDark) {
 // valaistus muuttuu; muuten (paikallaan seistessä) vain joka NIGHT_EVERY. ruudussa, jolloin vain nuotion
 // välke päivittyy harvemmin.
 let nightEvery = 4, nightTick = 0, nightKey = '', nightMKey = '', nightCx = 0, nightCy = 0;
-let lampKey = '', lampLum = new Uint8Array(0);
+let lampFa = 0, lampT = 0, lampKey = '', lampLum = new Uint8Array(0);
 let nightLampBox = null;   // otsalampun valon rajauslaatikko ruudulla [x, y, w, h]
 
 function collectLights(camXr, camYr) {
@@ -2674,7 +2674,7 @@ function collectLights(camXr, camYr) {
 const lampCanvas = makeCanvas(W, H), lampCtx = lampCanvas.getContext('2d', { willReadFrequently: true });
 const lampTint = makeCanvas(W, H), lampTintCtx = lampTint.getContext('2d');
 function drawLampLight() {
-  const g = lampCtx, fa = player.fa;
+  const g = lampCtx, fa = lampFa;
   const psx = W >> 1, psy = H >> 1;   // piirretään aina ruudun keskelle; sijoitus ruudulle tehdään vasta käytettäessä
   g.globalCompositeOperation = 'source-over';
   g.clearRect(0, 0, W, H);
@@ -2747,9 +2747,10 @@ function drawNight(camXr, camYr) {
       const psx = Math.round(isoX(player.x, player.y) - camXr), psy = Math.round(isoY(player.x, player.y) - camYr - playerLift());
       nightLampBox = [psx - 117, psy - 60, 234, 120];   // koko laatikko (voi ulottua ruudun ulkopuolelle)
       addBox(psx - 117, psy - 60, psx + 117, psy + 60);
-      const lk = [player.fa.toFixed(3), (night * 400) | 0, W, H].join();
-      if (lk !== lampKey) {
-        lampKey = lk;
+      // Lampun valo piirretään uudelleen vasta kun suunta on kääntynyt yli 2,5° ja edellisestä on vähintään 8 päivitystä
+      const lk = [(night * 400) | 0, W, H].join();
+      if (lk !== lampKey || (Math.cos(player.fa - lampFa) < 0.999 && time - lampT >= 8)) {
+        lampKey = lk; lampFa = player.fa; lampT = time;
         drawLampLight();
         const rx = (W >> 1) - 117, ry = (H >> 1) - 60;
         const ld = lampCtx.getImageData(rx, ry, 234, 120).data;
