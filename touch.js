@@ -71,6 +71,8 @@
     setTouchMode(true);
     if (e.cancelable) e.preventDefault();        // estää zoomauksen, vierityksen ja selaimen hiiriemulaation
     for (const t of e.changedTouches) {
+      // Napautus oikean yläkulman FPS-lukemaan: ajoitusnäkymä päälle / pois
+      if (state === 'play' && t.clientX > innerWidth - 190 && t.clientY < 46) { pressed.KeyO = true; continue; }
       const s = { x: t.clientX, y: t.clientY, startState: state, move: false };
       sticks[t.identifier] = s;
       if (state !== 'play' || moveId !== null) continue;

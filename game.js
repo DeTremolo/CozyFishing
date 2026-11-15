@@ -1317,7 +1317,7 @@ function snapStars(which) {
   const hw = (W + 1) >> 1, hh = (H + 1) >> 1, A = starSnap.a, M = starSnap.mask;
   if (which === 'a') {
     const key = Math.round(cam.x) + ',' + Math.round(cam.y) + ',' + W + ',' + H;
-    starSnap.redo = key !== starSnap.key || !starSnap.valid || ++starSnap.tick >= STAR_EVERY;
+    starSnap.redo = key !== starSnap.key || !starSnap.valid || ++starSnap.tick >= (gfxLow ? 8 : STAR_EVERY);
     if (!starSnap.redo) return;
     starSnap.key = key; starSnap.tick = 0;
     if (A.width !== hw || A.height !== hh) { A.width = M.width = hw; A.height = M.height = hh; }
@@ -1396,8 +1396,13 @@ function updateTurbidity() {
   for (let k = 0; k < turbAlpha.length; k++) turbAlpha[k] = Math.round((1 - Math.exp(-water.turb * (seenDepth[k] + 0.15) * 1.3)) * 255);
 }
 
-let rowWob = new Int8Array(H);
+// Veden pikselikohtainen laskenta on raskas, joten valmis vesikuva käytetään uudelleen: uusi kuva lasketaan vain kameran
+// liikkuessa tai joka 2. ruudussa (kevyessä tilassa joka 4.). Aallot liikkuvat hitaasti, joten 30 Hz riittää.
+let rowWob = new Int8Array(H), waterKey = '', waterTick = 0;
 function drawWater(camXr, camYr) {
+  const wkey = camXr + ',' + camYr + ',' + W + ',' + H;
+  if (wkey === waterKey && ++waterTick < (gfxLow ? 4 : 2)) { ctx.drawImage(waterCanvas, 0, 0); return; }
+  waterKey = wkey; waterTick = 0;
   updateTurbidity();
   const x0 = Math.max(0, PB.x0 - camXr), x1 = Math.min(W, PB.x0 + PB.w - camXr);
   const y0 = Math.max(0, PB.y0 - camYr), y1 = Math.min(H, PB.y0 + PB.h - camYr);
@@ -2417,7 +2422,7 @@ function mistSpot() {
 }
 function drawWaterMist(camXr, camYr) {
   const f = weather.fog;
-  if (f < 0.03 || !water.show) return;
+  if (f < 0.03 || !water.show || gfxLow) return;   // kevyessä tilassa lammen usvakerrosta ei piirretä (jää yleinen usvaverho)
   if (!mistWisps.length) mistWisps = Array.from({ length: 22 }, mistSpot);
   const lw = Math.ceil(W / 2), lh = Math.ceil(H / 2);
   if (mistLow.width !== lw || mistLow.height !== lh) { mistLow.width = lw; mistLow.height = lh; mistCanvas.width = W; mistCanvas.height = H; }
@@ -2707,7 +2712,7 @@ function drawNight(camXr, camYr) {
   const lights = collectLights(camXr, camYr);
   const lc = lightCtx, lamp = lampOn();
   const key = [camXr, camYr, player.x.toFixed(3), player.y.toFixed(3), player.fa.toFixed(3), lamp, (night * 400) | 0, shownPlayer.x, shownPlayer.y, W, H].join();
-  const redo = key !== nightKey || ++nightTick >= nightEvery;
+  const redo = key !== nightKey || ++nightTick >= (gfxLow ? 8 : nightEvery);
   if (redo) {
     nightKey = key; nightTick = 0;
     // 1) Valon voimakkuus: valkoisia, pehmeästi vaimenevia läiskiä mustalle pohjalle
@@ -4254,6 +4259,8 @@ function update() {
     water.turb = clamp(+(water.turb + (keyHit('BracketRight') ? 0.15 : -0.15)).toFixed(2), 0.05, 2.5);
     notify('Water murkiness ' + water.turb.toFixed(2), 100, 'water');
   }
+  if (keyHit('KeyO')) toggleProf();
+  if (keyHit('KeyG')) setGfx(!gfxLow, true);
   if (keyHit('KeyT')) {
     clockSync = false;
     timeScale = keyDown('ShiftLeft', 'ShiftRight') ? (timeScale > 1 ? timeScale - 1 : 10) : (timeScale < 10 ? timeScale + 1 : 1);
@@ -4753,6 +4760,7 @@ function drawDuckReflection(d, camXr, camYr) {
 const reflAll = makeCanvas(1, 1), reflCtxAll = reflAll.getContext('2d');
 function drawReflections(camXr, camYr) {
   if (!water.show) return;
+  if (gfxLow && (time & 1) && reflAll.width === W && reflAll.height === H) { ctx.globalAlpha = 0.42; ctx.drawImage(reflAll, 0, 0); ctx.globalAlpha = 1; return; }   // kevyt tila: edellinen kuva
   if (reflAll.width !== W || reflAll.height !== H) { reflAll.width = W; reflAll.height = H; }
   const g = reflCtxAll;
   g.globalCompositeOperation = 'source-over';
@@ -5359,8 +5367,13 @@ const holeShape = makeCanvas(W, H), holeShapeCtx = holeShape.getContext('2d', { 
 const holeCanvas = makeCanvas(W, H), holeCtx = holeCanvas.getContext('2d');
 let holeImg = holeCtx.createImageData(W, H);
 let holeRect = [0, 0, W, H];   // viimeksi laskettu aukon alue (viewHole)
+let holeKey = '';
 function viewHole(psx, psy, camXr, camYr) {
   const g = holeShapeCtx, a0 = player.fa;
+  // Aukko riippuu vain hahmon paikasta, katseesta ja kamerasta: valmis kuva käytetään uudelleen, kun ne eivät ole muuttuneet
+  const hk = psx + ',' + psy + ',' + a0.toFixed(3) + ',' + camXr + ',' + camYr + ',' + W + ',' + H;
+  if (hk === holeKey) return holeCanvas;
+  holeKey = hk;
   // Aukko mahtuu laatikkoon: soikio (säde 38, y x1,15) ja keilat (r <= 10,5 ruutua, |cos a - sin a| <= 1,415);
   // mitattu: x -119..118, y -66..53 hahmon ympärillä. Vain tämä laatikko luetaan, lasketaan ja kopioidaan.
   const bx0 = Math.max(0, psx - 120), bx1 = Math.min(W, psx + 121), by0 = Math.max(0, psy - 66), by1 = Math.min(H, psy + 55);
@@ -5462,6 +5475,7 @@ function treeFrame(i, birch) {
   return clamp(Math.round(v * 2), -3, 3) + 3;
 }
 
+let frontDirty = true;   // onko etukerrokselle piirretty jotain (tyhjennys ja yhdistäminen vain silloin)
 function drawWorld() {
   const camXr = Math.round(cam.x), camYr = Math.round(cam.y);
   ctx.fillStyle = '#0c140e';
@@ -5528,12 +5542,13 @@ function drawWorld() {
   list.sort((a, b) => a.d - b.d);
 
   const playerD = player.x + player.y;
-  frontCtx.clearRect(0, 0, W, H);
+  if (frontDirty) { frontCtx.clearRect(0, 0, W, H); frontDirty = false; }
   for (const o of list) {
     // Pelaajan edessä olevat puut menevät etukerrokselle, josta aukko leikataan. Kivet, ruohot ja
     // kaislat näkyvät aina kokonaan ja peittävät niiden takana seisovan hahmon.
     const rock = o.k === 0 && kind[o.i] === K_ROCK;
     ctx = o.k === 0 && o.d > playerD && !rock && playerShown() ? frontCtx : mainCtx;
+    if (ctx === frontCtx) frontDirty = true;
     if (o.k === 0) {
       const spr = FOREST_SPR[kind[o.i]][pvar[o.i]];
       if (rock) ctx.drawImage(spr.full, o.sx - spr.ax, o.sy - spr.ay + 1);
@@ -5563,15 +5578,16 @@ function drawWorld() {
   }
   ctx = mainCtx;
 
-  // Leikataan etukerrokseen aukko pelaajan kohdalle ja piirretään se päälle
-  if (playerShown()) {
+  // Leikataan etukerrokseen aukko pelaajan kohdalle ja piirretään se päälle (vain jos etukerrokselle piirrettiin jotain,
+  // esim. lammen keskellä veneessä ei piirretä)
+  if (frontDirty && playerShown()) {
     const psx = Math.round(isoX(player.x, player.y) - camXr), psy = Math.round(isoY(player.x, player.y) - camYr);
     frontCtx.globalCompositeOperation = 'destination-out';
     const hc = viewHole(psx, psy, camXr, camYr), [hx, hy, hw, hh] = holeRect;
     if (hw > 0 && hh > 0) frontCtx.drawImage(hc, hx, hy, hw, hh, hx, hy, hw, hh);
     frontCtx.globalCompositeOperation = 'source-over';
   }
-  ctx.drawImage(front, 0, 0);
+  if (frontDirty) ctx.drawImage(front, 0, 0);
 
   // Ilmassa lentävät sorsat ja taivaan linnut puiden yläpuolella
   for (const dk of ducks) if (dk.z >= 3) drawDuck(dk, isoX(dk.x, dk.y) - camXr, isoY(dk.x, dk.y) - camYr);
@@ -5959,14 +5975,39 @@ function drawWindVane() {
 }
 
 // Teksti piirretään isolle kankaalle, jotta pikselifontti pysyy terävänä
+// Teksti piirretään suoraan, kunnes sama teksti on näkynyt kolmesti: sen jälkeen siitä tehdään valmis kuva, jota
+// piirretään joka ruudussa (fillText on hidas etenkin puhelimissa; HUD-rivit muuttuvat harvoin). Joka ruudussa
+// muuttuvia tekstejä ei välimuistiteta.
+const textCache = new Map(), textSeen = new Map();
+let textFrame = 0;
+// Kun fontti on latautunut, välimuistiin ehtinyt vara-fontilla piirretty teksti unohdetaan
+if (document.fonts) { document.fonts.addEventListener('loadingdone', () => { textCache.clear(); textSeen.clear(); }); document.fonts.ready.then(() => { textCache.clear(); textSeen.clear(); }); }
+function textDirect(g, str, x, y, size, color, align) {
+  g.font = `${size * S}px "Press Start 2P", monospace`;
+  g.textAlign = align;
+  g.textBaseline = 'top';
+  g.fillStyle = '#1a1c2c';
+  g.fillText(str, x + S, y + S);
+  g.fillStyle = color;
+  g.fillText(str, x, y);
+}
 function text(str, x, y, size = 8, color = '#ffffff', align = 'center') {
-  vctx.font = `${size * S}px "Press Start 2P", monospace`;
-  vctx.textAlign = align;
-  vctx.textBaseline = 'top';
-  vctx.fillStyle = '#1a1c2c';
-  vctx.fillText(str, x * S + S, y * S + S);
-  vctx.fillStyle = color;
-  vctx.fillText(str, x * S, y * S);
+  const key = size * S + '|' + color + '|' + str;
+  let c = textCache.get(key);
+  if (!c) {
+    const n = (textSeen.get(key) || 0) + 1;
+    textSeen.set(key, n);
+    if (n < 3) { textDirect(vctx, str, x * S, y * S, size, color, align); return; }
+    vctx.font = `${size * S}px "Press Start 2P", monospace`;
+    const w = Math.ceil(vctx.measureText(str).width) + S * 2, h = Math.ceil(size * S * 1.3) + S * 2;
+    const cv = makeCanvas(w + 4, h + 4);
+    textDirect(cv.getContext('2d'), str, 2, 2, size, color, 'left');
+    if (textCache.size > 300) textCache.clear();
+    c = { cv, w: w - S * 2 };
+    textCache.set(key, c);
+  }
+  const dx = align === 'center' ? -c.w / 2 : align === 'right' ? -c.w : 0;
+  vctx.drawImage(c.cv, Math.round(x * S + dx) - 2, Math.round(y * S) - 2);
 }
 
 function dim(a = 0.6) {
@@ -6154,14 +6195,52 @@ buffersReady = true;
 setupWorld();
 const STEP = 1000 / 60;
 let last = performance.now(), acc = 0;
+// Laatutaso: hidas laite (ruudun aika pitkään yli 22 ms) siirtyy automaattisesti kevyeen tilaan, jossa veden
+// ja yön valokerrokset, tähdet ja heijastukset päivitetään harvemmin eikä usvaa piirretä lammella.
+// G-näppäin vaihtaa tilaa käsin. Tila säilyy, kunnes peli ladataan uudelleen.
+function setGfx(low, manual) {
+  if (low === gfxLow) return;
+  gfxLow = low; if (manual) gfxManual = true;
+  waterKey = ''; starSnap.valid = false; nightKey = '';
+  notify(low ? (manual ? 'Graphics: low' : 'Slow device: graphics set to low (G = toggle)') : 'Graphics: normal', 160, 'gfx');
+}
+// Ajoitusnäkymä (O-näppäin tai napautus FPS-lukemaan): kunkin piirto-osan ruudun aika millisekunteina (kaikkien
+// ruutujen keskiarvo, sisältää sisäkkäiset kutsut), jolla löydetään hitaan laitteen todellinen pullonkaula
+const prof = { on: false, t: {}, n: 0, orig: {}, lines: [] };
+const PROF_FUNCS = ['update', 'render', 'drawWorld', 'drawWater', 'drawUnderwater', 'drawReflections', 'drawWeather', 'drawNight', 'viewHole', 'snapStars', 'drawStarReflections', 'drawWaterMist', 'drawShadows', 'drawSeal', 'drawCampfire', 'drawPlayer'];
+function toggleProf() {
+  prof.on = !prof.on;
+  if (prof.on) {
+    prof.t = {}; prof.n = 0;
+    for (const f of PROF_FUNCS) {
+      const o = window[f]; if (typeof o !== 'function') continue;
+      prof.orig[f] = o; prof.t[f] = 0;
+      window[f] = function (...a) { const t = performance.now(); const r = o.apply(this, a); prof.t[f] += performance.now() - t; return r; };
+    }
+  } else {
+    for (const f in prof.orig) window[f] = prof.orig[f];
+    prof.orig = {}; prof.lines = [];
+  }
+}
+function drawProf() {
+  if (++prof.n >= 30) {
+    prof.lines = Object.entries(prof.t).map(([k, v]) => [k, v / prof.n]).sort((a, b) => b[1] - a[1]).slice(0, 12);
+    for (const k in prof.t) prof.t[k] = 0;
+    prof.n = 0;
+  }
+  prof.lines.forEach(([k, v], i) => text(k.replace(/^draw/, '').toUpperCase() + ' ' + v.toFixed(1), W - 6, 22 + i * 7, 4, '#e0c070', 'right'));
+}
 // FPS ja yhden ruudun laskenta-aika (päivitykset + piirtokomennot, ei selaimen omaa rasterointia),
 // keskiarvo puolen sekunnin ajalta; näkyy oikeassa yläkulmassa
-const perf = { n: 0, ms: 0, t0: 0, fps: 0, avg: 0 };
+const perf = { n: 0, ms: 0, t0: 0, fps: 0, avg: 0, slow: 0 };
+let gfxLow = false, gfxManual = false;
 function drawPerf() {
-  text(perf.fps + ' FPS  ' + perf.avg.toFixed(1) + ' MS', W - 6, 6, 4, '#94b0c2', 'right');
+  text(perf.fps + ' FPS  ' + perf.avg.toFixed(1) + ' MS' + (gfxLow ? '  LOW' : ''), W - 6, 6, 4, '#94b0c2', 'right');
+  if (prof.on) drawProf();
 }
 function frame(t) {
   const t0 = performance.now();
+  if (++textFrame % 900 === 0) textSeen.clear();
   acc += Math.min(100, t - last);
   last = t;
   while (acc >= STEP) { update(); acc -= STEP; }
@@ -6172,6 +6251,8 @@ function frame(t) {
   else if (t1 - perf.t0 >= 500) {
     perf.fps = Math.round((perf.n * 1000) / (t1 - perf.t0)); perf.avg = perf.ms / perf.n;
     perf.n = 0; perf.ms = 0; perf.t0 = t1;
+    // Hidas laite: ruudun aika yli 22 ms (tai fps alle 40 ja aika yli 12 ms) kolme mittausta (1,5 s) peräkkäin -> kevyt tila
+    if (!gfxLow && !gfxManual && state === 'play' && (perf.avg > 22 || (perf.fps < 40 && perf.avg > 12))) { if (++perf.slow >= 3) setGfx(true, false); } else perf.slow = 0;
   }
   drawPerf();
   requestAnimationFrame(frame);

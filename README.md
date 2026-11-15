@@ -31,6 +31,8 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 | B | – | syvyyskäyrät (1 m välein) päälle / pois (vain huijaustilassa) |
 | C | CUT | katkaise siima (kun siima on ulkona) |
 | H | – | kalan voimapalkki näkyviin / piiloon (vain huijaustilassa) |
+| G | – | grafiikka kevyeksi / normaaliksi käsin (hitaalla laitteella peli siirtyy kevyeen tilaan itsekseen, ks. alla) |
+| O | napautus FPS-lukemaan | ajoitusnäkymä päälle / pois: piirto-osien ruudun aika millisekunteina |
 | P | II | tauko |
 | M | ♪ | äänet päälle / pois |
 | – | ⛶ | koko näyttö (vain kosketusnäytöllä) |
@@ -161,6 +163,17 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
 - **Yö**: sorsat nukkuvat rantakaislikossa ja pakenevat säikähtäessään siipiä räpyttäen veden pintaa pitkin.
   Metsän eläimet ja lentävät linnut nukkuvat, joten niitä ei näe (yöllä kuuluu vain huuhkajan huhuilu).
   Yöeläimiä voi lisätä `ANIMAL_KINDS.night`-listaan.
+
+## Suorituskyky
+
+Oikeassa yläkulmassa näkyy FPS ja yhden ruudun laskenta-aika (päivitykset ja piirtokomennot). Jos ruudun aika on kolmesti
+(1,5 s) peräkkäin yli 22 ms (tai fps alle 40 ja aika yli 12 ms), peli siirtyy automaattisesti **kevyeen tilaan** (teksti LOW):
+vesi päivitetään joka 4. ruudussa (normaalisti joka 2.), yön valokerros ja tähtimaski joka 8. (normaalisti joka 4.),
+heijastukset joka toisessa ruudussa eikä lammen päällä leijuvaa usvakerrosta piirretä. G-näppäin vaihtaa tilaa käsin (silloin
+automatiikka ei enää vaihda sitä). Ajoitusnäkymä (O tai FPS-lukeman napautus) listaa suurimmat piirto-osat ja niiden ruudun ajan
+ms (keskiarvo 30 ruudusta, sisäkkäiset kutsut mukana), jolla löytyy hitaan laitteen pullonkaula. Piirtoa on kevennetty muuten
+näin: vesikuva käytetään uudelleen, kun kamera ei liiku; pelaajan näkymäaukko ja etukerros lasketaan vain tarvittaessa; yön
+valokerros ja tähtimaski päivittyvät harvemmin paikallaan; HUD-tekstit piirretään valmiista kuvista.
 
 ## Lammen syvyys
 

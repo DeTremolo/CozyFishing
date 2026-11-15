@@ -94,6 +94,9 @@ Polttopuukatos → Tähtäin ja vieheet (`LURES`) → Pelisilmukka.
    hehkut ja tähdet yöpeitteen päällä) → UI (kello, tuuliviiri, tähtäin, palkit).
 - Tähtien peitto lasketaan GPU:lla erotuskuvana (`snapStars` a/b), ei pikselilukuna. Maski on puolella resoluutiolla ja päivittyy vain
   kameran liikkuessa tai `STAR_EVERY` (4) ruudun välein; muina ruutuina piirretään valmis `starCanvas`.
+- Laatutaso: `gfxLow` (auto, kun ruudun aika on pitkään yli 22 ms; G vaihtaa käsin) harventaa veden, yön ja tähtien päivityksiä;
+  ajoitusnäkymä `prof` (O) kertoo piirto-osien ms. Vesikuva (`drawWater`) käytetään uudelleen kameran ollessa paikallaan, ja etukerros
+  + `viewHole` lasketaan vain kun etukerrokselle piirrettiin jotain (`frontDirty`). `text()` välimuistittaa toistuvat HUD-tekstit.
 - Yön pimeyskerros (`drawNight`) lasketaan uudelleen kameran, hahmon tai valaistuksen muuttuessa, muuten `nightEvery` (4) ruudun välein;
   vain valojen rajauslaatikko luetaan ja rasteroidaan (muu ruutu on tasaista täyspimeyttä).
 
