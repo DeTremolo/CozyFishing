@@ -2628,6 +2628,12 @@ function makeLightSprite(r, g, b, stops) {
   return c;
 }
 const lightBlob = makeLightSprite(255, 255, 255, [[0, 1], [0.3, 0.62], [0.65, 0.22], [1, 0]]);
+// Valoläiskän säteittäinen profiili (0 = keskellä, 1 = reunalla) luetaan kerran; valokartta lasketaan sillä suoraan
+// ilman GPU-canvaksen lukua joka ruudussa (getImageData on puhelimella hidas)
+const lightProf = new Float32Array(257);
+{ const g = lightBlob.getContext('2d'), h = LIGHT_SPR >> 1, row = g.getImageData(h, h, h, 1).data;
+  for (let i = 0; i <= 256; i++) lightProf[i] = row[Math.min(h - 1, Math.floor(i / 256 * h)) * 4 + 3] / 255; }
+let lightBuf = new Uint16Array(0);
 const colorBlobs = {};   // väriläiskät värin mukaan: alfa 0,3 -> 0,1 -> 0
 const colorBlob = (col) => colorBlobs[col] || (colorBlobs[col] = makeLightSprite(col[0], col[1], col[2], [[0, 0.3], [0.5, 0.1], [1, 0]]));
 // Pimeyskerroksen hakutaulu: (valon arvo 0–255, Bayer-kohta 0–15) -> valmis 32-bittinen pikseli
@@ -2664,7 +2670,7 @@ function collectLights(camXr, camYr) {
 // Otsalampun valo. Lamppu on hatussa, joten maahan osuva valoläikkä alkaa vasta noin metrin päästä
 // jaloista ja ulottuu noin 10 metriin. Lampusta läikkään kulkee ilmassa himmeä keila. Hahmo itse
 // leikataan valosta pois, jolloin poispäin osoittava keila jää hahmon taakse.
-const lampCanvas = makeCanvas(W, H), lampCtx = lampCanvas.getContext('2d');
+const lampCanvas = makeCanvas(W, H), lampCtx = lampCanvas.getContext('2d', { willReadFrequently: true });
 const lampTint = makeCanvas(W, H), lampTintCtx = lampTint.getContext('2d');
 function drawLampLight(camXr, camYr) {
   const g = lampCtx, fa = player.fa;
@@ -2715,22 +2721,8 @@ function drawNight(camXr, camYr) {
   const redo = key !== nightKey || ++nightTick >= (gfxLow ? 8 : nightEvery);
   if (redo) {
     nightKey = key; nightTick = 0;
-    // 1) Valon voimakkuus: valkoisia, pehmeästi vaimenevia läiskiä mustalle pohjalle
-    lc.globalCompositeOperation = 'source-over';
-    lc.fillStyle = '#000';
-    lc.fillRect(0, 0, W, H);
-    lc.globalCompositeOperation = 'lighter';
-    for (const l of lights) {
-      lc.globalAlpha = l.a;
-      lc.drawImage(lightBlob, l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
-    }
-    lc.globalAlpha = 1;
-    // Otsalampun valo lisätään omalta kerrokseltaan (ks. drawLampLight)
-    if (lamp) {
-      lc.globalCompositeOperation = 'lighter';
-      lc.drawImage(drawLampLight(camXr, camYr), 0, 0);
-    }
-
+    if (lamp) drawLampLight(camXr, camYr);
+    // 1) Valon voimakkuus lasketaan suoraan taulukkoon (blob-valot) ja otsalampun kerros luetaan vain sen laatikosta
     // 2) Pimeyskerros: rasteroidaan valon mukaan porrastetuiksi tasoiksi
     // Valon määrä porrastetaan ja rasteroidaan, pimeyden voimakkuus ei: tasainen hämärä pysyy tasaisena
     // eikä muutu pistekuvioksi, ja vain valokeilojen reunoille tulee porrastettu, kuvioitu liuku.
@@ -2755,10 +2747,27 @@ function drawNight(camXr, camYr) {
     darkCtx.fillRect(0, 0, W, H);
     const bw = bx1 - bx0, bh = by1 - by0;
     if (bw > 0 && bh > 0) {
-      const src = lc.getImageData(bx0, by0, bw, bh).data;
-      for (let y = by0, q = 0; y < by1; y++) {
+      if (lightBuf.length !== W * H) lightBuf = new Uint16Array(W * H);
+      for (let y = by0; y < by1; y++) lightBuf.fill(0, y * W + bx0, y * W + bx1);
+      for (const l of lights) {
+        const x0 = Math.max(bx0, Math.floor(l.x - l.r)), x1 = Math.min(bx1, Math.ceil(l.x + l.r));
+        const y0 = Math.max(by0, Math.floor(l.y - l.r)), y1 = Math.min(by1, Math.ceil(l.y + l.r));
+        const k = 256 / l.r, amp = 255 * l.a;
+        for (let y = y0; y < y1; y++) {
+          const dy = y + 0.5 - l.y, dy2 = dy * dy;
+          for (let x = x0, i = y * W + x0; x < x1; x++, i++) {
+            const dx = x + 0.5 - l.x, d = Math.sqrt(dx * dx + dy2) * k;
+            if (d < 256) lightBuf[i] += amp * lightProf[d | 0] + 0.5;
+          }
+        }
+      }
+      if (lamp && nightLampBox) {
+        const [lx, ly, lw, lh] = nightLampBox, ld = lampCtx.getImageData(lx, ly, lw, lh).data;
+        for (let y = 0, q = 0; y < lh; y++) for (let x = 0, i = (ly + y) * W + lx; x < lw; x++, i++, q += 4) lightBuf[i] += ld[q] * ld[q + 3] / 255;
+      }
+      for (let y = by0; y < by1; y++) {
         const row = (y & 3) * 4;
-        for (let x = bx0, i = y * W + bx0; x < bx1; x++, i++, q += 4) dark32[i] = darkLut[(src[q] << 4) | (row + (x & 3))];
+        for (let x = bx0, i = y * W + bx0; x < bx1; x++, i++) dark32[i] = darkLut[(Math.min(255, lightBuf[i]) << 4) | (row + (x & 3))];
       }
       darkCtx.putImageData(darkImg, 0, 0, bx0, by0, bw, bh);
     }
