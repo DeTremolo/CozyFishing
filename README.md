@@ -58,7 +58,10 @@ vanaveden), ja koko heitetty siima pitää kelata ennen kuin onkea voi laittaa s
 
 Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peilikuvat). Onki ei peilaudu
 mukana: selässä se on kaikissa suunnissa repun oikeassa reunassa (hahmon oma oikea puoli; länteen päin katsottaessa se
-jää repun ja hahmon taakse) ja kädessä aina oikeassa kädessä (`ROD_BACK`, `HAND_X`).
+jää repun ja hahmon taakse) ja kädessä aina oikeassa kädessä (`ROD_BACK`, `HAND_X`). Vasen käsi pitää kelasta:
+kun onki on kädessä, vasen käsi on kelalla, ja kelatessa (hiiri pohjassa, viehe vedessä) se kiertää kampea samaa vauhtia
+kuin tähtäimen kela (`drawLeftHand`). Etu- ja sivusuunnista, joissa vasen käsi näkyy roikkumassa kyljellä, kuvasta
+poistetaan se käsi (`REEL_ERASE`), ja poispäin katsottaessa käsi kiertää kampea hahmon kyljellä.
 
 ## Maailma
 
@@ -71,8 +74,8 @@ jää repun ja hahmon taakse) ja kädessä aina oikeassa kädessä (`ROD_BACK`, 
   Metsään ja veteen ei voi kävellä.
 - **Metsä**: enimmäkseen eri muotoisia kuusia (kapea, suippo latvus yksittäisistä riippuvista oksista ja
   niiden alta roikkuvista neulasverhoista), joukossa harvakseltaan mäntyjä ja koivuja. Puiden latvukset
-  huojuvat tuulessa rauhallisesti, kukin puu omassa tahdissaan. Metsän reunassa (3 ruutua) puu on
-  jokaisessa ruudussa, sen takana vain joka toisessa (shakkiruudukko, `FOREST_FULL_DEPTH`) ja yli 7 ruudun syvyydessä vain joka
+  huojuvat tuulessa rauhallisesti, kukin puu omassa tahdissaan. Metsän reunassa (2 ruutua) puu on
+  jokaisessa ruudussa (`FOREST_FULL_DEPTH`), sen takana (3–7 ruutua) vain joka kolmannessa ja yli 7 ruudun syvyydessä vain joka
   neljännessä (`FOREST_SPARSE_DEPTH`), mikä keventää piirtoa.
   Reuna mitataan ruutuina lähimmästä metsättömästä ruudusta (penger, aukea, vesi), ei pelkästä lammesta. Auringon varjot
   piirretään vain reunan puille, koska syvässä metsässä niitä ei näe. Rantavedessä kasvavassa

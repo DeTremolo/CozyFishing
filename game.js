@@ -297,6 +297,20 @@ function playerSprite(rows) {
   return { img: c };
 }
 const PLAYER_SPR = Object.fromEntries(VIEW_ORDER.map((v) => [v, VIEW_INFO[v].legs.map((l) => playerSprite([...VIEW_INFO[v].rows, ...l]))]));
+// Onki kädessä: vasen käsi kelaa, joten kuvan roikkuva vasen käsi poistetaan ja käsi piirretään kelalle
+// (drawLeftHand). Poistettava alue: [x0, x1, y0, y1] kuvan sarakkeina ja riveinä sille suunnalle, jossa
+// kuvassa näkyvä käsi on hahmon vasen (S ja SE: ruudun oikea, N ja NW: ruudun vasen). Muissa suunnissa
+// vasen käsi on piilossa tai se on oikea käsi, jolloin kuvaan ei kosketa.
+const REEL_ERASE = { S: ['S', [10, 11, 10, 12]], SE: ['SE', [11, 12, 10, 12]], N: ['N', [1, 1, 7, 11]], NW: ['NE', [12, 12, 7, 11]] };
+const PLAYER_SPR_REEL = Object.fromEntries(Object.entries(REEL_ERASE).map(([dir, [view, [x0, x1, y0, y1]]]) => {
+  const rows = VIEW_INFO[view].rows.map((r, y) => (y >= y0 && y <= y1 ? r.slice(0, x0) + '.'.repeat(x1 - x0 + 1) + r.slice(x1 + 1) : r));
+  return [dir, VIEW_INFO[view].legs.map((l) => playerSprite([...rows, ...l]))];
+}));
+// Hahmon kuva: onki kädessä käytetään kuvaa, josta vasen käsi on poistettu (jos sellainen on)
+const playerSpr = (p) => {
+  const k = p.moving ? Math.floor(p.anim / 8) % 2 : 0, dir = playerDir();
+  return p.rod && PLAYER_SPR_REEL[dir] ? PLAYER_SPR_REEL[dir][k] : PLAYER_SPR[p.view][k];
+};
 
 // Sorsat (sinisorsa): koiras vihreäpäinen, naaras ruskea. Kaikki kuvat nokka oikealle.
 const DUCK_PAL_M = { g: '#1f5a3a', G: '#2f7a4a', y: '#e0b030', w: '#f0f0e8', r: '#6a3a2a', m: '#a8a8a0', M: '#74746e', n: '#5a4a3a', k: '#1a1a1a', u: '#3a4aa0' };
@@ -844,9 +858,9 @@ const nearCamp = (x, y, r) => Math.hypot(x - CAMP.cx - 0.5, y - CAMP.cy - 0.5) <
 const belowClearing = (x, y) => x - y > CLEARING.u0 - 2.5 && x - y < CLEARING.u1 && x + y >= CLEARING.v1 - 1 && x + y < CLEARING.v1 + 14;
 
 // Metsän reunassa (näin monta ruutua lähimmästä metsättömästä ruudusta: penger, aukea, vesi) puu on joka
-// ruudussa, sen takana vain joka toisessa (shakkiruudukko) ja syvimmällä vain joka neljännessä (parillinen
-// x ja y). Varjot piirretään vain reunan puille.
-const FOREST_FULL_DEPTH = 3, FOREST_SPARSE_DEPTH = 7;
+// ruudussa, sen takana vain joka kolmannessa ja syvimmällä (yli FOREST_SPARSE_DEPTH) vain joka neljännessä
+// (parillinen x ja y). Varjot piirretään vain reunan puille.
+const FOREST_FULL_DEPTH = 2, FOREST_SPARSE_DEPTH = 7;
 const forestEdge = new Uint8Array(N * N);   // metsäruudun etäisyys (ruutuina) lähimpään metsättömään ruutuun
 function calcForestEdge() {
   forestEdge.fill(255);
@@ -899,7 +913,7 @@ function genMap() {
   for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++) {
     const i = cy * N + cx, d = forestEdge[i];
     if (type[i] !== T_FOREST || d <= FOREST_FULL_DEPTH) continue;
-    if (((cx + cy) & 1) || (d > FOREST_SPARSE_DEPTH && ((cx | cy) & 1))) kind[i] = K_NONE;
+    if (d > FOREST_SPARSE_DEPTH ? ((cx | cy) & 1) : (cx + 2 * cy) % 3) kind[i] = K_NONE;
   }
 
   // Laituri lähtee penkereeltä aukean kohdalla (ruudulla lammen vasen reuna) kohti lammen keskustaa
@@ -3850,6 +3864,7 @@ function update() {
   updateEnv();
   updateDayPhase();
   updatePlayer();
+  if (isReeling()) handCrank.a += 0.22;
   if (state === 'sleep') { pressed = {}; return; }
   updateWeather();
   burnFire(clockStep);
@@ -4329,7 +4344,7 @@ function drawReflections(camXr, camYr) {
 const reflCanvas = makeCanvas(16, 21), reflCtx = reflCanvas.getContext('2d');
 function drawPlayerReflection(camXr, camYr) {
   if (!water.show || !playerShown() || player.boat || shoreDist(player.x, player.y) > 4) return;
-  const p = player, spr = PLAYER_SPR[p.view][p.moving ? Math.floor(p.anim / 8) % 2 : 0].img;
+  const p = player, spr = playerSpr(p).img;
   const sx = Math.round(isoX(p.x, p.y) - camXr), sy = Math.round(isoY(p.x, p.y) - camYr), lift = playerLift();
   // Peilikuva: kuvan rivi y siirtyy vedenpinnan (sy) alle samalle etäisyydelle
   const rx = sx - 8 + Math.round(Math.sin(time * 0.05) * wind.gust), ry = sy + lift - 2;
@@ -4347,7 +4362,7 @@ function drawPlayer(sx, sy, camXr, camYr) {
   const p = player, V = VIEW_INFO[p.view];
   sx = Math.round(sx); sy = Math.round(sy) - playerLift();
   drawShadow(sx, sy);
-  const spr = PLAYER_SPR[p.view][p.moving ? Math.floor(p.anim / 8) % 2 : 0];
+  const spr = playerSpr(p);
   // Selässä oleva onki on suunnasta riippuen repun takana tai edessä. Kädessä oleva onki
   // osoittaa katsesuuntaan: poispäin katsottaessa se on hahmon takana.
   const RB = ROD_BACK[playerDir()];
@@ -4367,6 +4382,37 @@ function drawPlayer(sx, sy, camXr, camYr) {
   }
   if (!p.rod && RB.front) drawBackRod(sx, sy, p.flip, RB.x);
   if (p.rod && !V.away) drawHeldRod(camXr, camYr);
+  if (p.rod) drawLeftHand(sx, sy, camXr, camYr);
+}
+
+// Kelaus: onki on oikeassa kädessä ja vasen käsi pitää kelasta. Kelatessa (hiiri pohjassa, viehe vedessä)
+// vasen käsi kiertää kampea; muulloin se lepää kelalla. Kelan kampi pyörii samaa vauhtia kuin tähtäimen kela.
+const isReeling = () => player.rod && cast.lure && cast.lure.st !== 'fly' && (mouseHeld || touch.cast) && state === 'play';
+const handCrank = { a: 0 };
+// Olkapään paikka hahmon jalkapisteestä (x, y): vasemman käden varsi alkaa siitä
+const SHOULDER_L = { S: [3, -9], SE: [3, -9], E: [1, -10], W: [-2, -10], SW: [3, -9] };
+function drawLeftHand(sx, sy, camXr, camYr) {
+  const dir = playerDir();
+  let ax, ay, hx, hy;
+  const rate = isReeling() ? handCrank.a : null;
+  if (SHOULDER_L[dir]) {
+    // Käsi kelalla (kela on ongen kahvan vieressä)
+    const g = rodGeom(), gx = g.hx - camXr, gy = g.hy - camYr, l = Math.hypot(g.tx - g.hx, g.ty - g.hy) || 1;
+    const rx = gx + ((g.tx - g.hx) / l) * 3 + 0.5, ry = gy + ((g.ty - g.hy) / l) * 3 + 1;   // kela on ongen kahvan edessä
+    ax = sx + SHOULDER_L[dir][0]; ay = sy + SHOULDER_L[dir][1];
+    hx = rx + (rate === null ? 0 : Math.cos(rate) * 1.6); hy = ry + (rate === null ? 0 : Math.sin(rate) * 1.6);
+  } else if (dir === 'N' || dir === 'NW') {
+    // Poispäin katsottaessa vasen käsi näkyy kyljellä ja kiertää kampea kylkensä edessä
+    ax = sx - 5; ay = sy - 12;
+    hx = sx - 6 + (rate === null ? 0 : Math.cos(rate) * 1.6); hy = sy - 7 + (rate === null ? 0 : Math.sin(rate) * 1.6);
+  } else return;
+  hx = Math.round(hx); hy = Math.round(hy);
+  // Käsivarsi (tumma reuna, takin väri) ja käsi (iho tummalla reunalla)
+  for (const [ox, oy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) plotLine(ctx, ax + ox, ay + oy, hx + ox, hy + oy, '#120c0a');
+  plotLine(ctx, ax, ay, hx, hy, '#6c8c40');
+  ctx.fillStyle = '#120c0a'; ctx.fillRect(hx - 1, hy - 1, 4, 4);
+  ctx.fillStyle = '#f6d0ac'; ctx.fillRect(hx, hy, 2, 2);
+  ctx.fillStyle = '#d29c7c'; ctx.fillRect(hx, hy + 1, 2, 1);
 }
 
 // Vaapulla kelattaessa siima kulkee ongen kärjestä lähes suorana (pieni painovoiman notko) vaappuun tai
