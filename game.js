@@ -1306,51 +1306,73 @@ const starCanvas = makeCanvas(W, H), starCtx = starCanvas.getContext('2d');
 // vahvistetaan kyllästymään asti ja käännetään maskiksi: valkoinen = pinta näkyy, musta = päällä on jotain
 // (puu, kaisla, lumme, kivi, hahmo, lintu…). Kaikki tehdään piirtokomennoilla näytönohjaimella, ilman
 // pikselien lukemista, joten vertailu ei hidasta peliä.
-const starSnap = { a: makeCanvas(1, 1), mask: makeCanvas(1, 1), ok: false };
+// Maski lasketaan puolella resoluutiolla (2 px:n tarkkuus; ohut kohde peittää tähden silti, koska erotus vahvistetaan
+// kyllästymään) ja vain kun kamera liikkuu tai STAR_EVERY ruudun välein: paikallaan seistessä tähtikerros
+// (maski ja tuikkiminen) päivittyy 15 kertaa sekunnissa, ja muina ruutuina piirretään valmis kerros yhdellä piirrolla.
+const STAR_EVERY = 4;
+const starSnap = { a: makeCanvas(1, 1), mask: makeCanvas(1, 1), ok: false, redo: false, valid: false, key: '', tick: 0 };
 const starVis = () => (water.show ? smooth((env.dark - 0.55) / 0.35) * (1 - env.overcast) * (1 - weather.fog) * (1 - wind.gust * 0.6) : 0);
 function snapStars(which) {
-  if (starVis() < 0.03 || !stars.length) { starSnap.ok = false; return; }
-  const A = starSnap.a, M = starSnap.mask;
-  if (A.width !== W || A.height !== H) { A.width = M.width = W; A.height = M.height = H; }
-  if (which === 'a') { A.getContext('2d').drawImage(buf, 0, 0); return; }
+  if (starVis() < 0.03 || !stars.length) { starSnap.ok = starSnap.valid = false; return; }
+  const hw = (W + 1) >> 1, hh = (H + 1) >> 1, A = starSnap.a, M = starSnap.mask;
+  if (which === 'a') {
+    const key = Math.round(cam.x) + ',' + Math.round(cam.y) + ',' + W + ',' + H;
+    starSnap.redo = key !== starSnap.key || !starSnap.valid || ++starSnap.tick >= STAR_EVERY;
+    if (!starSnap.redo) return;
+    starSnap.key = key; starSnap.tick = 0;
+    if (A.width !== hw || A.height !== hh) { A.width = M.width = hw; A.height = M.height = hh; }
+    A.getContext('2d').drawImage(buf, 0, 0, W, H, 0, 0, hw, hh);
+    return;
+  }
+  if (!starSnap.redo) { starSnap.ok = starSnap.valid; return; }
   const ga = A.getContext('2d');
   ga.globalCompositeOperation = 'difference';
-  ga.drawImage(buf, 0, 0);
+  ga.drawImage(buf, 0, 0, W, H, 0, 0, hw, hh);
   ga.globalCompositeOperation = 'lighter';
   for (let k = 0; k < 6; k++) ga.drawImage(A, 0, 0);   // erotus x64 -> pienikin muutos kyllästyy
   ga.globalCompositeOperation = 'source-over';
   const gm = M.getContext('2d');
   gm.globalCompositeOperation = 'source-over';
-  gm.fillStyle = '#fff'; gm.fillRect(0, 0, W, H);
+  gm.fillStyle = '#fff'; gm.fillRect(0, 0, hw, hh);
   gm.globalCompositeOperation = 'difference';
   gm.drawImage(A, 0, 0);
   gm.globalCompositeOperation = 'source-over';
   starSnap.ok = true;
 }
+// Tähtikerroksen värit: alfa kvantisoidaan 32 tasoon, jolloin värimerkkijonoja ei tarvitse rakentaa tähti kerrallaan
+const starStyle = Array.from({ length: 33 }, (_, i) => `rgba(225, 232, 255, ${(i / 32).toFixed(3)})`);
+const starStyle2 = Array.from({ length: 33 }, (_, i) => `rgba(200, 210, 255, ${(i / 32 * 0.35).toFixed(3)})`);
 function drawStarReflections(camXr, camYr) {
   const vis = starVis();
   if (vis < 0.03 || !starSnap.ok) return;
-  const g = starCtx;
-  g.globalCompositeOperation = 'source-over';
-  g.fillStyle = '#000';
-  g.fillRect(0, 0, W, H);
-  for (const st of stars) {
-    const y = st.y - camYr;
-    if (y < 0 || y >= H) continue;
+  if (starSnap.redo) {
+    starSnap.redo = false;
+    const g = starCtx;
+    g.globalCompositeOperation = 'source-over';
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, W, H);
     // Aallokossa heijastus heiluu pikselin tai kaksi; tyynellä vain tuikkii
     const amp = wind.gust < 0.1 ? 0 : Math.min(2, (wind.gust - 0.1) * 3);
-    const x = st.x - camXr + Math.round(Math.sin(st.y * 0.55 + time * 0.07) * amp);
-    if (x < 1 || x >= W - 1) continue;
-    // Tähti pysyy paikallaan; väreilevä pinta vain himmentää ja kirkastaa sitä
-    const a = vis * st.b * (0.6 + 0.4 * Math.sin(time * 0.05 * st.sp + st.ph)) * (1 - wind.gust * 0.5 * (0.5 + 0.5 * Math.sin(time * 0.11 + st.ph * 3)));
-    g.fillStyle = `rgba(225, 232, 255, ${a.toFixed(3)})`;
-    g.fillRect(x, y, 1, 1);
-    if (st.b > 0.85) { g.fillStyle = `rgba(200, 210, 255, ${(a * 0.35).toFixed(3)})`; g.fillRect(x - 1, y, 1, 1); g.fillRect(x + 1, y, 1, 1); }
+    for (const st of stars) {
+      const y = st.y - camYr;
+      if (y < 0 || y >= H) continue;
+      const x = st.x - camXr + (amp ? Math.round(Math.sin(st.y * 0.55 + time * 0.07) * amp) : 0);
+      if (x < 1 || x >= W - 1) continue;
+      // Tähti pysyy paikallaan; väreilevä pinta vain himmentää ja kirkastaa sitä
+      const a = vis * st.b * (0.6 + 0.4 * Math.sin(time * 0.05 * st.sp + st.ph)) * (1 - wind.gust * 0.5 * (0.5 + 0.5 * Math.sin(time * 0.11 + st.ph * 3)));
+      const q = clamp(Math.round(a * 32), 0, 32);
+      g.fillStyle = starStyle[q];
+      g.fillRect(x, y, 1, 1);
+      if (st.b > 0.85) { g.fillStyle = starStyle2[q]; g.fillRect(x - 1, y, 1, 1); g.fillRect(x + 1, y, 1, 1); }
+    }
+    // Maski poistaa tähdet kohdista, joiden päälle on piirretty jotain; musta tausta ei lisää mitään
+    g.globalCompositeOperation = 'multiply';
+    g.imageSmoothingEnabled = false;   // puoliresoluution maski suurennetaan teräväreunaisesti
+    g.drawImage(starSnap.mask, 0, 0, starSnap.mask.width, starSnap.mask.height, 0, 0, W, H);
+    g.imageSmoothingEnabled = true;
+    g.globalCompositeOperation = 'source-over';
+    starSnap.valid = true;
   }
-  // Maski poistaa tähdet kohdista, joiden päälle on piirretty jotain; musta tausta ei lisää mitään
-  g.globalCompositeOperation = 'multiply';
-  g.drawImage(starSnap.mask, 0, 0);
-  g.globalCompositeOperation = 'source-over';
   starSnap.ok = false;
   ctx.globalCompositeOperation = 'lighter';
   ctx.drawImage(starCanvas, 0, 0);
@@ -2619,7 +2641,8 @@ function buildDarkLut(maxDark) {
 // Yön valokerros (valokartta, pimeys, lampun sävy) lasketaan uudelleen heti kun kamera, hahmo tai
 // valaistus muuttuu; muuten (paikallaan seistessä) vain joka NIGHT_EVERY. ruudussa, jolloin vain nuotion
 // välke päivittyy harvemmin.
-let nightEvery = 2, nightTick = 0, nightKey = '';
+let nightEvery = 4, nightTick = 0, nightKey = '';
+let nightLampBox = null;   // otsalampun valon rajauslaatikko ruudulla [x, y, w, h]
 
 function collectLights(camXr, camYr) {
   const L = [];
@@ -2706,23 +2729,43 @@ function drawNight(camXr, camYr) {
     // 2) Pimeyskerros: rasteroidaan valon mukaan porrastetuiksi tasoiksi
     // Valon määrä porrastetaan ja rasteroidaan, pimeyden voimakkuus ei: tasainen hämärä pysyy tasaisena
     // eikä muutu pistekuvioksi, ja vain valokeilojen reunoille tulee porrastettu, kuvioitu liuku.
-    const src = lc.getImageData(0, 0, W, H).data;
+    // Valokartta on nolla valojen ulkopuolella, joten ruutu täytetään ensin tasaisella täyspimeydellä ja vain
+    // valojen rajauslaatikko luetaan ja rasteroidaan (nuotion ja lampun ympäriltä, tyypillisesti alle puolet ruudusta).
     const maxDark = 0.84 * night * 255 / DARK_LEVELS;
     if (darkLutKey !== maxDark) buildDarkLut(maxDark);
     if (!dark32 || dark32.buffer !== darkImg.data.buffer) dark32 = new Uint32Array(darkImg.data.buffer);
-    for (let y = 0, i = 0; y < H; y++) {
-      const row = (y & 3) * 4;
-      for (let x = 0; x < W; x++, i++) dark32[i] = darkLut[(src[i << 2] << 4) | (row + (x & 3))];
-    }
-    darkCtx.putImageData(darkImg, 0, 0);
-    // Otsalampun kellertävä sävy valmiiksi (hahmo itse jää sen ulkopuolelle)
+    let bx0 = W, by0 = H, bx1 = 0, by1 = 0;
+    const addBox = (x0, y0, x1, y1) => { bx0 = Math.min(bx0, Math.max(0, Math.floor(x0))); by0 = Math.min(by0, Math.max(0, Math.floor(y0))); bx1 = Math.max(bx1, Math.min(W, Math.ceil(x1))); by1 = Math.max(by1, Math.min(H, Math.ceil(y1))); };
+    for (const l of lights) addBox(l.x - l.r - 1, l.y - l.r - 1, l.x + l.r + 1, l.y + l.r + 1);
+    nightLampBox = null;
     if (lamp) {
+      // Lampun valo ulottuu enintään ±113 x ±56 px hahmon pään kohdalta (mitattu kaikilla suunnilla)
+      const psx = isoX(player.x, player.y) - camXr, psy = isoY(player.x, player.y) - camYr - playerLift();
+      addBox(psx - 117, psy - 60, psx + 117, psy + 60);
+      const lx0 = Math.max(0, Math.floor(psx - 117)), ly0 = Math.max(0, Math.floor(psy - 60));
+      nightLampBox = [lx0, ly0, Math.min(W, Math.ceil(psx + 117)) - lx0, Math.min(H, Math.ceil(psy + 60)) - ly0];
+    }
+    darkCtx.clearRect(0, 0, W, H);
+    darkCtx.fillStyle = `rgba(4, 6, 22, ${((darkLut[0] >>> 24) / 255).toFixed(4)})`;
+    darkCtx.fillRect(0, 0, W, H);
+    const bw = bx1 - bx0, bh = by1 - by0;
+    if (bw > 0 && bh > 0) {
+      const src = lc.getImageData(bx0, by0, bw, bh).data;
+      for (let y = by0, q = 0; y < by1; y++) {
+        const row = (y & 3) * 4;
+        for (let x = bx0, i = y * W + bx0; x < bx1; x++, i++, q += 4) dark32[i] = darkLut[(src[q] << 4) | (row + (x & 3))];
+      }
+      darkCtx.putImageData(darkImg, 0, 0, bx0, by0, bw, bh);
+    }
+    // Otsalampun kellertävä sävy valmiiksi (hahmo itse jää sen ulkopuolelle); vain lampun laatikko
+    if (lamp && nightLampBox) {
+      const [lx, ly, lw, lh] = nightLampBox;
       lampTintCtx.globalCompositeOperation = 'source-over';
       lampTintCtx.clearRect(0, 0, W, H);
-      lampTintCtx.drawImage(lampCanvas, 0, 0);
+      lampTintCtx.drawImage(lampCanvas, lx, ly, lw, lh, lx, ly, lw, lh);
       lampTintCtx.globalCompositeOperation = 'source-in';
       lampTintCtx.fillStyle = `rgba(255, 240, 200, ${(0.16 * night).toFixed(3)})`;
-      lampTintCtx.fillRect(0, 0, W, H);
+      lampTintCtx.fillRect(lx, ly, lw, lh);
     }
   }
   ctx.drawImage(darkCanvas, 0, 0, W, H);
@@ -2736,7 +2779,7 @@ function drawNight(camXr, camYr) {
     ctx.drawImage(colorBlob(l.col), l.x - rr, l.y - rr, rr * 2, rr * 2);
   }
   ctx.globalAlpha = 1;
-  if (lamp) ctx.drawImage(lampTint, 0, 0);
+  if (lamp && nightLampBox) ctx.drawImage(lampTint, nightLampBox[0], nightLampBox[1], nightLampBox[2], nightLampBox[3], nightLampBox[0], nightLampBox[1], nightLampBox[2], nightLampBox[3]);
   ctx.globalCompositeOperation = 'source-over';
 }
 

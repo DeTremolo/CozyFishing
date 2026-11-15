@@ -92,7 +92,10 @@ Polttopuukatos → Tähtäin ja vieheet (`LURES`) → Pelisilmukka.
    kerrokseen, johon leikataan näkymäaukko pelaajan kohdalle.
 5. Lentävät sorsat ja linnut → partikkelit → `snapStars('b')` → `drawWeather` (sää, yön valokartta,
    hehkut ja tähdet yöpeitteen päällä) → UI (kello, tuuliviiri, tähtäin, palkit).
-- Tähtien peitto lasketaan GPU:lla erotuskuvana (`snapStars` a/b), ei pikselilukuna.
+- Tähtien peitto lasketaan GPU:lla erotuskuvana (`snapStars` a/b), ei pikselilukuna. Maski on puolella resoluutiolla ja päivittyy vain
+  kameran liikkuessa tai `STAR_EVERY` (4) ruudun välein; muina ruutuina piirretään valmis `starCanvas`.
+- Yön pimeyskerros (`drawNight`) lasketaan uudelleen kameran, hahmon tai valaistuksen muuttuessa, muuten `nightEvery` (4) ruudun välein;
+  vain valojen rajauslaatikko luetaan ja rasteroidaan (muu ruutu on tasaista täyspimeyttä).
 
 ### Aika ja sää
 - `time` = päivitysten määrä (60/s). `clock` = pelin kello, `CYCLE = 36000` yksikköä/vrk.
@@ -151,6 +154,8 @@ Omat testiskriptit kannattaa tehdä `tools/smoke.js`:n pohjalta (istunnon scratc
 - Eläinten liikkumistarkistus esti metsäruudut (`playerSolid`) → eläimet jumittuivat näkymättömiin.
   Tarkista uusien esteiden vaikutus myös eläimiin, sorsiin ja veneeseen.
 - `noiseBurst` alkaa täydellä voimakkuudella (terävä isku); pehmeisiin ääniin `softNoise` (nouseva alku).
+- `polyFill` täyttää pikselin, jonka keskipiste on monikulmion sisällä: oikeanpuoleisin pikselisarake w-1 vaatii reunan x = w (muuten
+  esim. norpan nenä jäi irralleen).
 - Heijastukset piirretään yhteen syvyyslajiteltuun kerrokseen; uudet heijastuvat asiat lisätään `drawReflections`iin.
 
 ## Avoimet / mahdolliset jatkot
