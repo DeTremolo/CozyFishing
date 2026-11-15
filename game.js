@@ -266,16 +266,29 @@ const PLAYER_LEGS_SIDE = [
   ['.......cccC...', '......cC..Cc..', '.....Cc....cC.', '.....cc....cc.', '....xxx....xxx'],
 ];
 // Viisi katsesuuntaa; länsipuolen suunnat saadaan peilaamalla. Kullekin suunnalle:
-// rodX = selässä olevan ongen paikka, rodFront = onko onki hahmon edessä, lamp = otsalampun sarake
-// (-1 = ei näy), hand = ongen kahvan paikka, away = katsooko hahmo poispäin katsojasta
+// lamp = otsalampun sarake (-1 = ei näy), away = katsooko hahmo poispäin katsojasta.
+// Ongen paikat eivät saa peilautua mukana (peilikuvassa oikea käsi olisi vasen), joten ne ovat
+// omissa taulukoissaan kaikille kahdeksalle suunnalle (ROD_BACK, HAND_X).
 const VIEW_ORDER = ['N', 'NE', 'E', 'SE', 'S'];
 const VIEW_INFO = {
-  S: { rows: PLAYER_FRONT, legs: PLAYER_LEGS, rodX: 4, rodFront: false, lamp: 6, hand: 4, away: false },
-  SE: { rows: PLAYER_FRONT_SIDE, legs: PLAYER_LEGS, rodX: -5, rodFront: false, lamp: 8, hand: 4, away: false },
-  E: { rows: PLAYER_SIDE, legs: PLAYER_LEGS_SIDE, rodX: -3, rodFront: true, lamp: 10, hand: 1, away: false },
-  NE: { rows: PLAYER_BACK_SIDE, legs: PLAYER_LEGS, rodX: 3, rodFront: true, lamp: -1, hand: 4, away: true },
-  N: { rows: PLAYER_BACK, legs: PLAYER_LEGS, rodX: 4, rodFront: true, lamp: -1, hand: 4, away: true },
+  S: { rows: PLAYER_FRONT, legs: PLAYER_LEGS, lamp: 6, away: false },
+  SE: { rows: PLAYER_FRONT_SIDE, legs: PLAYER_LEGS, lamp: 8, away: false },
+  E: { rows: PLAYER_SIDE, legs: PLAYER_LEGS_SIDE, lamp: 10, away: false },
+  NE: { rows: PLAYER_BACK_SIDE, legs: PLAYER_LEGS, lamp: -1, away: true },
+  N: { rows: PLAYER_BACK, legs: PLAYER_LEGS, lamp: -1, away: true },
 };
+// Hahmon todellinen katsesuunta ruudulla (länsipuolen suunnat ovat peilattuja kuvia)
+const MIRROR_DIR = { SE: 'SW', E: 'W', NE: 'NW' };
+const playerDir = () => (player.flip && MIRROR_DIR[player.view]) || player.view;
+// Selässä oleva onki on aina repun oikeassa reunassa (hahmon oma oikea puoli): x = paikka hahmon keskeltä
+// ruudulla (ei peilata), front = onko onki hahmon edessä (muuten repun ja hahmon takana). Itään
+// katsottaessa oikea puoli on kameraa kohti, länteen katsottaessa poispäin kamerasta.
+const ROD_BACK = {
+  S: { x: -4, front: false }, SE: { x: -5, front: false }, E: { x: -3, front: true }, NE: { x: 3, front: true },
+  N: { x: 4, front: true }, NW: { x: 4, front: true }, W: { x: 3, front: false }, SW: { x: 1, front: false },
+};
+// Ongen kahvan paikka (x hahmon keskestä): kädessä pidetty onki on aina hahmon oikeassa kädessä
+const HAND_X = { S: -4, SE: -4, E: 1, NE: 4, N: 4, NW: 3, W: -2, SW: -5 };
 // Hahmon kuva saa yhden pikselin reunuksen, johon piirretään tumma ääriviiva (kuva on 16 x 21)
 function playerSprite(rows) {
   const base = makeSprite(rows, PLAYER_PAL), c = makeCanvas(base.width + 2, base.height + 2);
@@ -1874,8 +1887,7 @@ function toggleLight() {
 function rodGeom() {
   const p = player, ax = isoX(p.x, p.y), ay = isoY(p.x, p.y) - playerLift();
   const step = p.moving ? Math.floor(p.anim / 8) % 2 : 0;
-  const h = VIEW_INFO[p.view].hand;
-  const hx = p.flip ? ax - h - 1 : ax + h, hy = ay - 6 + step;
+  const hx = ax + HAND_X[playerDir()], hy = ay - 6 + step;
   const sway = Math.sin(time * 0.035) * 0.7;
   const reach = 11 - (cast.charging ? cast.power * 13 : 0) + cast.flick * 0.5;
   return { hx, hy, tx: hx + p.gux * reach + sway, ty: hy + p.guy * 5 * (reach / 11) - 15 + step + Math.sin(time * 0.05) * 0.4 };
@@ -3882,7 +3894,7 @@ const dot = (x, y, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Ma
 
 // Onki repun kyljessä pystyssä: korkkikahva, kela ja tumma vapa, jonka kärki kurottaa hatun yli
 function drawBackRod(sx, sy, flip, rodX) {
-  const x = Math.round(flip ? sx - rodX - 1 : sx + rodX), y0 = Math.round(sy - 5), lean = (rodX >= 0) !== flip ? 1 : -1;
+  const x = Math.round(sx + rodX), y0 = Math.round(sy - 5), lean = rodX >= 0 ? 1 : -1;
   for (let y = y0; y > y0 - 27; y--) {
     const h = y0 - y, xx = x + (h > 16 ? lean : 0);
     if (h >= 4 && h <= 25) dot(xx + (flip ? -1 : 1), y, 'rgba(14, 10, 8, 0.7)');   // tumma reuna erottaa vavan taustasta
@@ -4338,7 +4350,8 @@ function drawPlayer(sx, sy, camXr, camYr) {
   const spr = PLAYER_SPR[p.view][p.moving ? Math.floor(p.anim / 8) % 2 : 0];
   // Selässä oleva onki on suunnasta riippuen repun takana tai edessä. Kädessä oleva onki
   // osoittaa katsesuuntaan: poispäin katsottaessa se on hahmon takana.
-  if (!p.rod && !V.rodFront) drawBackRod(sx, sy, p.flip, V.rodX);
+  const RB = ROD_BACK[playerDir()];
+  if (!p.rod && !RB.front) drawBackRod(sx, sy, p.flip, RB.x);
   if (p.rod && V.away) drawHeldRod(camXr, camYr);
   drawImg(spr.img, sx - 8, sy - 19, p.flip);
   Object.assign(shownPlayer, { img: spr.img, x: sx - 8, y: sy - 19, flip: p.flip, hx: sx, hy: sy - 16 });
@@ -4352,7 +4365,7 @@ function drawPlayer(sx, sy, camXr, camYr) {
     ctx.globalCompositeOperation = 'source-over';
     dot(lx, ly, '#ffffff');
   }
-  if (!p.rod && V.rodFront) drawBackRod(sx, sy, p.flip, V.rodX);
+  if (!p.rod && RB.front) drawBackRod(sx, sy, p.flip, RB.x);
   if (p.rod && !V.away) drawHeldRod(camXr, camYr);
 }
 

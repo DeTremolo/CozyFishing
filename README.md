@@ -56,7 +56,9 @@ koho jättää renkaan ja jää kellumaan. Jos pelaaja loittonee, siima kiristyy
 lähestyessä siima jää löysälle kasalle. Nappi pohjassa siima kelataan sisään (kelattava koho jättää
 vanaveden), ja koko heitetty siima pitää kelata ennen kuin onkea voi laittaa selkään tai heittää uudelleen.
 
-Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peilikuvat).
+Hahmolla on kuvat kahdeksaan suuntaan (viisi piirrettyä suuntaa ja niiden peilikuvat). Onki ei peilaudu
+mukana: selässä se on kaikissa suunnissa repun oikeassa reunassa (hahmon oma oikea puoli; länteen päin katsottaessa se
+jää repun ja hahmon taakse) ja kädessä aina oikeassa kädessä (`ROD_BACK`, `HAND_X`).
 
 ## Maailma
 
