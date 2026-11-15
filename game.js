@@ -3699,18 +3699,19 @@ function sealCanvas(w, h, pts, rings, extra) {
   return c;
 }
 const SEAL_SPR = (() => {
-  // Makaava norppa (22 x 10), naama oikealle: häntäevät vasemmalla, selkä kaartuu, kaula painuu ja pää on kohotettuna
+  // Makaava norppa (22 x 10), naama oikealle: häntäevät vasemmalla, selkä kaartuu, kaula painuu ja pää on kohotettuna.
+  // Monikulmion reunan x on pikselin vasen reuna, joten oikeanpuoleisin pikselisarake (21) vaatii x = 22.
   const rest = sealCanvas(22, 10,
-    [[0, 9], [0, 8], [2, 7], [4, 5], [7, 3], [10, 2], [13, 2], [15, 3], [16, 1], [18, 0], [20, 0], [21, 1], [21, 3], [20, 4], [18, 5], [17, 6], [17, 10], [0, 10]],
+    [[0, 9], [0, 8], [2, 7], [4, 5], [7, 3], [10, 2], [13, 2], [15, 2], [16, 1], [18, 0], [20, 0], [22, 1], [22, 4], [21, 5], [19, 6], [17, 7], [17, 10], [0, 10]],
     [[5, 6], [6, 5], [7, 6], [9, 4], [10, 4], [11, 5], [12, 4], [13, 5], [8, 7], [10, 7], [3, 8], [12, 7], [14, 7], [6, 8], [15, 6], [16, 4], [14, 4]],
-    [[16, 3, 'l'], [17, 4, 'l'], [16, 5, 'r'], [17, 2, 'r'], [18, 4, 'l'], [19, 4, 'l'], [19, 2, 'k'], [21, 2, 'k'], [20, 5, 'w'], [21, 4, 'w'], [1, 9, 'f'], [0, 9, 'f'], [2, 9, 'f'], [15, 8, 'f'], [16, 8, 'f']]);
+    [[16, 3, 'l'], [16, 2, 'r'], [17, 2, 'g'], [17, 3, 'r'], [17, 4, 'l'], [16, 5, 'r'], [18, 3, 'g'], [19, 3, 'g'], [19, 2, 'k'], [20, 2, 'g'], [21, 2, 'k'], [20, 3, 'l'], [21, 3, 'l'], [18, 4, 'l'], [19, 4, 'l'], [20, 4, 'l'], [21, 4, 'w'], [20, 5, 'w'], [19, 5, 'l'], [1, 9, 'f'], [0, 9, 'f'], [2, 9, 'f'], [15, 8, 'f'], [16, 8, 'f']]);
   // Veden alla uiva norppa (20 x 7) kahdella pyrstön asennolla
   const swimPts = [[0, 3], [2, 2], [5, 1], [9, 0], [13, 1], [16, 2], [19, 3], [16, 4], [13, 5], [9, 6], [5, 5], [2, 4]];
   const swimRings = [[6, 2], [9, 2], [12, 3], [8, 4], [11, 4]];
   const swim = [0, 1].map((k) => sealCanvas(20, 7, swimPts, swimRings, [[k ? 0 : 1, k ? 1 : 5, 'f'], [k ? 0 : 1, k ? 5 : 1, 'f'], [10, 6, 'f'], [17, 2, 'k']]));
-  // Pää veden pinnalla (7 x 7): kupera pää, kaksi silmää, tumma nenä, vaalea kuono ja viikset
-  const head = sealCanvas(7, 7, [[1, 6], [0, 4], [1, 1], [3, 0], [5, 1], [6, 4], [5, 6]], [],
-    [[1, 3, 'k'], [5, 3, 'k'], [3, 4, 'k'], [2, 5, 'l'], [3, 5, 'l'], [4, 5, 'l'], [0, 5, 'w'], [6, 5, 'w'], [0, 4, 'w'], [6, 6, 'w']]);
+  // Pää veden pinnalla (9 x 8): kupera pää, kaksi silmää, tumma nenä, vaalea kuono ja viikset
+  const head = sealCanvas(9, 8, [[1, 8], [0, 5], [1, 2], [3, 0], [6, 0], [8, 2], [9, 5], [8, 8]], [[3, 1], [5, 1]],
+    [[2, 3, 'k'], [6, 3, 'k'], [2, 2, 'g'], [6, 2, 'g'], [4, 4, 'g'], [3, 5, 'l'], [5, 5, 'l'], [4, 5, 'k'], [3, 6, 'l'], [4, 6, 'l'], [5, 6, 'l'], [0, 6, 'w'], [1, 6, 'w'], [7, 6, 'w'], [8, 6, 'w'], [0, 5, 'w'], [8, 5, 'w']]);
   return { rest, swim, head };
 })();
 
@@ -3843,8 +3844,8 @@ function drawSeal(camXr, camYr) {
     const bob = Math.round(Math.sin(S.anim * 0.05) * 0.6), y = Math.round(sy);
     ctx.fillStyle = 'rgba(8, 14, 18, 0.35)'; ctx.fillRect(sx - 3, y + 1, 7, 1);
     ctx.fillStyle = `rgba(${env.ring}, 0.5)`; ctx.fillRect(sx - 4, y, 9, 1);
-    ctx.save(); ctx.beginPath(); ctx.rect(sx - 6, y - 8, 13, 8 + bob); ctx.clip();
-    drawImg(SEAL_SPR.head, sx - 3, y - 6 + bob, S.face < 0);
+    ctx.save(); ctx.beginPath(); ctx.rect(sx - 6, y - 9, 13, 9 + bob); ctx.clip();
+    drawImg(SEAL_SPR.head, sx - 4, y - 7 + bob, S.face < 0);
     ctx.restore();
     return;
   }
