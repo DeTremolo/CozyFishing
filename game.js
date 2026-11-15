@@ -2652,7 +2652,7 @@ function buildDarkLut(maxDark) {
 // Yön valokerros (valokartta, pimeys, lampun sävy) lasketaan uudelleen heti kun kamera, hahmo tai
 // valaistus muuttuu; muuten (paikallaan seistessä) vain joka NIGHT_EVERY. ruudussa, jolloin vain nuotion
 // välke päivittyy harvemmin.
-let nightEvery = 4, nightTick = 0, nightKey = '';
+let nightEvery = 4, nightTick = 0, nightKey = '', nightMKey = '', nightCx = 0, nightCy = 0;
 let lampKey = '', lampLum = new Uint8Array(0);
 let nightLampBox = null;   // otsalampun valon rajauslaatikko ruudulla [x, y, w, h]
 
@@ -2718,10 +2718,15 @@ function drawNight(camXr, camYr) {
   if (night <= 0.01) return;
   const lights = collectLights(camXr, camYr);
   const lc = lightCtx, lamp = lampOn();
-  const key = [camXr, camYr, player.x.toFixed(3), player.y.toFixed(3), player.fa.toFixed(3), lamp, (night * 400) | 0, shownPlayer.x, shownPlayer.y, W, H].join();
-  const redo = key !== nightKey || ++nightTick >= (gfxLow ? 8 : nightEvery);
+  // Heti uusiksi: lampun kytkentä, yön määrä, ruudun koko. Liikkuessa (kamera, hahmo, suunta muuttuu) vain joka
+  // 2. (kevyessä tilassa 3.) ruudussa, ja välillä vanhaa kerrosta siirretään kameran liikkeen verran
+  const key = [lamp, (night * 400) | 0, W, H].join();
+  const mkey = [camXr, camYr, player.x.toFixed(3), player.y.toFixed(3), player.fa.toFixed(3), shownPlayer.x, shownPlayer.y].join();
+  const moved = mkey !== nightMKey;
+  ++nightTick;
+  const redo = key !== nightKey || nightTick >= (moved ? (gfxLow ? 3 : 2) : (gfxLow ? 8 : nightEvery));
   if (redo) {
-    nightKey = key; nightTick = 0;
+    nightKey = key; nightMKey = mkey; nightTick = 0; nightCx = camXr; nightCy = camYr;
     // 1) Valon voimakkuus lasketaan suoraan taulukkoon (blob-valot). Otsalampun valo piirretään ja luetaan vain kun
     // suunta, korkeus, sijainti ruudulla tai yön määrä muuttuu (käveltäessä kamera seuraa hahmoa, joten se pysyy samana).
     // 2) Pimeyskerros: rasteroidaan valon mukaan porrastetuiksi tasoiksi, laatikko kerrallaan.
@@ -2793,7 +2798,14 @@ function drawNight(camXr, camYr) {
       }
     }
   }
-  ctx.drawImage(darkCanvas, 0, 0, W, H);
+  const ox = nightCx - camXr, oy = nightCy - camYr;
+  ctx.drawImage(darkCanvas, ox, oy, W, H);
+  if (ox || oy) {
+    // Siirretyn kerroksen paljastamat reunat täytetään tasaisella pimeydellä
+    ctx.fillStyle = `rgba(4, 6, 22, ${((darkLut[0] >>> 24) / 255).toFixed(4)})`;
+    if (oy > 0) ctx.fillRect(0, 0, W, oy); else if (oy < 0) ctx.fillRect(0, H + oy, W, -oy);
+    if (ox > 0) ctx.fillRect(0, 0, ox, H); else if (ox < 0) ctx.fillRect(W + ox, 0, -ox, H);
+  }
 
   // 3) Värillinen valo päälle: nuotio lämmin, otsalamppu kellertävän valkoinen
   ctx.globalCompositeOperation = 'lighter';
@@ -2806,7 +2818,7 @@ function drawNight(camXr, camYr) {
   ctx.globalAlpha = 1;
   if (lamp && nightLampBox) {
     const [lx, ly] = nightLampBox, u0 = Math.max(0, -lx), v0 = Math.max(0, -ly), u1 = Math.min(234, W - lx), v1 = Math.min(120, H - ly);
-    if (u1 > u0 && v1 > v0) ctx.drawImage(lampTint, (W >> 1) - 117 + u0, (H >> 1) - 60 + v0, u1 - u0, v1 - v0, lx + u0, ly + v0, u1 - u0, v1 - v0);
+    if (u1 > u0 && v1 > v0) ctx.drawImage(lampTint, (W >> 1) - 117 + u0, (H >> 1) - 60 + v0, u1 - u0, v1 - v0, lx + u0 + ox, ly + v0 + oy, u1 - u0, v1 - v0);
   }
   ctx.globalCompositeOperation = 'source-over';
 }
