@@ -8,8 +8,8 @@ ajantasainen toiminnallinen kuvaus (kaikki mekaniikat, näppäimet ja luvut).
 
 - **Mikä**: isometrinen pikseligrafiikkainen kalastuspeli selaimessa. Puhdas JavaScript + canvas +
   Web Audio. Ei build-vaihetta, ei riippuvuuksia, ei kehyksiä. `index.html` aukeaa suoraan selaimessa.
-- **Repo**: `DeTremolo/CozyFishing` (GitHub). Kehityshaara `lampi`, julkaisuhaara `main`
-  (GitHub Pages julkaisee `main`-haaran juuren).
+- **Repo**: `DeTremolo/CozyFishing` (GitHub). Ainoa pysyvä haara on `main`: kehitys tehdään
+  suoraan siihen (`lampi`-haara on poistettu). GitHub Pages julkaisee `main`-haaran juuren.
 - **Omistaja ja julkaisija**: DeTremolo Games (detremologames@gmail.com). Käyttäjä kirjoittaa suomeksi ja vastaukset annetaan suomeksi.
 
 ## Työskentelytapa (käyttäjän toiveet)
@@ -21,17 +21,14 @@ ajantasainen toiminnallinen kuvaus (kaikki mekaniikat, näppäimet ja luvut).
 3. **Päivitä `README.md`** jokaisen ominaisuuden yhteydessä (suomeksi, samaan tyyliin kuin muu teksti).
    Näppäintaulukko ja aloitusruudun näppäinohje (`game.js`, aloitusruudun piirto `render()`-funktiossa)
    pidetään ajan tasalla. Kosketusnapit ovat `index.html`:ssä ja `touch.js`:ssä.
-4. **Commit** `lampi`-haaraan ja **push** jokaisen valmiin kokonaisuuden jälkeen.
+4. **Commit** `main`-haaraan ja **push** jokaisen valmiin kokonaisuuden jälkeen.
    - Commit-viesti englanniksi, lyhyt otsikko + tarvittaessa selittävä runko.
    - Tekijä (author): `DeTremolo Games <detremologames@gmail.com>`; committer: `Claude <noreply@anthropic.com>`
      (muuten GitHub näyttää commitin "Unverified"). Esim.
      `git -c user.name=Claude -c user.email=noreply@anthropic.com commit --author="DeTremolo Games <detremologames@gmail.com>" ...`
    - Viestin loppuun istunnon antamat attribuutiorivit (Co-Authored-By jne.), jos ympäristö niitä pyytää.
-5. **Mainiin yhdistäminen vain pyynnöstä** ("tee merge päähaaraan", "yhdistä main-haaraan"):
-   `git checkout main && git merge --ff-only lampi && git push origin main && git checkout lampi`.
-   Haarat on pidetty identtisinä (pelkkä fast-forward), ei merge-committeja.
+5. **Historiaa ei kirjoiteta uusiksi** (ei force-pushia) ilman erillistä pyyntöä; merge-committeja ei käytetä.
 6. Raportoi lopuksi suomeksi lyhyesti: mitä muutettiin, miten testattiin, mitä jäi auki.
-   Kysy lopuksi, yhdistetäänkö `main`-haaraan.
 
 ## Tiedostot
 

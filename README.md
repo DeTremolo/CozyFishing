@@ -273,7 +273,7 @@ Uudella tilillä:
    on asennettu repoon `DeTremolo/CozyFishing` (samalta sivulta).
 2. Aloita uusi Claude Code -istunto (claude.ai/code) ja valitse repoksi `DeTremolo/CozyFishing`.
    Repo valitaan istunnon alussa.
-3. Pyydä ensin esim.: *"Lue CLAUDE.md ja README.md, siirry lampi-haaraan ja aja savutesti."*
+3. Pyydä ensin esim.: *"Lue CLAUDE.md ja README.md, siirry main-haaraan ja aja savutesti."*
    Sen jälkeen jatka pyynnöillä kuten ennenkin.
 
 Paikallisesti: `python3 -m http.server` repon juuressa ja selaimella http://localhost:8000
