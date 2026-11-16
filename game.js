@@ -2468,14 +2468,19 @@ function drawWeather(camXr, camYr) {
   // Pisarat ja roiskeet maassa: viiru kallistuu tuulen mukana
   if (drops.length) {
     const slant = wind.sx * wind.gust * 1.6 / 5;
+    // Kaikki pisarat yhtenä polkuna (yksi piirtokomento tuhansien sijaan)
     ctx.fillStyle = 'rgba(170, 195, 220, 0.5)';
+    ctx.beginPath();
     for (const d of drops) {
       const x = Math.round(d.x), y = Math.round(d.y);
-      ctx.fillRect(x, y, 1, 1);
-      for (let k = 1; k <= d.len; k++) ctx.fillRect(Math.round(x - slant * k * 1.5), y - k, 1, 1);
+      ctx.rect(x, y, 1, 1);
+      for (let k = 1; k <= d.len; k++) ctx.rect(Math.round(x - slant * k * 1.5), y - k, 1, 1);
     }
+    ctx.fill();
     ctx.fillStyle = 'rgba(210, 225, 240, 0.55)';
-    for (const d of drops) if (d.splash > 0) { ctx.fillRect(Math.round(d.sx) - 1, Math.round(d.sy), 1, 1); ctx.fillRect(Math.round(d.sx) + 1, Math.round(d.sy), 1, 1); }
+    ctx.beginPath();
+    for (const d of drops) if (d.splash > 0) { ctx.rect(Math.round(d.sx) - 1, Math.round(d.sy), 1, 1); ctx.rect(Math.round(d.sx) + 1, Math.round(d.sy), 1, 1); }
+    ctx.fill();
   }
   // Usva: tasainen verho, jossa tuulen mukana ajelehtivia sumulauttoja ja näkyvä alue pelaajan ympärillä
   if (w.fog > 0.02) {
@@ -2653,6 +2658,19 @@ function buildDarkLut(maxDark) {
 // valaistus muuttuu; muuten (paikallaan seistessä) vain joka NIGHT_EVERY. ruudussa, jolloin vain nuotion
 // välke päivittyy harvemmin.
 let nightEvery = 4, nightTick = 0, nightKey = '', nightMKey = '', nightCx = 0, nightCy = 0;
+const spriteAlphas = new WeakMap();
+function spriteAlpha(img) {
+  let a = spriteAlphas.get(img);
+  if (!a) {
+    const c = makeCanvas(img.width, img.height), g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, img.width, img.height).data;
+    a = new Uint8Array(img.width * img.height);
+    for (let i = 0; i < a.length; i++) a[i] = d[i * 4 + 3] > 127 ? 1 : 0;
+    spriteAlphas.set(img, a);
+  }
+  return a;
+}
 let lampFa = 0, lampT = 0, lampKey = '', lampLum = new Uint8Array(0);
 let nightLampBox = null;   // otsalampun valon rajauslaatikko ruudulla [x, y, w, h]
 
@@ -2673,7 +2691,7 @@ function collectLights(camXr, camYr) {
 // leikataan valosta pois, jolloin poispäin osoittava keila jää hahmon taakse.
 const lampCanvas = makeCanvas(W, H), lampCtx = lampCanvas.getContext('2d', { willReadFrequently: true });
 const lampTint = makeCanvas(W, H), lampTintCtx = lampTint.getContext('2d');
-function drawLampLight() {
+function drawLampLight(dx, dy) {
   const g = lampCtx, fa = lampFa;
   const psx = W >> 1, psy = H >> 1;   // piirretään aina ruudun keskelle; sijoitus ruudulle tehdään vasta käytettäessä
   g.globalCompositeOperation = 'source-over';
@@ -2697,19 +2715,13 @@ function drawLampLight() {
   g.restore();
   // Keila ilmassa: lampusta valoläikän lähireunaan
   const P = (r, a) => [psx + (Math.cos(a) - Math.sin(a)) * r * HW, psy + (Math.cos(a) + Math.sin(a)) * r * HH];
-  const [ax, ay] = P(1.6, fa - 0.4), [bx, by] = P(1.6, fa + 0.4), hx = shownPlayer.hx, hy = shownPlayer.hy;
+  const [ax, ay] = P(1.6, fa - 0.4), [bx, by] = P(1.6, fa + 0.4), hx = shownPlayer.hx + dx, hy = shownPlayer.hy + dy;
   const gr = g.createLinearGradient(hx, hy, (ax + bx) / 2, (ay + by) / 2);
   gr.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
   gr.addColorStop(1, 'rgba(255, 255, 255, 0.3)');
   g.fillStyle = gr;
   g.beginPath(); g.moveTo(hx, hy); g.lineTo(ax, ay); g.lineTo(bx, by); g.closePath(); g.fill();
-  // Hahmo ei ole oman lamppunsa valossa
-  if (shownPlayer.img) {
-    g.globalCompositeOperation = 'destination-out';
-    if (shownPlayer.flip) { g.save(); g.translate(shownPlayer.x + shownPlayer.img.width, shownPlayer.y); g.scale(-1, 1); g.drawImage(shownPlayer.img, 0, 0); g.restore(); }
-    else g.drawImage(shownPlayer.img, shownPlayer.x, shownPlayer.y);
-    g.globalCompositeOperation = 'source-over';
-  }
+  // Hahmo ei ole oman lamppunsa valossa: leikkaus tehdään valokarttaan käytettäessä (ks. drawNight, spriteAlpha)
   return lampCanvas;
 }
 
@@ -2747,11 +2759,11 @@ function drawNight(camXr, camYr) {
       const psx = Math.round(isoX(player.x, player.y) - camXr), psy = Math.round(isoY(player.x, player.y) - camYr - playerLift());
       nightLampBox = [psx - 117, psy - 60, 234, 120];   // koko laatikko (voi ulottua ruudun ulkopuolelle)
       addBox(psx - 117, psy - 60, psx + 117, psy + 60);
-      // Lampun valo piirretään uudelleen vasta kun suunta on kääntynyt yli 2,5° ja edellisestä on vähintään 8 päivitystä
+      // Lampun valo piirretään uudelleen vasta kun suunta on kääntynyt yli 1,4° ja edellisestä on vähintään 3 päivitystä
       const lk = [(night * 400) | 0, W, H].join();
-      if (lk !== lampKey || (Math.cos(player.fa - lampFa) < 0.999 && time - lampT >= 8)) {
+      if (lk !== lampKey || (Math.cos(player.fa - lampFa) < 0.9997 && time - lampT >= 3)) {
         lampKey = lk; lampFa = player.fa; lampT = time;
-        drawLampLight();
+        drawLampLight((W >> 1) - psx, (H >> 1) - psy);
         const rx = (W >> 1) - 117, ry = (H >> 1) - 60;
         const ld = lampCtx.getImageData(rx, ry, 234, 120).data;
         if (lampLum.length !== 234 * 120) lampLum = new Uint8Array(234 * 120);
@@ -2788,6 +2800,21 @@ function drawNight(camXr, camYr) {
         for (let y = Math.max(0, -ly); y < 120 && ly + y < H; y++) {
           const u0 = Math.max(0, -lx), u1 = Math.min(234, W - lx);
           for (let u = u0, i = (ly + y) * W + lx + u0, q = y * 234 + u0; u < u1; u++, i++, q++) lightBuf[i] += lampLum[q];
+        }
+        // Hahmo ei ole oman lamppunsa valossa: vähennetään lampun osuus hahmon peittämiltä pikseleiltä
+        const sp = shownPlayer, al = sp.img && spriteAlpha(sp.img);
+        if (al) {
+          const sw = sp.img.width, sh = sp.img.height;
+          for (let y = 0; y < sh; y++) {
+            const py = sp.y + y, qy = py - ly;
+            if (py < 0 || py >= H || qy < 0 || qy >= 120) continue;
+            for (let x = 0; x < sw; x++) {
+              if (!al[y * sw + (sp.flip ? sw - 1 - x : x)]) continue;
+              const px = sp.x + x, qx = px - lx;
+              if (px < 0 || px >= W || qx < 0 || qx >= 234) continue;
+              lightBuf[py * W + px] -= Math.min(lightBuf[py * W + px], lampLum[qy * 234 + qx]);
+            }
+          }
         }
       }
       for (const [x0, y0, x1, y1] of boxes) {
