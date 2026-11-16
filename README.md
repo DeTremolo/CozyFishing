@@ -167,8 +167,8 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
 ## Suorituskyky
 
 Oikeassa yläkulmassa näkyy FPS ja yhden ruudun laskenta-aika (päivitykset ja piirtokomennot). Jos ruudun aika on kolmesti
-(1,5 s) peräkkäin yli 22 ms (tai fps alle 40 ja aika yli 12 ms), peli siirtyy automaattisesti **kevyeen tilaan** (teksti LOW):
-vesi päivitetään joka 4. ruudussa (normaalisti joka 2.), yön valokerros ja tähtimaski joka 8. (normaalisti joka 4.),
+(1,5 s) peräkkäin yli 22 ms (tai fps alle 40 ja aika yli 12 ms, tai fps alle 50 ja aika yli 7 ms), peli siirtyy automaattisesti **kevyeen tilaan** (teksti LOW):
+sävykerros ja yön valokerros päivittyvät liikkuessa harvemmin; vesi päivitetään joka 4. ruudussa (normaalisti joka 2.), yön valokerros ja tähtimaski joka 8. (normaalisti joka 4.),
 heijastukset joka toisessa ruudussa eikä lammen päällä leijuvaa usvakerrosta piirretä. G-näppäin vaihtaa tilaa käsin (silloin
 automatiikka ei enää vaihda sitä). Ajoitusnäkymä (O tai FPS-lukeman napautus) listaa suurimmat piirto-osat ja niiden ruudun ajan
 ms (keskiarvo 30 ruudusta, sisäkkäiset kutsut mukana), jolla löytyy hitaan laitteen pullonkaula. Piirtoa on kevennetty muuten

@@ -2458,7 +2458,7 @@ const fogCanvas = makeCanvas(W / 4, H / 4);
 const fogCtx = fogCanvas.getContext('2d');
 
 const tintCanvas = makeCanvas(1, 1), tintCtx = tintCanvas.getContext('2d');
-let tintKey = '';
+let tintKey = '', tintCx = 0, tintCy = 0, tintTick = 0;
 function drawWeather(camXr, camYr) {
   const w = weather;
   if (w.rain > 0.02) {
@@ -2514,9 +2514,11 @@ function drawWeather(camXr, camYr) {
   if (ta > 0.005) {
     // Sävykerros (väri, josta lampi on leikattu pois) rakennetaan uudelleen vain kun väri tai kamera muuttuu
     const tcol = `rgba(${Math.round(tr)}, ${Math.round(tg)}, ${Math.round(tb)}, ${Math.min(0.6, ta * 2.2).toFixed(3)})`;
-    const tkey = tcol + camXr + ',' + camYr + ',' + W + ',' + H;
-    if (tkey !== tintKey) {
-      tintKey = tkey;
+    // Kameran liikkuessa kerros rakennetaan vain joka 3. ruudussa ja välillä vanhaa siirretään kameran liikkeen verran
+    const tkey = tcol + ',' + W + ',' + H;
+    ++tintTick;
+    if (tkey !== tintKey || ((camXr !== tintCx || camYr !== tintCy) && tintTick >= 3)) {
+      tintKey = tkey; tintTick = 0; tintCx = camXr; tintCy = camYr;
       if (tintCanvas.width !== W || tintCanvas.height !== H) { tintCanvas.width = W; tintCanvas.height = H; }
       const tc = tintCtx;
       tc.globalCompositeOperation = 'source-over';
@@ -2529,7 +2531,13 @@ function drawWeather(camXr, camYr) {
       tc.globalAlpha = 1;
     }
     ctx.globalCompositeOperation = 'soft-light';
-    ctx.drawImage(tintCanvas, 0, 0);
+    const tox = tintCx - camXr, toy = tintCy - camYr;
+    ctx.drawImage(tintCanvas, tox, toy);
+    if (tox || toy) {
+      ctx.fillStyle = tcol;
+      if (toy > 0) ctx.fillRect(0, 0, W, toy); else if (toy < 0) ctx.fillRect(0, H + toy, W, -toy);
+      if (tox > 0) ctx.fillRect(0, 0, tox, H); else if (tox < 0) ctx.fillRect(W + tox, 0, -tox, H);
+    }
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = `rgba(${Math.round(tr)}, ${Math.round(tg)}, ${Math.round(tb)}, ${(ta * 0.12).toFixed(3)})`;
     ctx.fillRect(0, 0, W, H);
@@ -6315,7 +6323,7 @@ function frame(t) {
     perf.fps = Math.round((perf.n * 1000) / (t1 - perf.t0)); perf.avg = perf.ms / perf.n;
     perf.n = 0; perf.ms = 0; perf.t0 = t1;
     // Hidas laite: ruudun aika yli 22 ms (tai fps alle 40 ja aika yli 12 ms) kolme mittausta (1,5 s) peräkkäin -> kevyt tila
-    if (!gfxLow && !gfxManual && state === 'play' && (perf.avg > 22 || (perf.fps < 40 && perf.avg > 12))) { if (++perf.slow >= 3) setGfx(true, false); } else perf.slow = 0;
+    if (!gfxLow && !gfxManual && state === 'play' && (perf.avg > 22 || (perf.fps < 40 && perf.avg > 12) || (perf.fps < 50 && perf.fps > 0 && perf.avg > 7))) { if (++perf.slow >= 3) setGfx(true, false); } else perf.slow = 0;
   }
   drawPerf();
   requestAnimationFrame(frame);
