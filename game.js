@@ -4101,7 +4101,8 @@ function takeOffGrebe(d, partner) {
 
 function grebeDive(d, flee) {
   d.mode = 'dive'; d.dive = 0; d.sp = 0; d.nerve = 0;
-  d.t = flee ? rand(260, 420) : rand(160, 380);
+  d.t = Math.round(flee ? rand(260, 420) : rand(160, 380));   // kokonaisluku, koska vaiheet tunnistetaan vertaamalla ruutulaskuria
+  d.up = false;
   // Nousupaikka: eteenpäin tai poispäin pelaajasta, vapaaseen veteen
   for (let k = 0; k < 20; k++) {
     const a = flee ? Math.atan2(d.y - player.y, d.x - player.x) + rand(-0.8, 0.8) : d.a + rand(-1.2, 1.2), L = flee ? rand(8, 16) : rand(3, 9);
@@ -4135,7 +4136,8 @@ function updateGrebes() {
     } else if (d.mode === 'dive') {
       d.dive++;
       if (d.dive === DIVE_SINK) d.hidden = true;
-      if (d.dive === d.t - SURF) {
+      if (!d.up && d.dive >= d.t - SURF) {
+        d.up = true;
         // Nousu pinnalle uudessa paikassa: aaltorengas, pisaroita ja hiljainen molahdus; kuva kohoaa vedestä
         d.x = d.dx; d.y = d.dy; d.hidden = false;
         ripples.push({ x: d.x, y: d.y, t: 0, life: 50, max: 5, a: 0.6 }, { x: d.x, y: d.y, t: -12, life: 50, max: 4, a: 0.45 });
@@ -4182,15 +4184,15 @@ function updateGrebes() {
   }
 }
 
-// Sukelluksen vaiheet (ruutua): 0-9 pää taipuu (dip1), 9-20 pää veden alla ja peräpää ylhäällä (dip2), 20-34 uppoaa, sitten piilossa;
-// pinnalle noustessa viimeiset 14 ruutua kuva nousee vedestä
-const DIVE_SINK = 34, SURF = 60;
+// Sukelluksen vaiheet (ruutua, 60 = 1 s): 0-15 pää taipuu (dip1), 15-30 pää veden alla ja peräpää ylhäällä (dip2), 30-60 uppoaa, sitten piilossa;
+// pinnalle noustessa viimeiset 60 ruutua kuva nousee tasaisesti vedestä
+const DIVE_SINK = 60, SURF = 60;
 function grebeDiveFrame(d) {
   // Nousu: pää ilmestyy ensin, kaula ja vartalo kohoavat perässä (hidastuva liike)
   if (d.dive > d.t - SURF) return [GREBE_SPR.swim, clamp((d.t - d.dive) / SURF, 0, 1)];   // nousee tasaisesti pinnan alta uintikorkeuteen (1 s)
-  if (d.dive < 9) return [GREBE_SPR.dip1, 0];
-  if (d.dive < 20) return [GREBE_SPR.dip2, 0];
-  return [GREBE_SPR.dip2, clamp((d.dive - 20) / 14, 0, 1)];
+  if (d.dive < 15) return [GREBE_SPR.dip1, 0];
+  if (d.dive < 30) return [GREBE_SPR.dip2, 0];
+  return [GREBE_SPR.dip2, clamp((d.dive - 30) / (DIVE_SINK - 30), 0, 1)];
 }
 function drawGrebe(d, sx, sy) {
   sx = Math.round(sx); sy = Math.round(sy);
@@ -5451,9 +5453,10 @@ function drawPlayer(sx, sy, camXr, camYr) {
   if (p.rod && V.away) drawHeldRod(camXr, camYr);
   // Työkalu on oikeassa kädessä: kun oikea puoli on vartalon takana (W, SW) tai hahmo katsoo poispäin, työkalu ja käsi piirretään
   // vartalon taakse, jolloin vartalo peittää ne iskun aikana osittain
-  const rFar = !!p.tool && ARM_DEPTH[playerDir()].R === 'far';
+  // Oikealle katsottaessa (E, SE, NE) työkalu on aina vartalon edessä.
+  const rFar = !!p.tool && ARM_DEPTH[playerDir()].R === 'far', behind = rFar || (V.away && playerDir() !== 'NE');
   if (p.tool && rFar) drawToolArms(sx, sy, 'far');
-  if (p.tool && (V.away || rFar)) drawHeldTool(sx, sy);
+  if (p.tool && behind) drawHeldTool(sx, sy);
   drawImg(spr.img, sx - 8, sy - 19, p.flip);
   Object.assign(shownPlayer, { img: spr.img, x: sx - 8, y: sy - 19, flip: p.flip, hx: sx, hy: sy - 16 });
   // Otsalamppu hatun etuosassa: valkoinen piste näkyy vain, kun hahmo ei katso poispäin
@@ -5470,7 +5473,7 @@ function drawPlayer(sx, sy, camXr, camYr) {
   if (p.tool !== 'axe' && AB.front) drawBackAxe(sx, sy, AB, p.flip);
   if (p.tool) {
     // Työkalu oikeassa kädessä: kauempi käsi ennen työkalua, lähempi sen päällä
-    if (!rFar) { drawToolArms(sx, sy, 'far'); if (!V.away) drawHeldTool(sx, sy); }
+    if (!rFar) { drawToolArms(sx, sy, 'far'); if (!behind) drawHeldTool(sx, sy); }
     drawToolArms(sx, sy, 'near');
   }
   // Kauempi käsi ennen onkea (onki peittää sen), lähempi käsi onkea pitämässä sen päällä
