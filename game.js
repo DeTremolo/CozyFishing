@@ -2319,9 +2319,11 @@ function updateCast() {
     L.z = L.onWater ? clamp(L.z, 0, Math.max(0, depthAt(L.x, L.y) - 0.03)) : 0;
   }
   if (L.onWater && !isRig(L.kind) && L.z) {
-    // Viehe ei voi olla syvemmällä kuin siimaa on: syvyys <= sqrt(siima² - vaakaetäisyys²) - kärjen korkeus
-    const dd = Math.hypot(O.x - L.x, O.y - L.y);
-    L.z = Math.min(L.z, Math.max(0, Math.sqrt(Math.max(0, L.out * L.out - dd * dd)) - tipH));
+    // Viehe ei voi olla syvemmällä kuin siimaa on (syvyys <= siima - kärjen korkeus), ja syvemmälle sukeltanut viehe vedetään siiman
+    // 3D-pituuden vaatimalle vaakaetäisyydelle: sukellus lyhentää vaakaetäisyyttä (siima on suora kärjestä vieheeseen)
+    L.z = Math.min(L.z, Math.max(0, L.out - tipH));
+    const lim2 = Math.sqrt(Math.max(0, L.out * L.out - (L.z + tipH) * (L.z + tipH))), dd = Math.hypot(O.x - L.x, O.y - L.y);
+    if (dd > lim2 && dd > 0.0001) { const m2 = dd - lim2; L.x += ((O.x - L.x) / dd) * m2; L.y += ((O.y - L.y) / dd) * m2; moved += m2; }
   }
   if (L.onWater) {
     // Liikkuva koho jättää vanaveden ja renkaita, paikallaan oleva keinuu ja väreilee välillä
