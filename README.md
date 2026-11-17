@@ -161,7 +161,7 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
   Laskeutumisesta ja lentoonlähdöstä kuuluu pehmeä veden kohahdus ja pisaroiden ropina.
   Taivaalla lentää lintuja, ja metsästä kuuluu linnunlaulua (käen kuukkuu on mallinnettu oikean käen kutsun mukaan: kaksi puhdasta sävelkorkeutta, metsän kaiku; käki kukkuu aamulla ja illalla vain yksi kerrallaan, harvoin ja muita lintuja hiljaisemmin).
   **Silkkiuikut**: lammella uiskentelee pari silkkiuikkuja (sorsan kokoisia, pitkä valkoinen kaula, tupsupää ja ruskea
-  kaulus). Ne pysyvät lähekkäin, sukeltavat välillä ja nousevat pinnalle kauempana ja huutelevat käheää "rak-rak-rak"-kutsua
+  kaulus). Ne pysyvät lähekkäin, sukeltavat välillä (pää edellä: pää taipuu nokka alas, painuu veden alle peräpää kohoten ja uikku uppoaa) ja nousevat pinnalle kauempana ja huutelevat käheää "rak-rak-rak"-kutsua
   (äänimalli pohjautuu ääninäytteeseen, ääni syntetisoidaan Web Audiolla). Kun pelaaja tulee kävellen tai veneellä (veneen
   pitää liikkua) liian lähelle, uikut juoksevat siivet räpyttäen veden pintaa pitkin lentoon, lentävät noin 10 sekunnin
   kaaren ja laskeutuvat johonkin muuhun kohtaan lampea; ne eivät poistu pelistä. Yöllä uikut säikähtäessään vain sukeltavat
