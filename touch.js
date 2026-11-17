@@ -134,19 +134,18 @@
   button('btn-cut', () => { if (state === 'play') pressed.KeyC = true; });
   button('btn-lure', () => { if (state === 'play') pressed.KeyQ = true; });
 
-  // Tee-painike: näyttää sen, minkä pelaaja voi juuri nyt tehdä (sama valinta kuin näppäimillä E ja Z)
-  function contextAction() {
-    if (!player || state !== 'play' || player.rod) return null;
-    if (canLightFire()) return { label: 'LIGHT FIRE', key: 'KeyZ' };
-    const dtt = Math.hypot(player.x - TENT_DOOR.x, player.y - TENT_DOOR.y), dff = Math.hypot(player.x - CAMP.cx - 0.5, player.y - CAMP.cy - 0.5);
-    if (nearFire() && !(canSleep() && dtt < dff)) return fireFull() ? null : { label: 'ADD WOOD', key: 'KeyE' };
-    if (canSleep()) return { label: 'SLEEP', key: 'KeyE' };
-    if (canBoard()) return { label: 'BOAT', key: 'KeyE' };
-    if (player.boat && canLeave()) return { label: 'GO ASHORE', key: 'KeyE' };
-    return null;
-  }
-  let actKey = null;
-  button('btn-act', () => { if (state === 'play' && actKey) pressed[actKey] = true; });
+  // Työkalut: AXE / KNIFE ottavat työkalun käteen, STOW laittaa kädessä olevan pois, CHOP iskee kirveellä (sama kuin välilyönti)
+  button('btn-axe', () => { if (state === 'play') pressed.KeyX = true; });
+  button('btn-knife', () => { if (state === 'play') pressed.KeyK = true; });
+  button('btn-stow', () => { if (state === 'play' && player.tool) pressed[player.tool === 'axe' ? 'KeyX' : 'KeyK'] = true; });
+  button('btn-chop', () => { if (state === 'play') pressed.Space = true; });
+
+  // Tee-painikkeet (enintään kolme): näyttävät sen, minkä pelaaja voi juuri nyt tehdä (valinta tehdään pelissä, contextActions)
+  const actKeys = [null, null, null];
+  const actBtns = ['btn-act', 'btn-act2', 'btn-act3'].map((id, i) => {
+    button(id, () => { if (state === 'play' && actKeys[i]) pressed[actKeys[i]] = true; });
+    return document.getElementById(id);
+  });
 
   // Heitto- ja kelausnappia pidetään pohjassa: heitto lähtee sormen noustessa katsesuuntaan, ja heitetyn
   // vieheen kanssa pohjassa pitäminen kelaa siimaa sisään (sama kuin hiiren vasen nappi)
@@ -203,22 +202,27 @@
 
   // Napit seuraavat pelin tilaa: st-hand (ei onkea kädessä), st-ready (onki kädessä, ei heitetty), st-out (heitetty)
   const rodBtn = document.getElementById('btn-rod'), lightBtn = document.getElementById('btn-light');
-  const actBtn = document.getElementById('btn-act'), stepLabel = document.getElementById('step-label');
+  const stowBtn = document.getElementById('btn-stow'), stepLabel = document.getElementById('step-label');
   setInterval(() => {
-    const play = state === 'play', rod = !!(player && player.rod), out = !!(cast && cast.lure);
+    const play = state === 'play', rod = !!(player && player.rod), out = !!(cast && cast.lure), tool = player && player.tool;
     const b = document.body.classList;
     lightBtn.classList.toggle('on', !!(player && player.light));
     b.toggle('menu', state !== 'play' && state !== 'pause');
-    b.toggle('st-hand', play && !rod);
+    b.toggle('st-hand', play && !rod && !tool);
+    b.toggle('st-tool', play && !rod && !!tool);
+    b.toggle('chopping', play && !!(player && player.chop));
     b.toggle('st-ready', play && rod && !out);
     b.toggle('st-out', play && rod && out);
     b.toggle('art', !!(player && isArt(player.lure)));
     rodBtn.textContent = rod ? 'STOW ROD' : 'TAKE ROD';
     castBtn.textContent = out ? 'REEL IN' : 'CAST';
-    const ctx = contextAction();
-    actKey = ctx ? ctx.key : null;
-    b.toggle('has-act', !!ctx);
-    if (ctx) actBtn.textContent = ctx.label;
+    stowBtn.textContent = 'STOW ' + (tool === 'knife' ? 'KNIFE' : 'AXE');
+    const acts = contextActions();
+    actBtns.forEach((btn, i) => {
+      actKeys[i] = acts[i] ? acts[i].key : null;
+      b.toggle(i ? 'has-act' + (i + 1) : 'has-act', !!acts[i]);
+      if (acts[i]) btn.textContent = acts[i].label;
+    });
     if (player && cast) {
       stepLabel.textContent = isArt(player.lure) ? 'SPEED ' + cast.reelSpeed : isRig(player.lure) ? 'BAIT ' + Math.round(cast.rigDist * 100) : 'HOOK ' + cast.hookDepth.toFixed(1);
     }

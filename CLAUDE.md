@@ -35,7 +35,7 @@ ajantasainen toiminnallinen kuvaus (kaikki mekaniikat, näppäimet ja luvut).
 | Tiedosto | Sisältö |
 |---|---|
 | `game.js` | Koko peli (~5500 riviä): kartta, grafiikka (kaikki spritet piirretään koodissa), fysiikka, kalat, äänet, UI |
-| `touch.js` | Kosketusohjaus: liiketikku ja tilan mukaan vaihtuvat napit (st-hand / st-ready / st-out: ROD, tee-painike, CAST/REEL IN, RELEASE LINE, LURE, − / +, CUT; LAMP aina; II, ♪, ⛶) |
+| `touch.js` | Kosketusohjaus: liiketikku ja tilan mukaan vaihtuvat napit (st-hand / st-ready / st-out: ROD, tee-painike, CAST/REEL IN, RELEASE LINE, LURE, − / +, CUT, AXE/KNIFE/STOW, CHOP, kolme tee-painiketta; LAMP aina; II, ♪, ⛶) |
 | `index.html`, `style.css` | Canvas, kosketusnapit, pystyasentokehote |
 | `img/watch.png` | Rannekellon taulu (49×49), generoitu skriptillä `tools/mkwatch.py` |
 | `fonts/` | Press Start 2P -fontti (OFL) |
@@ -125,6 +125,7 @@ Polttopuukatos → Tähtäin ja vieheet (`LURES`) → Pelisilmukka.
 - Eläimet: `ANIMAL_KINDS`, `spawnAnimal`, `updateAnimals` (tilat lurk → approach → forage → leave, flee, home);
   enintään 2 kerrallaan, uusi 800–2200 päivityksen välein.
 - Sorsat: `makeDuck`, `updateDucks`, `takeOff`, `scramble`, `duckSplash`; ääni `SFX.duckWater(land, v)`.
+- Työkalut ja polttopuut: `player.tool` (`'axe'`/`'knife'`), `player.wood` (inventaario), `player.chop` (hakkuu: hits, swing, cd), `SHED.logs`/`SHED.cap` (katos); `toggleTool`, `takeWood`, `storeWood`, `startChop`/`updateChop`, `eAction` (E-näppäimen lähin toiminto), `contextActions` (kosketuksen tee-painikkeet). Näppäimet X, K, Y, N, välilyönti/hiiri (isku).
 - Silkkiuikut: `grebes` (kaksi, eivät poistu pelistä), `updateGrebes`, `drawGrebe`, `GREBE_SPR`; tilat swim → dive (sukellus) tai takeoff → fly → lasku (swim); ääni `SONGS.grebe`. Piirtolistan tyyppi `k` 11, heijastukset `drawGrebeReflection`.
 - Norppa: `seal` (tilat rest, hop, roll, swim, surf, haul), `makeSeal`, `updateSeal`, `drawSeal` (laiturilla ja pää pinnalla), `drawSealUnder`
   (veden alla); äänet `SFX.sealSplash`, `SFX.sealBreath`. Kuvat `SEAL_SPR` piirretään koodissa.
@@ -166,5 +167,5 @@ Omat testiskriptit kannattaa tehdä `tools/smoke.js`:n pohjalta (istunnon scratc
 
 - Android-/APK-kääntö ei ole mukana (pohjana oli Jungle Hunterin moottori `DeTremolo/JungleHunterMobile`).
 - Yöeläimiä ei vielä ole (`ANIMAL_KINDS.night` on tyhjä).
-- Klapeja on loputtomasti (polttopuukatos on toistaiseksi koriste).
+- Puukolla ei voi vielä tehdä mitään (se vain otetaan käteen).
 - Kalojen roiskeääni käyttää yhä vanhaa `SFX.splash`ia.

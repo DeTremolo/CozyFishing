@@ -316,7 +316,7 @@ const PLAYER_SPR_HELD = Object.fromEntries(Object.entries(HELD_ARMS).map(([dir, 
 // Hahmon kuva: onki kädessä käytetään kuvaa, josta roikkuvat kädet on poistettu
 const playerSpr = (p) => {
   const k = p.moving ? Math.floor(p.anim / 6) % 2 : 0;
-  return p.rod ? PLAYER_SPR_HELD[playerDir()][k] : PLAYER_SPR[p.view][k];
+  return p.rod || p.tool ? PLAYER_SPR_HELD[playerDir()][k] : PLAYER_SPR[p.view][k];
 };
 
 // Sorsat (sinisorsa): koiras vihreäpäinen, naaras ruskea. Kaikki kuvat nokka oikealle.
@@ -1505,7 +1505,7 @@ view.addEventListener('mousedown', (e) => {
   if (state === 'title') newGame();
   else if (state === 'pause') state = 'play';
   else if (state === 'sleep') pressed.Mouse = true;
-  else if (state === 'play' && e.button === 0) mouseHeld = true;
+  else if (state === 'play' && e.button === 0) { mouseHeld = true; pressed.MouseL = true; }
   else if (state === 'play' && e.button === 2) mouseHeld2 = true;
 });
 addEventListener('mouseup', (e) => { if (e.button === 0) mouseHeld = false; if (e.button === 2) mouseHeld2 = false; });
@@ -1819,6 +1819,10 @@ const SFX = {
   sealBreath: () => { softNoise(0.4, 1500, 'bandpass', 0.05, 1.2, 0.06, 0, 600); softNoise(0.55, 450, 'lowpass', 0.04, 0.8, 0.1, 0.08, 250); },
   // Nuotion ritinä: joukko lyhyitä napsahduksia
   crackle: (v = 1) => { for (let k = 0, n = Math.floor(rand(3, 8)); k < n; k++) setTimeout(() => noiseBurst(rand(0.008, 0.02), rand(2500, 6500), 'bandpass', rand(0.04, 0.11) * v, 3), rand(0, 220)); },
+  // Kirveen isku: pieni hiljainen heilautuksen suhahdus ja puun hakkaamisen tömähdys
+  whoosh: () => softNoise(0.17, 1500, 'bandpass', 0.05, 1.1, 0.06, 0, 650),
+  chop: () => { noiseBurst(0.05, 1500, 'bandpass', 0.2, 1.5); tone(190, 0.09, 'triangle', 0.17, 95); noiseBurst(0.12, 380, 'lowpass', 0.17, 1); setTimeout(() => noiseBurst(0.03, 2800, 'bandpass', 0.07, 3), 40); },
+  logDone: () => { tone(270, 0.08, 'triangle', 0.1, 140); noiseBurst(0.12, 500, 'lowpass', 0.14, 1); setTimeout(() => SFX.crackle(0.5), 60); },
   flap: () => { for (let k = 0; k < 8; k++) setTimeout(() => noiseBurst(0.05, rand(900, 1600), 'bandpass', 0.12, 2), k * 70); },
 };
 
@@ -1843,7 +1847,9 @@ function setupWorld() {
   player = {
     x: 37.5, y: 76, fa: -Math.PI / 4, gux: 1, guy: 0, anim: 0, moving: false, view: 'E', flip: false,
     rod: false, light: false, stillT: 0, lure: 'bobber',
+    tool: null, wood: 0, chop: null,   // käsissä oleva työkalu (axe / knife), repun polttopuut ja kesken oleva hakkuu
   };
+  SHED.logs = 10;
   [player.gux, player.guy] = screenDir(Math.cos(player.fa), Math.sin(player.fa));
   line = [];
   cast = { charging: false, power: 0, pdir: 1, flick: 0, lure: null, reelT: 0, releaseT: 0, needRelease: false, hookDepth: 0.5, reelSpeed: 40, rigDist: 0.6 };
@@ -1901,13 +1907,14 @@ function updatePlayer() {
   if (keyHit('KeyR')) toggleRod();
   if (keyHit('KeyF')) toggleLight();
   if (keyHit('KeyE')) {
-    // Teltan ja nuotion välissä valitaan lähempi
-    const dt = Math.hypot(p.x - TENT_DOOR.x, p.y - TENT_DOOR.y), df = Math.hypot(p.x - CAMP.cx - 0.5, p.y - CAMP.cy - 0.5);
-    if (canSleep() && !(nearFire() && df < dt)) { startSleep(); return; }
-    if (nearFire()) addFirewood();
-    else if (canBoard()) boardBoat();
-    else if (p.boat && canLeave()) leaveBoat();
+    // Teltan, nuotion ja katoksen välissä valitaan lähin
+    const a = eAction();
+    if (a) { if (a.label === 'SLEEP') { startSleep(); return; } a.run(); }
   }
+  if (keyHit('KeyX')) toggleTool('axe');
+  if (keyHit('KeyK')) toggleTool('knife');
+  if (keyHit('KeyY') && canStoreWood()) storeWood();
+  if (keyHit('KeyN') && canMakeWood()) startChop();
   if (keyHit('KeyZ') && canLightFire()) lightFire();
   if (keyHit('KeyC')) cutLine();
   // Kalan voimapalkin voi näyttää vain huijaustilassa (vesi piilotettuna)
@@ -1934,6 +1941,7 @@ function updatePlayer() {
     if (p.rod && !cast.lure) updateLine();
     return;
   }
+  if (p.chop) { updateChop(kx, ky); if (p.chop) kx = ky = 0; }   // hakatessa hahmo ei liiku (kävely keskeyttää hakkuun)
   if (kx || ky) {
     // Näytön suunta -> maailman suunta
     let vx = kx / HW + ky / HH, vy = ky / HH - kx / HW;
@@ -2012,12 +2020,131 @@ function toggleRod() {
     if (!p.rod && !boatStopped()) { notify('Stop the boat to fish.', 100, 'hint'); return; }
     boat.rider = p.rod ? 'drive' : 'stand';
   }
+  if (p.tool && !p.rod) { p.tool = null; p.chop = null; }   // ongen ottaminen laittaa työkalun pois
   p.rod = !p.rod;
   cast.charging = false;
   if (p.rod) {
     resetLine();
     SFX.rodOut();
   } else SFX.rodIn();
+}
+
+// ---------------------------------------------------------------------------
+// Työkalut ja polttopuut. Pelaajalla on kirves ja puukko; työkalu otetaan oikeaan käteen (onki menee silloin aina
+// repun kylkeen) eikä sitä voi ottaa, jos viehe on heitetty. Kirves roikkuu repun vasemmassa reunassa, kun se ei ole
+// kädessä; puukkoa ei piirretä muulloin kuin kädessä (sillä ei vielä voi tehdä mitään). Polttopuita otetaan katoksesta
+// (inventaario `player.wood`), lisätään nuotioon tai takaisin katokseen (20 klapia), ja niitä tehdään lisää hakkaamalla
+// metsän laidassa: viisi kirveeniskua (yksi iskua sekunnissa) tekee yhden klapin.
+// ---------------------------------------------------------------------------
+function putAwayTool() {
+  const p = player;
+  if (!p.tool) return;
+  p.tool = null; p.chop = null;
+  SFX.rodIn();
+}
+function toggleTool(kind) {
+  const p = player;
+  if (p.tool === kind) { putAwayTool(); return; }
+  if (cast.lure) { notify('Reel in the line first.', 120, 'hint'); return; }
+  if (p.boat) { notify('Not in the boat.', 90, 'hint'); return; }
+  p.rod = false; cast.charging = false;
+  p.tool = kind; p.chop = null;
+  SFX.rodOut();
+}
+
+// Katos: etäisyys sen avoimen puolen edessä olevaan pisteeseen
+const shedDist = () => Math.hypot(player.x - SHED.x0 - SHED.D - 0.9, player.y - SHED.y0 - SHED.L / 2);
+const nearShed = () => state === 'play' && !player.boat && shedDist() < 2.0;
+const canTakeWood = () => nearShed() && SHED.logs > 0;
+const canStoreWood = () => nearShed() && player.wood > 0 && SHED.logs < SHED.cap;
+function takeWood() {
+  SHED.logs--; player.wood++;
+  SFX.thud();
+  notify('Firewood ' + player.wood + '   (rack ' + SHED.logs + ')', 100, 'wood');
+}
+function storeWood() {
+  SHED.logs++; player.wood--;
+  SFX.thud();
+  notify('Firewood ' + player.wood + '   (rack ' + SHED.logs + ' / ' + SHED.cap + ')', 100, 'wood');
+}
+
+// E-näppäimen toiminto: lähin mahdollinen (teltta, nuotio, katos), muuten vene
+function eAction() {
+  const p = player, c = [];
+  if (canSleep()) c.push({ d: Math.hypot(p.x - TENT_DOOR.x, p.y - TENT_DOOR.y), label: 'SLEEP', run: startSleep });
+  if (nearFire()) c.push({ d: Math.hypot(p.x - CAMP.cx - 0.5, p.y - CAMP.cy - 0.5), label: 'ADD WOOD', run: addFirewood });
+  if (canTakeWood()) c.push({ d: shedDist(), label: 'TAKE WOOD', run: takeWood });
+  if (c.length) return c.sort((a, b) => a.d - b.d)[0];
+  if (canBoard()) return { label: 'BOAT', run: boardBoat };
+  if (p.boat && canLeave()) return { label: 'GO ASHORE', run: leaveBoat };
+  return null;
+}
+// Kosketusnäytön tee-painikkeet: sama valinta kuin näppäimillä (Z, E, Y, N); ei onki kädessä
+function contextActions() {
+  const out = [];
+  if (!player || state !== 'play' || player.rod) return out;
+  if (canLightFire()) out.push({ label: 'LIGHT FIRE', key: 'KeyZ' });
+  const e = eAction();
+  if (e && !(e.label === 'ADD WOOD' && fireFull())) out.push({ label: e.label, key: 'KeyE' });
+  if (canStoreWood()) out.push({ label: 'STORE WOOD', key: 'KeyY' });
+  if (canMakeWood()) out.push({ label: 'MAKE WOOD', key: 'KeyN' });
+  return out;
+}
+
+// Hakkuu: kirves kädessä metsän laidassa (lähin metsäruutu enintään ~1,9 m päässä)
+function forestNearDir() {
+  const p = player;
+  let best = null, bd = 1e9;
+  for (let dx = -2; dx <= 2; dx += 0.5) for (let dy = -2; dy <= 2; dy += 0.5) {
+    const d = Math.hypot(dx, dy);
+    if (d > 1.9 || d >= bd || type[cellIdx(p.x + dx, p.y + dy)] !== T_FOREST) continue;
+    bd = d; best = [dx, dy];
+  }
+  return best;
+}
+const canMakeWood = () => state === 'play' && !player.boat && player.tool === 'axe' && !player.chop && !!forestNearDir();
+function startChop() {
+  const f = forestNearDir();
+  if (!f) return;
+  player.chop = { hits: 0, swing: -1, cd: 0 };
+  faceTo(f[0], f[1]);
+  notify(touch.on ? 'Press CHOP to swing the axe' : 'SPACE or click: swing the axe', 150, 'hint');
+}
+const SWING_T = 30, SWING_HIT = 14, SWING_CD = 60, CHOPS_PER_LOG = 5;   // iskun kesto, osumahetki, väli (1 s) ja iskut / klapi
+function updateChop(kx, ky) {
+  const p = player, c = p.chop;
+  if (c.cd > 0) c.cd--;
+  if (c.swing >= 0) {
+    c.swing++;
+    if (c.swing === SWING_HIT - 7) SFX.whoosh();
+    if (c.swing === SWING_HIT) {
+      SFX.chop();
+      c.hits++;
+      const ex = isoX(p.x, p.y) + p.gux * 10, ey = isoY(p.x, p.y) - 3 + p.guy * 3;
+      for (let n = 0; n < 5; n++) particles.push({ x: ex + rand(-2, 2), y: ey + rand(-2, 1), vx: rand(-0.7, 0.7) + p.gux * 0.3, vy: rand(-1.2, -0.3), g: 0.1, life: 26, color: pick(['#c9a066', '#e0bc84', '#8a6a3c']), floor: ey + 3, splash: true });
+      if (c.hits >= CHOPS_PER_LOG) {
+        c.hits = 0; p.wood++;
+        SFX.logDone();
+        notify('+1 firewood   (' + p.wood + ')', 100, 'wood');
+      }
+    }
+    if (c.swing >= SWING_T) c.swing = -1;
+    return;   // iskun aikana hahmoa ei voi liikuttaa
+  }
+  // Kävely keskeyttää hakkuun (edistyminen nollautuu)
+  if (kx || ky) { p.chop = null; return; }
+  if (c.cd <= 0 && keyHit('Space', 'MouseL')) { c.swing = 0; c.cd = SWING_CD; }
+}
+// Kirveen / puukon kulma pystysuunnasta (rad, positiivinen = eteenpäin): lepoasento, nosto taakse, isku, palautus
+function toolAngle(p) {
+  const c = p.chop;
+  if (p.tool === 'knife') return 1.25;
+  if (!c || c.swing < 0) return 0.5;
+  const t = c.swing;
+  if (t < 7) return lerp(0.5, -0.95, t / 7);
+  if (t < SWING_HIT) return lerp(-0.95, 2.1, ((t - 7) / (SWING_HIT - 7)) ** 2);
+  if (t < SWING_HIT + 3) return 2.1;
+  return lerp(2.1, 0.5, (t - SWING_HIT - 3) / (SWING_T - SWING_HIT - 3));
 }
 
 // Asetusviesti: saman asetuksen (key) aiempi viesti korvataan, jotta jonoon ei jää vanhoja arvoja,
@@ -2986,6 +3113,8 @@ function fireSparks(n) {
 }
 function addFirewood() {
   if (fireFull()) { notify('The fire is full.', 90, 'hint'); return; }
+  if (player.wood <= 0) { notify('No firewood. Take some from the rack or chop more.', 130, 'hint'); return; }
+  player.wood--;
   const burning = fire.lit;
   fire.wood = Math.min(FIRE_MAX, fire.wood + 1);
   fire.barT = 150;
@@ -4726,6 +4855,46 @@ function drawBackRod(sx, sy, flip, rodX) {
   dot(x - lean, y0 - 4, '#3a3e44'); dot(x - lean, y0 - 5, '#6a7078');   // kela
 }
 
+// Kirves repun vasemmassa reunassa (vastakkaisella puolella kuin onki): pieni varsi ja teräspää. Piirretään vain kun
+// kirves ei ole kädessä. Sivusta katsottaessa vastakkainen laita on repun toisella puolella (edessä <-> takana).
+const AXE_BACK = (dir, rb) => ({ x: -rb.x, front: dir === 'E' || dir === 'W' ? !rb.front : rb.front });
+function drawBackAxe(sx, sy, x) {
+  const bx = Math.round(sx + x), y0 = Math.round(sy - 5), o = x < 0 ? -1 : 1;
+  for (let h = 0; h < 10; h++) dot(bx, y0 - h, h < 2 ? '#6a4a2c' : h % 3 ? '#8a5a30' : '#a06c3a');   // varsi
+  dot(bx - o, y0 - 9, 'rgba(14, 10, 8, 0.7)'); dot(bx - o, y0 - 8, 'rgba(14, 10, 8, 0.7)');
+  dot(bx, y0 - 10, '#5a626a'); dot(bx + o, y0 - 10, '#aab2ba'); dot(bx + o, y0 - 9, '#8a929a'); dot(bx + o, y0 - 11, '#8a929a');
+  dot(bx + o * 2, y0 - 10, '#e8eef2'); dot(bx + o * 2, y0 - 9, '#aab2ba'); dot(bx + o * 2, y0 - 11, '#aab2ba');
+}
+// Kädessä oleva työkalu: oikean käden otteesta (HAND) varsi suuntaan, jonka määrää toolAngle (kirves: nosto, isku ja palautus)
+function toolHand(sx, sy) { const h = HAND[playerDir()]; return [sx + h[0], sy + h[1]]; }
+function drawHeldTool(sx, sy) {
+  const p = player, a = toolAngle(p), [hx, hy] = toolHand(sx, sy);
+  const fx = p.gux, fy = p.guy;
+  let ux = fx * Math.sin(a), uy = -Math.cos(a) + fy * Math.sin(a) * 0.6;
+  const l = Math.hypot(ux, uy) || 1; ux /= l; uy /= l;
+  const side = fx < 0 ? -1 : 1, px = -uy * side, py = ux * side;   // varren kohtisuora, terä osoittaa eteenpäin
+  if (p.tool === 'axe') {
+    const len = 11, ex = hx + ux * len, ey = hy + uy * len;
+    plotLine(ctx, hx, hy + 1, ex, ey + 1, 'rgba(14, 10, 8, 0.7)');
+    plotLine(ctx, hx - ux * 2, hy - uy * 2, ex, ey, '#9a6a3a');
+    dot(ex, ey, '#4a5258'); dot(ex - ux, ey - uy, '#4a5258');
+    dot(ex + px, ey + py, '#9aa2aa'); dot(ex + px - ux, ey + py - uy, '#8a929a'); dot(ex + px + ux, ey + py + uy, '#8a929a');
+    dot(ex + px * 2, ey + py * 2, '#e8eef2'); dot(ex + px * 2 - ux, ey + py * 2 - uy, '#c0c8d0'); dot(ex + px * 2 + ux, ey + py * 2 + uy, '#c0c8d0');
+  } else {
+    // Puukko: lyhyt tumma kahva ja vaalea terä eteenpäin
+    plotLine(ctx, hx, hy, hx + ux * 3, hy + uy * 3, '#3a2a1c');
+    plotLine(ctx, hx + ux * 3, hy + uy * 3, hx + ux * 8, hy + uy * 8, '#d8e0e6');
+    dot(hx + ux * 3 + px, hy + uy * 3 + py, '#8a929a');
+  }
+}
+// Kädet työkalun kanssa: oikea käsi pitää kahvasta, vasen roikkuu vartalon vieressä
+function drawToolArms(sx, sy, phase) {
+  const dir = playerDir(), depth = ARM_DEPTH[dir], away = VIEW_INFO[player.view].away;
+  const outwards = (x) => (dir === 'E' || dir === 'W' ? 0 : x < 0 ? -1.5 : 1.5);
+  if (depth.L === phase && SHOULDER_L[dir]) { const s0 = SHOULDER_L[dir]; drawArm(sx + s0[0], sy + s0[1], sx + s0[0] + outwards(s0[0]) * 0.3, sy + s0[1] + 7, outwards(s0[0]), away); }
+  if (depth.R === phase) { const s0 = SHOULDER_R[dir], [hx, hy] = toolHand(sx, sy); drawArm(sx + s0[0], sy + s0[1], hx, hy, outwards(s0[0]), away); }
+}
+
 // Kädessä oleva onki ja siima: kärjestä roikkuu siima, jossa puna-valkoinen koho ja koukku
 function drawHeldRod(camXr, camYr) {
   const g = rodGeom();
@@ -4935,7 +5104,7 @@ function landingSpot() {
 const canLeave = () => state === 'play' && player.boat && !cast.lure && boatStopped() && !!landingSpot();
 function boardBoat() {
   const p = player;
-  p.boat = true; p.rod = false; p.moving = false;
+  p.boat = true; p.rod = false; p.tool = null; p.chop = null; p.moving = false;
   boat.rider = 'drive'; boat.moored = false; boat.th = boat.steer = 0;
   p.x = boat.x; p.y = boat.y; p.fa = boat.a;
   [p.gux, p.guy] = screenDir(Math.cos(boat.a), Math.sin(boat.a));
@@ -5204,8 +5373,11 @@ function drawPlayer(sx, sy, camXr, camYr) {
   // Selässä oleva onki on suunnasta riippuen repun takana tai edessä. Kädessä oleva onki
   // osoittaa katsesuuntaan: poispäin katsottaessa se on hahmon takana.
   const RB = ROD_BACK[playerDir()];
+  const AB = AXE_BACK(playerDir(), RB);
   if (!p.rod && !RB.front) drawBackRod(sx, sy, p.flip, RB.x);
+  if (p.tool !== 'axe' && !AB.front) drawBackAxe(sx, sy, AB.x);
   if (p.rod && V.away) drawHeldRod(camXr, camYr);
+  if (p.tool && V.away) drawHeldTool(sx, sy);
   drawImg(spr.img, sx - 8, sy - 19, p.flip);
   Object.assign(shownPlayer, { img: spr.img, x: sx - 8, y: sy - 19, flip: p.flip, hx: sx, hy: sy - 16 });
   // Otsalamppu hatun etuosassa: valkoinen piste näkyy vain, kun hahmo ei katso poispäin
@@ -5219,6 +5391,13 @@ function drawPlayer(sx, sy, camXr, camYr) {
     dot(lx, ly, '#ffffff');
   }
   if (!p.rod && RB.front) drawBackRod(sx, sy, p.flip, RB.x);
+  if (p.tool !== 'axe' && AB.front) drawBackAxe(sx, sy, AB.x);
+  if (p.tool) {
+    // Työkalu oikeassa kädessä: kauempi käsi ennen työkalua, lähempi sen päällä
+    drawToolArms(sx, sy, 'far');
+    if (!V.away) drawHeldTool(sx, sy);
+    drawToolArms(sx, sy, 'near');
+  }
   // Kauempi käsi ennen onkea (onki peittää sen), lähempi käsi onkea pitämässä sen päällä
   if (p.rod) drawArms(sx, sy, camXr, camYr, 'far');
   if (p.rod && !V.away) drawHeldRod(camXr, camYr);
@@ -6039,6 +6218,14 @@ function drawWorld() {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'; ctx.fillRect(x + 1, y + 1, Math.round(16 * fire.wood / FIRE_MAX), 1);
     ctx.globalAlpha = 1;
   }
+  // Polttopuun teon edistyminen hahmon yläpuolella: viisi iskua täyttää palkin
+  if (player.chop) {
+    const x = Math.round(isoX(player.x, player.y) - camXr) - 9, y = Math.round(isoY(player.x, player.y) - camYr) - playerLift() - 27;
+    ctx.fillStyle = '#1a1c2c'; ctx.fillRect(x, y, 18, 4);
+    ctx.fillStyle = '#e0a85a'; ctx.fillRect(x + 1, y + 1, Math.round(16 * player.chop.hits / CHOPS_PER_LOG), 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'; ctx.fillRect(x + 1, y + 1, Math.round(16 * player.chop.hits / CHOPS_PER_LOG), 1);
+    ctx.fillStyle = '#1a1c2c'; for (let k = 1; k < CHOPS_PER_LOG; k++) ctx.fillRect(x + Math.round(1 + 16 * k / CHOPS_PER_LOG), y + 1, 1, 2);
+  }
   // Kalan voimapalkki veden pinnalla kalan kohdalla; siiman kestopalkki hahmon yläpuolella
   const hf = cast.lure && cast.lure.fish;
   if (hf && hf.mode !== 'caught') {
@@ -6492,7 +6679,7 @@ function render() {
     text(help[1], W / 2, ty + 148, 4, '#94b0c2');
     if (!touch.on) {
       text('Q lure · wheel hook / reel-in speed / bait · C cut line · E boat · V cheat', W / 2, ty + 156, 4, '#94b0c2');
-      text('E firewood · Z light fire · T time speed · L sync clock · P pause · M sound', W / 2, ty + 164, 4, '#94b0c2');
+      text('E wood · Z fire · X axe · K knife · N chop · T time · L clock · P pause · M sound', W / 2, ty + 164, 4, '#94b0c2');
     }
     text('stand still and the forest animals come closer', W / 2, ty + 175, 4, '#c0a070');
     text(CREDITS.copyright, W / 2, ty + 188, 5, '#a7f070');
@@ -6540,6 +6727,7 @@ function render() {
     }
     if (cast.lure && cast.lure.st === 'float') line('LINE ' + cast.lure.out.toFixed(1) + ' / ' + LINE_MAX + ' m', '#c8d8e0');
     if (player.boat && boat.rider === 'drive') line('BOAT ' + (boat.v * 60).toFixed(1) + ' m/s', '#c8d8e0');
+    if (player.wood > 0) line('WOOD ' + player.wood, '#d8b080');
     if (catches.length) line('CATCH ' + catches.length + '  ' + fmtWeight(catches.reduce((s, c) => s + c.w, 0)), '#a7f070');
   }
   if (state === 'sleep') {
@@ -6565,6 +6753,18 @@ function render() {
     if (inBoat) text(player.rod ? 'R  DRIVE THE BOAT' : boatStopped() ? 'R  STAND UP AND FISH' : 'R  FISH (STOP FIRST)', 6, H - 20, 4, player.rod ? '#ffcd75' : '#94b0c2', 'left');
     else text((player.rod ? 'R  STOW ROD' : 'R  TAKE ROD'), 6, H - 20, 4, player.rod ? '#ffcd75' : '#94b0c2', 'left');
     text((player.light ? 'F  LAMP ON' : 'F  LAMP OFF'), 6, H - 11, 4, player.light ? '#ffe9a0' : '#94b0c2', 'left');
+    // Työkalut ja polttopuut: rivit pinotaan ylöspäin
+    const extra = [];
+    if (player.chop) extra.push(['SPACE / CLICK  SWING THE AXE', '#ffcd75'], ['MOVE  STOP CHOPPING', '#94b0c2']);
+    if (!inBoat) {
+      extra.push([player.tool === 'axe' ? 'X  STOW AXE' : 'X  TAKE AXE', player.tool === 'axe' ? '#ffcd75' : '#94b0c2']);
+      extra.push([player.tool === 'knife' ? 'K  STOW KNIFE' : 'K  TAKE KNIFE', player.tool === 'knife' ? '#ffcd75' : '#94b0c2']);
+    }
+    const ea = eAction();
+    if (ea && ea.label === 'TAKE WOOD') extra.push(['E  TAKE WOOD (RACK ' + SHED.logs + ')', blink ? '#ffcd75' : '#e0b060']);
+    if (canStoreWood()) extra.push(['Y  PUT WOOD ON THE RACK', blink ? '#ffcd75' : '#e0b060']);
+    if (canMakeWood()) extra.push(['N  MAKE FIREWOOD', blink ? '#ffcd75' : '#e0b060']);
+    extra.forEach(([t, c], i) => text(t, 6, H - 56 - i * 9, 4, c, 'left'));
   }
   if (banners.length) text(banners[0].text, W / 2, 34, 6, '#ffcd75');
   // Tähdätyn heiton etäisyys tähtäimen vieressä

@@ -19,7 +19,13 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 | R | TAKE ROD / STOW ROD | onki käteen / takaisin repun kylkeen |
 | F | LAMP | otsalamppu päälle / pois |
 | E (teltan ovella) | SLEEP (tee-painike) | nukkumaan aamuun kello 7.00 asti; mikä tahansa näppäin herättää |
-| E (nuotion vieressä) | ADD WOOD (tee-painike) | lisää nuotioon klapi (kun nuotio ei ole täynnä) |
+| E (nuotion vieressä) | ADD WOOD (tee-painike) | lisää nuotioon klapi repusta (kun nuotio ei ole täynnä ja reppu ei ole tyhjä) |
+| E (katoksen edessä) | TAKE WOOD (tee-painike) | ota katoksesta klapi reppuun (katoksen kuva päivittyy) |
+| Y (katoksen edessä) | STORE WOOD (tee-painike) | vie repun klapi takaisin katokseen (katokseen mahtuu 20) |
+| X | AXE / STOW AXE | kirves oikeaan käteen / pois (onki menee samalla repun kylkeen; ei voi ottaa, jos viehe on heitetty) |
+| K | KNIFE / STOW KNIFE | puukko oikeaan käteen / pois (puukolla ei voi vielä tehdä mitään) |
+| N (metsän laidassa, kirves kädessä) | MAKE WOOD (tee-painike) | aloita polttopuun teko: hahmo kääntyy metsään päin |
+| välilyönti tai hiiren vasen nappi | CHOP | iske kirveellä (hakkuu käynnissä; enintään kerran sekunnissa, 5 iskua = 1 klapi) |
 | Z (nuotion vieressä) | LIGHT FIRE (tee-painike) | sytytä sammunut nuotio (kun siinä on puita) |
 | hiiren oikea nappi pohjassa | RELEASE LINE (pidä pohjassa) | vapauta siimaa kelalta (enintään 30 m ulkona) |
 | Q | LURE | vaihda viehe: koho ja mato / vaappu / lippa / pohjaonki ja mato / pohjaonki ja boilie (vain kun siima on kelattu sisään) |
@@ -39,8 +45,10 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 
 **Kosketusohjaus:** liiketikku syntyy siihen, mihin sormi painetaan. Oikean reunan napit vaihtuvat tilan mukaan, ja otsalampun
 nappi (LAMP) on vasemmassa alakulmassa kaikissa tiloissa; tauko, ääni ja koko näyttö ovat ylälaidassa.
-- *Ei onkea kädessä:* TAKE ROD sekä tee-painike, joka näkyy vain kun jotain voi tehdä ja vaihtuu tilanteen mukaan
-  (SLEEP teltalla, ADD WOOD ja LIGHT FIRE nuotiolla, BOAT veneen luona, GO ASHORE veneestä rantaan).
+- *Ei onkea eikä työkalua kädessä:* TAKE ROD, AXE ja KNIFE sekä enintään kolme tee-painiketta, jotka näkyvät vain kun jotain voi
+  tehdä ja vaihtuvat tilanteen mukaan (SLEEP teltalla, ADD WOOD ja LIGHT FIRE nuotiolla, TAKE WOOD ja STORE WOOD katoksella,
+  MAKE WOOD metsän laidassa kirves kädessä, BOAT veneen luona, GO ASHORE veneestä rantaan).
+- *Työkalu kädessä:* STOW AXE / STOW KNIFE, tee-painikkeet sekä hakatessa CHOP (isku).
 - *Onki kädessä, ei heitetty:* CAST (pidä pohjassa, heitto lähtee irrotettaessa), LURE (vieheen vaihto), − / + (koho: koukun
   syvyys HOOK, pohjaonki: syötin etäisyys BAIT, uistin: kelausnopeus SPEED; pidä pohjassa toistaaksesi) ja STOW ROD.
 - *Heitetty:* REEL IN (pidä pohjassa), RELEASE LINE (pidä pohjassa), CUT sekä uistimilla kelausnopeuden − / +.
@@ -104,8 +112,8 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
   rantakohtia, joista pääsee kalastamaan vapaasti. Matalassa rantavedessä kelluu lumpeita ja ulpukoita.
   Lumpeiden varret ja kaislojen vedenalaiset varret ulottuvat lammen pohjaan asti; kaislikko huojuu rauhallisesti.
 - **Nuotio**: nuotioon lisätään klapeja yksi kerrallaan (E), enintään 5; uuden klapin voi lisätä vain, kun
-  puuta on enintään 4,5 (täyteen nuotioon lisääminen ei tee mitään); pelaajalla on toistaiseksi
-  loputtomasti klapeja. Täysi nuotio palaa loppuun tunnissa pelin aikaa ja sen liekit ovat tavallista 20 %
+  puuta on enintään 4,5 (täyteen nuotioon lisääminen ei tee mitään); klapi kuluu repun polttopuista
+  (ks. Työkalut ja polttopuut). Täysi nuotio palaa loppuun tunnissa pelin aikaa ja sen liekit ovat tavallista 20 %
   korkeammat; liekit, valo, savu ja kipinät pienenevät puiden kuluessa. Kun puut loppuvat, jää punaisena hehkuva
   hiillos, joka sammuu 30 minuutissa; sen jälkeen nuotio on täysin pimeä. Hiillokseen lisätty klapi syttyy
   itsestään ja nostaa kipinöitä, mutta sammunut nuotio pitää sytyttää erikseen (Z). Klapin lisäämisen jälkeen
@@ -169,6 +177,23 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
 - **Yö**: sorsat nukkuvat rantakaislikossa ja pakenevat säikähtäessään siipiä räpyttäen veden pintaa pitkin.
   Metsän eläimet ja lentävät linnut nukkuvat, joten niitä ei näe (yöllä kuuluu vain huuhkajan huhuilu).
   Yöeläimiä voi lisätä `ANIMAL_KINDS.night`-listaan.
+
+## Työkalut ja polttopuut
+
+- **Reppu ja polttopuut**: pelaajalla on polttopuuinventaario (`player.wood`, näkyy vasemmalla ylhäällä rivillä `WOOD n`). Klapeja
+  otetaan polttopuukatoksesta (E katoksen avoimen puolen edessä), viedään takaisin katokseen (Y; katokseen mahtuu 20) ja lisätään
+  nuotioon (E nuotion vieressä), jolloin klapi poistuu repusta. Katoksen kuva näyttää aina tarkan klapimäärän.
+- **Työkalut**: kirves (X) ja puukko (K) otetaan oikeaan käteen; onki menee silloin aina repun kylkeen eikä työkalua voi ottaa,
+  jos viehe on heitetty. Ongen ottaminen (R) laittaa työkalun pois, ja kädessä olevan työkalun voi laittaa takaisin reppuun
+  milloin tahansa (silloin kädet ovat tyhjät). Kirves roikkuu repun vasemmassa reunassa (ongen vastakkaisella puolella), kun se ei
+  ole kädessä; puukkoa ei piirretä muulloin kuin kädessä. Puukolla ei voi vielä tehdä mitään.
+- **Polttopuiden teko**: kirves kädessä metsän laidassa (lähin metsäruutu enintään noin 1,9 m päässä) valitaan MAKE WOOD (N).
+  Hahmo kääntyy metsään päin, ja hänen päällään näkyy viisiosainen edistymispalkki. Kirveellä iskeä saa välilyönnillä, hiiren
+  vasemmalla napilla tai CHOP-napilla enintään kerran sekunnissa. Isku on animoitu (nosto taakse, isku ja palautus; osuma
+  iskun puolivälin jälkeen, ja siitä kuuluu puun hakkaamisen ääni ja lentää lastuja; heilautuksesta kuuluu pieni hiljainen
+  suhahdus). Viisi iskua täyttää palkin ja repun lisätään yksi polttopuu, minkä jälkeen palkki alkaa alusta. Iskun aikana hahmoa
+  ei voi liikuttaa; kävely (iskujen välillä) keskeyttää hakkuun ja palkki nollautuu. Koodissa `startChop`, `updateChop`,
+  `toolAngle`, `drawHeldTool`, `drawBackAxe`, `contextActions`.
 
 ## Pieniä yksityiskohtia
 

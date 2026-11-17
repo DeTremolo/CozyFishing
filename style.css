@@ -113,13 +113,18 @@ body.menu .sys-buttons #btn-pause, body.menu .action-buttons, body.menu #btn-lig
 .stepper .tbtn { width: 38px; height: 44px; font-size: 16px; color: #f4f4f4; }
 #step-label { display: block; min-width: 56px; text-align: center; font-size: 8px; line-height: 1.5; color: #e0b0b8; }
 #btn-cast { color: #a7d8f0; }
-#btn-rod, #btn-act { color: #ffcd75; }
+#btn-rod, #btn-act, #btn-act2, #btn-act3, #btn-axe, #btn-knife, #btn-stow, #btn-chop { color: #ffcd75; }
 #btn-cut { color: #e0a0a0; }
 #btn-release { color: #e0b0b8; }
 #btn-lure { color: #a8c0d8; }
 /* Ei onkea kädessä: ongen otto ja (jos jotain voi tehdä) tee-painike */
-body.st-hand #btn-rod { display: block; }
-body.st-hand.has-act #btn-act { display: block; }
+body.st-hand #btn-rod, body.st-hand #btn-axe, body.st-hand #btn-knife { display: block; }
+/* Työkalu kädessä: pois laitto, hakkuu-isku (kun hakkuu on käynnissä) ja tee-painikkeet */
+body.st-tool #btn-stow { display: block; }
+body.st-tool.chopping #btn-chop { display: block; }
+body.st-hand.has-act #btn-act, body.st-tool.has-act #btn-act { display: block; }
+body.st-hand.has-act2 #btn-act2, body.st-tool.has-act2 #btn-act2 { display: block; }
+body.st-hand.has-act3 #btn-act3, body.st-tool.has-act3 #btn-act3 { display: block; }
 /* Onki kädessä, ei heitetty: heitto, vieheen vaihto, korkeuden säätö ja ongen laitto pois */
 body.st-ready #btn-cast, body.st-ready #btn-lure, body.st-ready #btn-rod { display: block; }
 body.st-ready #stepper { display: flex; }
