@@ -159,7 +159,7 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
   Ne pakenevat, jos pelaaja tulee liian lähelle; paikallaan pysyvän pelaajan luo ne uskaltautuvat lähemmäs.
   Sinisorsat uivat lammella ja jättävät vanaveden, pyrähtävät lentoon ja laskeutuvat takaisin.
   Laskeutumisesta ja lentoonlähdöstä kuuluu pehmeä veden kohahdus ja pisaroiden ropina.
-  Taivaalla lentää lintuja, ja metsästä kuuluu linnunlaulua (käen kuukkuu on mallinnettu oikean käen kutsun mukaan: kaksi puhdasta sävelkorkeutta, metsän kaiku).
+  Taivaalla lentää lintuja, ja metsästä kuuluu linnunlaulua (käen kuukkuu on mallinnettu oikean käen kutsun mukaan: kaksi puhdasta sävelkorkeutta, metsän kaiku; käki kukkuu aamulla ja illalla vain yksi kerrallaan, harvoin ja muita lintuja hiljaisemmin).
   **Silkkiuikut**: lammella uiskentelee pari silkkiuikkuja (sorsan kokoisia, pitkä valkoinen kaula, tupsupää ja ruskea
   kaulus). Ne pysyvät lähekkäin, sukeltavat välillä ja nousevat pinnalle kauempana ja huutelevat käheää "rak-rak-rak"-kutsua
   (äänimalli pohjautuu ääninäytteeseen, ääni syntetisoidaan Web Audiolla). Kun pelaaja tulee kävellen tai veneellä (veneen

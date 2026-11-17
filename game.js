@@ -4377,6 +4377,7 @@ function spawnSkyBirds() {
   if (kind === 'gull') setTimeout(() => sing('gull', fromLeft ? -0.6 : 0.6, 0.7, 6000), 900);
 }
 
+let cuckooT = 0;   // aikaisin milloin käki saa taas kukkua (time)
 function updateBirds() {
   if (--skyBirdT <= 0) {
     skyBirdT = rand(900, 2400);
@@ -4399,10 +4400,13 @@ function updateBirds() {
     if (ph === 'NIGHT') song = Math.random() < 0.6 ? 'owl' : null;
     else {
       const pool = ['chaffinch', 'chaffinch', 'tit', 'tit', 'thrush', 'thrush'];
-      if (ph !== 'DAY') pool.push('cuckoo');
+      // Käki kukkuu vain yksi kerrallaan ja harvoin (kutsu kestää enintään ~12 s, sen jälkeen tauko 1,5-4 min)
+      if (ph !== 'DAY' && time >= cuckooT) pool.push('cuckoo');
       song = pick(pool);
+      if (song === 'cuckoo') cuckooT = time + 60 * 12 + rand(5400, 14400);
     }
-    if (song) sing(song, rand(-0.9, 0.9), rand(0.35, 0.9), rand(3500, 9000));
+    // Käen ääni on puolet muiden lintujen voimakkuudesta
+    if (song) sing(song, rand(-0.9, 0.9), rand(0.35, 0.9) * (song === 'cuckoo' ? 0.5 : 1), rand(3500, 9000));
   }
 }
 
