@@ -3838,10 +3838,10 @@ function drawDuck(d, sx, sy) {
 // kaaren ja laskeutuvat johonkin toiseen kohtaan lampea (eivät poistu). Yöllä ne säikähtäessään vain sukeltavat.
 // Tilat: swim, dive (sukellus: uppoaa, on pinnan alla, nousee), takeoff (lentoonlähtö), fly, (lasku -> swim).
 // ---------------------------------------------------------------------------
-const GREBE_PAL = { k: '#16181c', K: '#101216', r: '#c0662c', R: '#7e3e1e', w: '#f0ece0', e: '#c8281e', p: '#a4a2a6', P: '#4e4a54', b: '#6a5a4c', n: '#463c34', m: '#bab4a6', M: '#7c8088',
+const GREBE_PAL = { k: '#16181c', K: '#101216', r: '#c0662c', R: '#7e3e1e', w: '#f0ece0', e: '#c8281e', p: '#aaa2a6', P: '#564c56', b: '#6a5a4c', n: '#463c34', m: '#bab4a6', M: '#7c8088',
   g: '#4a4a54', G: '#6a6c76', c: '#e2d6bc', t: '#a8642e', f: '#f0ece0' };
 const GREBE_SPR = {
-  swim: makeSprite(['.....K.K......', '....KKKKK.....', '...rrrKwewpp..', '...RrrrwwwpppP', '....KRrww.....', '.....gww......', '.....gcw......', '....ggcw......', 'gGggggcww.....', 'fGGGGGgcc.....', 'fttttttccc....'], GREBE_PAL),
+  swim: makeSprite(['.....K.K......', '....KKKKK.....', '...rrrKwewp...', '...RrrrwwwpppP', '....KRrww.....', '.....gww......', '.....gcw......', '....ggcw......', 'gGggggcww.....', 'fGGGGGgcc.....', 'fttttttccc....'], GREBE_PAL),
   fly0: makeSprite(['......nn.......', '.....nwwn......', '....nwwwn......', '...nwwwn.......', 'kkbbbbbwwwwkrpp', '..mmmmmmm......'], GREBE_PAL),
   fly1: makeSprite(['kkbbbbbwwwwkrpp', '..mmwwmmm......', '...nwwwn.......', '....nwwwn......', '.....nwwn......', '......nn.......'], GREBE_PAL),
 };
