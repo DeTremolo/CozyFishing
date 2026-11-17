@@ -115,7 +115,7 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
   noin 8 m pitkä laituri, jolle voi kävellä. Aukean takareunassa lähes teltan takana (hieman oikealla) on vanha polttopuukatos,
   jonka avoin puoli osoittaa oikealle eteen (säässä haalistunut, halkeillut lautapuu, tolpat suoraan maassa,
   ruosteinen ja sammaloitunut peltikatto). Katokseen mahtuu
-  20 klapia (4 riviä x 5), jotka piirretään kukin erikseen, joten katoksen kuva muuttuu klapien määrän
+  20 klapia (4 riviä x 5), jotka piirretään kukin erikseen: avoimella puolella näkyy päätyleikkaus ja sen takana klapin runko (kaarnapintainen, vaaleampi yläreuna), joten katoksen kuva muuttuu klapien määrän
   mukaan; aluksi klapeja on 10 (`SHED.logs`). Laiturin paalujen vedenpäällinen osa näkyy reunapalkin alla, ja veden alla
   oleva osa häipyy syvyyden ja sameuden mukaan.
 - **Moottorivene**: laiturin katsojan puoleisessa kyljessä on kiinni pieni vaalea vene (keula oikealle),

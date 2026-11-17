@@ -5513,11 +5513,25 @@ function shedSprite(logs) {
   // Lattia tolppien varassa vähän maan yläpuolella
   quad([P(0, 0, FLOOR), P(L, 0, FLOOR), P(L, D, FLOOR), P(0, D, FLOOR)], OLD.floor);
   for (let a = 0.18; a < L; a += 0.22) ln(P(a, 0, FLOOR), P(a, D, FLOOR), OLD.floorLine);
-  // Klapit: päädyt avoimelle puolelle, alimmasta rivistä ylöspäin
-  const rnd = mulberry32(91);
-  for (let i = 0; i < Math.min(logs, SHED.cap); i++) {
-    const col = i % SHED.cols, row = Math.floor(i / SHED.cols), sh = rnd();
-    const [x, y] = P(0.34 + col * 0.48, D - 0.12, FLOOR + 3 + row * 4);
+  // Klapit: rungot katoksen sisään (isometrinen syvyyssuunta) ja päädyt avoimelle puolelle, alimmasta rivistä ylöspäin.
+  // Ensin kaikki rungot, sitten päädyt, jotta päädyt jäävät rungon päälle.
+  const rnd = mulberry32(91), n = Math.min(logs, SHED.cap), logSh = Array.from({ length: n }, () => rnd());
+  const logPos = (i) => { const col = i % SHED.cols, row = Math.floor(i / SHED.cols); return [0.34 + col * 0.48, FLOOR + 3 + row * 4]; };
+  for (let i = 0; i < n; i++) {
+    const [a0, z0] = logPos(i), sh = logSh[i];
+    const [x0, y0] = P(a0, 0.14, z0), [x1, y1] = P(a0, D - 0.12, z0);
+    const top = sh < 0.5 ? '#8a6040' : '#966a46', mid = sh < 0.5 ? '#66442a' : '#724c30', low = sh < 0.5 ? '#48301c' : '#533620', dk = '#33200f';
+    for (let x = Math.round(x0); x < Math.round(x1) - 1; x++) {
+      const y = Math.round(lerp(y0, y1, (x - x0) / (x1 - x0)));
+      g.fillStyle = top; g.fillRect(x, y - 2, 1, 1);
+      g.fillStyle = (x + i) % 3 === 0 ? low : mid; g.fillRect(x, y - 1, 1, 1);
+      g.fillStyle = mid; g.fillRect(x, y, 1, 1);
+      g.fillStyle = (x + i) % 4 === 1 ? dk : low; g.fillRect(x, y + 1, 1, 1);
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    const [a0, z0] = logPos(i), sh = logSh[i];
+    const [x, y] = P(a0, D - 0.12, z0);
     const bark = sh < 0.5 ? '#4a3020' : '#5a3a24', end = sh < 0.3 ? '#cfa46c' : sh < 0.7 ? '#bf9462' : '#ad8452';
     const X = Math.round(x), Y = Math.round(y);
     g.fillStyle = bark; g.fillRect(X - 1, Y - 2, 3, 1); g.fillRect(X - 2, Y - 1, 1, 2); g.fillRect(X + 2, Y - 1, 1, 2); g.fillRect(X - 1, Y + 1, 3, 1);
