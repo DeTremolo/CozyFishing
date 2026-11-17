@@ -165,7 +165,7 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
 - **Eläimet**: oravat, jänikset ja hiiret liikkuvat metsän laidassa ja tulevat välillä penkereelle.
   Niitä on liikkeellä kerrallaan enintään kaksi, ja uusia tulee harvakseltaan.
   Ne pakenevat, jos pelaaja tulee liian lähelle; paikallaan pysyvän pelaajan luo ne uskaltautuvat lähemmäs.
-  Sinisorsat uivat lammella ja jättävät vanaveden, pyrähtävät lentoon ja laskeutuvat takaisin. Niiden kvaakuminen on mallinnettu ääninäytteen mukaan (~240 Hz:n karhea ääni, jonka energia on alueella 1,3-2,5 kHz, peukaloitu verhokäyrä ilman surinaa, 2-4 kvaakin sarja noin 0,29 s välein).
+  Sinisorsat uivat lammella ja jättävät vanaveden, pyrähtävät lentoon ja laskeutuvat takaisin. Niiden kvaakuminen on mallinnettu ääninäytteen mukaan (~240 Hz:n karhea ääni, jonka energia on alueella 1,3-2,5 kHz, terävä alku ja hiipuva häntä ilman surinaa, 2-4 kvaakin sarja noin 0,29 s välein).
   Laskeutumisesta ja lentoonlähdöstä kuuluu pehmeä veden kohahdus ja pisaroiden ropina.
   Taivaalla lentää lintuja, ja metsästä kuuluu linnunlaulua (käen kuukkuu on mallinnettu oikean käen kutsun mukaan: kaksi puhdasta sävelkorkeutta, metsän kaiku; käki kukkuu aamulla ja illalla vain yksi kerrallaan, harvoin ja muita lintuja hiljaisemmin).
   **Silkkiuikut**: lammella uiskentelee pari silkkiuikkuja (sorsan kokoisia, pitkä valkoinen kaula, tupsupää ja ruskea
