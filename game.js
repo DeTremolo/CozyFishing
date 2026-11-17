@@ -2288,7 +2288,7 @@ function updateCast() {
   const dx = O.x - L.x, dy = O.y - L.y, d = Math.hypot(dx, dy) || 0.001;
   let moved = 0;
   if (d > lim) {
-    moved = d - lim;
+    moved = d - lim;   // vieheen siirtymä tällä ruudulla (kelaus, kävely tai vene)
     L.x += (dx / d) * moved; L.y += (dy / d) * moved;
   } else if (L.onWater) {
     // Löysällä siimalla tuuli ajelehtii kohoa hiljalleen
@@ -2297,12 +2297,14 @@ function updateCast() {
   }
   L.onWater = lureInWater(L.x, L.y);
   L.moving = moved > 0.0005;
+  // Vaapun / lipan syvyyteen vaikuttaa vain todellinen veto (kelaus, kävely tai vene), ei kärjen heilunta eikä uppoamisen aiheuttama heiluriliike
+  const pm = held || player.moving || (player.boat && Math.abs(boat.v) > 0.004) ? moved : 0;
   if (L.kind === 'wobbler') {
     // Vaappu kelluu ja nousee koko ajan pintaa kohti (WOB_RISE). Vedettäessä kieli painaa sitä alas
     // sitä nopeammin, mitä kovempaa kelataan (WOB_DIVE metriä kuljettua metriä kohden). Kelaamalla
     // vaappu painuu yhä syvemmälle, kunnes se kulkee pohjaa pitkin; noin 30 cm/s nopeudella
     // sukellus ja nousu ovat tasapainossa ja vaappu ui samalla syvyydellä.
-    L.z += (L.onWater ? moved * WOB_DIVE : 0) - WOB_RISE / 60;
+    L.z += (L.onWater ? pm * WOB_DIVE : 0) - WOB_RISE / 60;
     L.z = L.onWater ? clamp(L.z, 0, Math.max(0, depthAt(L.x, L.y) - 0.06)) : 0;
   } else if (L.kind === 'spoon') {
     // Lippa uppoaa koko ajan kohti pohjaa (SPOON_SINK). Kelattaessa kireä siima vetää sitä ongen kärkeä
@@ -2311,7 +2313,7 @@ function updateCast() {
     if (L.onWater) {
       // Vedossa lippa ei juuri uppoa: noin 0,5 m/s vauhdissa uppoaminen lakkaa kokonaan
       const slope = (L.z + tipH) / Math.max(1, d);
-      L.z += (SPOON_SINK / 60) * (1 - Math.min(1, (moved * 60) / 0.5)) - moved * slope;
+      L.z += (SPOON_SINK / 60) * (1 - Math.min(1, (pm * 60) / 0.5)) - pm * slope;
       L.z = clamp(L.z, 0, Math.max(0, depthAt(L.x, L.y) - 0.03));
     } else L.z = 0;
   } else if (isRig(L.kind)) {
@@ -2323,7 +2325,7 @@ function updateCast() {
     // 3D-pituuden vaatimalle vaakaetäisyydelle: sukellus lyhentää vaakaetäisyyttä (siima on suora kärjestä vieheeseen)
     L.z = Math.min(L.z, Math.max(0, L.out - tipH));
     const lim2 = Math.sqrt(Math.max(0, L.out * L.out - (L.z + tipH) * (L.z + tipH))), dd = Math.hypot(O.x - L.x, O.y - L.y);
-    if (dd > lim2 && dd > 0.0001) { const m2 = dd - lim2; L.x += ((O.x - L.x) / dd) * m2; L.y += ((O.y - L.y) / dd) * m2; moved += m2; }
+    if (dd > lim2 && dd > 0.0001) { const m2 = dd - lim2; L.x += ((O.x - L.x) / dd) * m2; L.y += ((O.y - L.y) / dd) * m2; }   // heilurimainen veto ei ole kelausta (ei lasketa moved:iin)
   }
   if (L.onWater) {
     // Liikkuva koho jättää vanaveden ja renkaita, paikallaan oleva keinuu ja väreilee välillä
@@ -3750,13 +3752,13 @@ function drawUnderwater(camXr, camYr) {
       const fx = Math.round(isoX(f.x, f.y) - camXr + mdx), fy = Math.round(isoY(f.x, f.y) - camYr + mdy + f.z * Z_PX);
       const wl = wobblerLine(camXr, camYr);
       g.globalAlpha = underVis(f.z * 0.5);
-      if (wl) plotLine(g, wl.wx, wl.wy, wl.ex, wl.ey, 'rgba(225, 230, 235, 0.6)');
+      if (wl) plotPts(g, wl.dn, 'rgba(225, 230, 235, 0.6)');
       else plotLine(g, lx, ly + L.sub * Z_PX, fx, fy, 'rgba(225, 230, 235, 0.6)');
       if (L.sub > 0.05) { g.globalAlpha = underVis(L.sub); bobberBehind = behindPlayer(L.x, L.y); drawBobberAt(lx, Math.round(ly + L.sub * Z_PX), false, false, underVis(L.sub) * 0.6); }
     } else if (isArt(L.kind)) {
       // Pinnan alle sukeltanut vaappu ja siima pinnasta vaappuun
       const wl = wobblerLine(camXr, camYr);
-      if (wl && wl.depth > 0.02) { g.globalAlpha = underVis(wl.depth * 0.5); plotLine(g, wl.wx, wl.wy, wl.ex, wl.ey, 'rgba(225, 230, 235, 0.6)'); }
+      if (wl && wl.depth > 0.02) { g.globalAlpha = underVis(wl.depth * 0.5); plotPts(g, wl.dn, 'rgba(225, 230, 235, 0.6)'); }
       if (L.z > 0.05) {
         g.globalAlpha = underVis(L.z);
         drawArtAt(L.kind, lx, Math.round(ly + L.z * Z_PX), wobblerDir(L, camXr), L.moving);
@@ -5572,9 +5574,28 @@ function wobblerLine(camXr, camYr) {
     sx = isoX(f.x, f.y) - camXr + mdx; sy = isoY(f.x, f.y) - camYr + mdy; ey = sy + f.z * Z_PX;
   } else { sx = isoX(L.x, L.y) - camXr; sy = isoY(L.x, L.y) - camYr; ey = sy + L.z * Z_PX; }
   ex = sx;
-  const h = Math.max(1, gy - ty), dz = ey - sy, t = h / (h + dz);
-  return { tx, ty, wx: lerp(tx, sx, t), wy: lerp(gy, sy, t), ex, ey, depth: dz / Z_PX, sag: 1 + Math.min(3, slack * 3) };
+  const H0 = Math.max(1, gy - ty), dz = ey - sy;   // kärjen korkeus pinnasta ja vieheen syvyys (px)
+  // Siima on yksi jatkuva kaari kärjestä vieheeseen: suora (korkeus H0 -> -dz) josta löysän siiman verran notkoa keskellä.
+  // Pinnan yläpuolinen ja alapuolinen osa ovat saman käyrän osia, joten pinnan kohdalla ei ole kulmaa.
+  const sagPx = Math.min(8, slack * Z_PX * 0.8), n = 40, up = [[tx, ty]], dn = [];
+  let prev = null, crossed = false, wx = sx, wy = sy;
+  for (let i = 1; i <= n; i++) {
+    const u = i / n, hh = H0 - (H0 + dz) * u - sagPx * 4 * u * (1 - u);
+    const x = lerp(tx, sx, u), y = lerp(gy, sy, u) - hh;
+    if (!crossed && hh < 0) {
+      // Läpäisykohta: pinnan (hh = 0) ja edellisen pisteen välinen leikkaus
+      const [ox, oy, oh] = prev || [tx, ty, H0], f = oh / (oh - hh || 1);
+      wx = lerp(ox, x, f); wy = lerp(oy, y, f);
+      up.push([wx, wy]); dn.push([wx, wy]); crossed = true;
+    }
+    (crossed ? dn : up).push([x, y]);
+    prev = [x, y, hh];
+  }
+  if (!crossed) { wx = sx; wy = sy; }
+  return { tx, ty, wx, wy, ex, ey, depth: dz / Z_PX, sag: 1 + Math.min(3, slack * 3), up, dn };
 }
+// Piirtää pisteketjun murtoviivana
+function plotPts(g, pts, col) { for (let i = 1; i < pts.length; i++) plotLine(g, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], col); }
 
 // Heitetty siima: lennon aikana suora; vedessä kireä siima on lähes suora, löysä siima laskeutuu
 // kärjestä pintaan ja loppumatka kiemurtelee kasana pinnalla
@@ -5607,13 +5628,8 @@ function drawCastLine(g, camXr, camYr) {
   }
   const wl = wobblerLine(camXr, camYr);
   if (wl) {
-    // Pinnan yläpuolinen osa kärjestä vedenpinnan läpäisykohtaan, pieni notko keskellä
-    const n = Math.max(2, Math.ceil(Math.hypot(wl.wx - wl.tx, wl.wy - wl.ty) / 2));
-    let px = wl.tx, py = wl.ty;
-    for (let i = 1; i <= n; i++) {
-      const t = i / n, x = lerp(wl.tx, wl.wx, t), y = lerp(wl.ty, wl.wy, t) + wl.sag * 4 * t * (1 - t);
-      plotLine(ctx, px, py, x, y, col); px = x; py = y;
-    }
+    // Pinnan yläpuolinen osa kärjestä vedenpinnan läpäisykohtaan (sama kaari kuin veden alla)
+    plotPts(ctx, wl.up, col);
     return;
   }
   const lx = isoX(L.x, L.y) - camXr, ly = lureY(L) - camYr;
