@@ -4879,7 +4879,7 @@ const AXE_COL = { handle: '#b8733a', light: '#d9904e', dark: '#7e4a22', knob: '#
 // Kahvan reunassa on ongen tapaan kevyt, puoliläpinäkyvä tumma reuna.
 const AXE_POS = {
   S: { x: 4, front: false }, SE: { x: 5, front: false }, E: { x: -3, front: false }, NE: { x: -3, front: true },
-  N: { x: -4, front: true }, NW: { x: -4, front: true }, W: { x: -3, front: true }, SW: { x: -1, front: false },
+  N: { x: -4, front: true }, NW: { x: -4, front: true }, W: { x: 3, front: true }, SW: { x: 6, front: false },
 };
 function drawBackAxe(sx, sy, pos, flip) {
   const bx = Math.round(sx + pos.x), y0 = Math.round(sy - 5), o = pos.x < 0 ? -1 : 1;
