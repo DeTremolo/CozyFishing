@@ -4875,24 +4875,22 @@ function drawBackRod(sx, sy, flip, rodX) {
 // Kirves (kuvan mukainen metsästyskirves): hieman kaareva, lämpimän ruskea kahva ja leveä harmaa teräspää, jonka terä on kirkas.
 const AXE_COL = { handle: '#b8733a', light: '#d9904e', dark: '#7e4a22', knob: '#9a5c2c', poll: '#5e646a', cheek: '#9097a0', cheek2: '#a8afb6', edge: '#e6ecf0', edgeEnd: '#b8c0c6' };
 // Kirves repun vasemmassa reunassa (vastakkaisella puolella kuin onki). Piirretään vain kun kirves ei ole kädessä. Paikka x (ruudulla
-// hahmon keskeltä) ja syvyys (front: vartalon edessä / takana) on määritelty jokaiselle katselusuunnalle niin, että varsi ja
-// teräpää jäävät vartalon siluetin ulkopuolelle ja näkyvät aina; kahvalla on tumma ääriviiva, jotta se erottuu repun väristä.
+// hahmon keskeltä) on ongen paikan peilikuva; sivusta katsottaessa vastakkainen laita on repun toisella puolella (edessä <-> takana).
+// Kahvan reunassa on ongen tapaan kevyt, puoliläpinäkyvä tumma reuna.
 const AXE_POS = {
-  S: { x: 6, front: false }, SE: { x: 6, front: false }, E: { x: -5, front: false }, NE: { x: -5, front: true },
-  N: { x: -5, front: true }, NW: { x: -5, front: true }, W: { x: 5, front: true }, SW: { x: -6, front: false },
+  S: { x: 4, front: false }, SE: { x: 5, front: false }, E: { x: -3, front: false }, NE: { x: -3, front: true },
+  N: { x: -4, front: true }, NW: { x: -4, front: true }, W: { x: -3, front: true }, SW: { x: -1, front: false },
 };
-function drawBackAxe(sx, sy, pos) {
-  const bx = Math.round(sx + pos.x), y0 = Math.round(sy - 4), o = pos.x < 0 ? -1 : 1, len = 13;
-  const xx = (h) => bx + (h > 8 ? o : 0);   // varsi kallistuu ylhäältä ulospäin
-  for (let h = -1; h <= len; h++) { dot(xx(h) - 1, y0 - h, '#120c0a'); dot(xx(h) + 1, y0 - h, '#120c0a'); }
-  dot(bx, y0 + 1, '#120c0a');
-  for (let h = 0; h < len; h++) dot(xx(h), y0 - h, h < 2 ? AXE_COL.knob : h % 3 ? AXE_COL.handle : AXE_COL.light);   // varsi
-  // Teräpää varren päässä: kiila, jonka terä osoittaa ulospäin
-  const hx = xx(len), ht = y0 - len;
-  dot(hx, ht, AXE_COL.poll); dot(hx, ht - 1, AXE_COL.poll);
-  dot(hx + o, ht + 1, AXE_COL.cheek); dot(hx + o, ht, AXE_COL.cheek2); dot(hx + o, ht - 1, AXE_COL.cheek);
-  dot(hx + o * 2, ht + 1, AXE_COL.edgeEnd); dot(hx + o * 2, ht, AXE_COL.edge); dot(hx + o * 2, ht - 1, AXE_COL.edgeEnd);
-  dot(hx - o, ht, '#120c0a'); dot(hx - o, ht - 1, '#120c0a'); dot(hx, ht - 2, '#120c0a'); dot(hx + o, ht - 2, '#120c0a'); dot(hx + o * 3, ht, '#120c0a'); dot(hx + o * 2, ht - 2, '#120c0a'); dot(hx + o * 2, ht + 2, '#120c0a'); dot(hx + o, ht + 2, '#120c0a');
+function drawBackAxe(sx, sy, pos, flip) {
+  const bx = Math.round(sx + pos.x), y0 = Math.round(sy - 5), o = pos.x < 0 ? -1 : 1;
+  for (let h = 0; h < 10; h++) {
+    if (h >= 2) dot(bx + (flip ? -1 : 1), y0 - h, 'rgba(14, 10, 8, 0.7)');   // tumma reuna erottaa kahvan taustasta (kuten ongella)
+    dot(bx, y0 - h, h < 2 ? AXE_COL.knob : h % 3 ? AXE_COL.handle : AXE_COL.light);   // varsi
+  }
+  // Teräpää varren päässä: pieni kiila, jonka terä osoittaa ulospäin
+  dot(bx, y0 - 10, AXE_COL.poll); dot(bx, y0 - 11, AXE_COL.poll);
+  dot(bx + o, y0 - 9, AXE_COL.cheek); dot(bx + o, y0 - 10, AXE_COL.cheek2); dot(bx + o, y0 - 11, AXE_COL.cheek);
+  dot(bx + o * 2, y0 - 9, AXE_COL.edgeEnd); dot(bx + o * 2, y0 - 10, AXE_COL.edge); dot(bx + o * 2, y0 - 11, AXE_COL.edgeEnd);
 }
 // Oikean käden asento työkalua pitäessä: olkapää (SHOULDER_R) on paikallaan, kyynärpää roikkuu olkapään alla ja kyynärvarsi
 // kääntyy kyynärpäästä toolAnglen mukaan; käsi on kyynärvarren päässä ja työkalu jatkaa samaa suuntaa.
@@ -5437,7 +5435,7 @@ function drawPlayer(sx, sy, camXr, camYr) {
   const RB = ROD_BACK[playerDir()];
   const AB = AXE_POS[playerDir()];
   if (!p.rod && !RB.front) drawBackRod(sx, sy, p.flip, RB.x);
-  if (p.tool !== 'axe' && !AB.front) drawBackAxe(sx, sy, AB);
+  if (p.tool !== 'axe' && !AB.front) drawBackAxe(sx, sy, AB, p.flip);
   if (p.rod && V.away) drawHeldRod(camXr, camYr);
   if (p.tool && V.away) drawHeldTool(sx, sy);
   drawImg(spr.img, sx - 8, sy - 19, p.flip);
@@ -5453,7 +5451,7 @@ function drawPlayer(sx, sy, camXr, camYr) {
     dot(lx, ly, '#ffffff');
   }
   if (!p.rod && RB.front) drawBackRod(sx, sy, p.flip, RB.x);
-  if (p.tool !== 'axe' && AB.front) drawBackAxe(sx, sy, AB);
+  if (p.tool !== 'axe' && AB.front) drawBackAxe(sx, sy, AB, p.flip);
   if (p.tool) {
     // Työkalu oikeassa kädessä: kauempi käsi ennen työkalua, lähempi sen päällä
     drawToolArms(sx, sy, 'far');
