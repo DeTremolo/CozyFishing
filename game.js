@@ -1984,7 +1984,7 @@ function switchLure() {
 const REEL_MIN = 10, REEL_MAX = 100;
 function adjustReel(dv) {
   cast.reelSpeed = clamp(cast.reelSpeed + dv, REEL_MIN, REEL_MAX);
-  notify('Reel speed ' + cast.reelSpeed + ' cm/s', 90, 'reel');
+  notify('Reel-in speed ' + cast.reelSpeed + ' cm/s', 90, 'reel');
   SFX.reel();
 }
 // Kelaus metreinä päivitystä kohden: koholla nopea vakio, vaapulla säädetty nopeus
@@ -6477,7 +6477,7 @@ function render() {
     text(help[0], W / 2, ty + 140, 4, '#94b0c2');
     text(help[1], W / 2, ty + 148, 4, '#94b0c2');
     if (!touch.on) {
-      text('Q lure · wheel hook / reel speed / bait · C cut line · E boat · V cheat', W / 2, ty + 156, 4, '#94b0c2');
+      text('Q lure · wheel hook / reel-in speed / bait · C cut line · E boat · V cheat', W / 2, ty + 156, 4, '#94b0c2');
       text('E firewood · Z light fire · T time speed · L sync clock · P pause · M sound', W / 2, ty + 164, 4, '#94b0c2');
     }
     text('stand still and the forest animals come closer', W / 2, ty + 175, 4, '#c0a070');
@@ -6495,7 +6495,7 @@ function render() {
     const line = (str, col) => { text(str, 6, ly, 4, col, 'left'); ly += 8; };
     if (player.rod && isArt(player.lure)) {
       line(player.lure === 'spoon' ? 'SPOON' : 'WOBBLER', '#a8c0d8');
-      line('REEL ' + cast.reelSpeed + ' cm/s' + (touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
+      line('REEL IN ' + cast.reelSpeed + ' cm/s' + (touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
     } else if (player.rod && isRig(player.lure)) {
       line(LURES[player.lure].name, '#a8c0d8');
       line('BAIT ' + Math.round(cast.rigDist * 100) + ' cm' + (cast.lure ? '' : touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
@@ -6521,7 +6521,7 @@ function render() {
       else {
         const bottom = L.z >= depthAt(L.x, L.y) - 0.07, rs = rigState(L);
         line('SINKER ' + (L.z * 100).toFixed(1) + ' cm' + (bottom ? '  ON BOTTOM' : '') + (water.show || bottom ? '' : '  BOTTOM +' + Math.max(0, depthAt(L.x, L.y) - L.z).toFixed(2) + ' m'), bottom ? '#ffcd75' : '#a8c0d8');
-        if (bottom && rs.lying) line(rs.tf < 1 ? 'BAIT ON BOTTOM - REEL LINE TIGHT' : 'BAIT ON BOTTOM', '#e0a0a0');
+        if (bottom && rs.lying) line(rs.tf < 1 ? 'BAIT ON BOTTOM - REEL IN TO TIGHTEN' : 'BAIT ON BOTTOM', '#e0a0a0');
       }
     }
     if (cast.lure && cast.lure.st === 'float') line('LINE ' + cast.lure.out.toFixed(1) + ' / ' + LINE_MAX + ' m', '#c8d8e0');

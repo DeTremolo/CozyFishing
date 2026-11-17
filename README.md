@@ -15,13 +15,13 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 |---|---|---|
 | WASD / nuolinäppäimet | vedä sormella missä tahansa | kävely |
 | hiiri | – | tähtäin: hahmo ja otsalamppu kääntyvät sen suuntaan |
-| hiiren nappi pohjassa | CAST / REEL (pidä pohjassa) | onki kädessä: heiton lataus (heitto lähtee napin vapautuessa) tai siiman kelaus |
+| hiiren nappi pohjassa | CAST / REEL IN (pidä pohjassa) | onki kädessä: heiton lataus (heitto lähtee napin vapautuessa) tai siiman kelaus |
 | R | TAKE ROD / STOW ROD | onki käteen / takaisin repun kylkeen |
 | F | LAMP | otsalamppu päälle / pois |
 | E (teltan ovella) | SLEEP (tee-painike) | nukkumaan aamuun kello 7.00 asti; mikä tahansa näppäin herättää |
 | E (nuotion vieressä) | ADD WOOD (tee-painike) | lisää nuotioon klapi (kun nuotio ei ole täynnä) |
 | Z (nuotion vieressä) | LIGHT FIRE (tee-painike) | sytytä sammunut nuotio (kun siinä on puita) |
-| hiiren oikea nappi pohjassa | PAY OUT (pidä pohjassa) | vapauta siimaa kelalta (enintään 30 m ulkona) |
+| hiiren oikea nappi pohjassa | RELEASE LINE (pidä pohjassa) | vapauta siimaa kelalta (enintään 30 m ulkona) |
 | Q | LURE | vaihda viehe: koho ja mato / vaappu / lippa / pohjaonki ja mato / pohjaonki ja boilie (vain kun siima on kelattu sisään) |
 | hiiren rulla tai - / + | − / + | koholla koukun syvyys 0,1–1,5 m ja pohjaongella syötin etäisyys puntista 20–120 cm (vain kun siima on kelattu sisään); uistimilla kelausnopeus 10–100 cm/s |
 | T / Shift+T | – | ajan nopeus 1x–10x todelliseen aikaan verrattuna (nopeampi / hitaampi) |
@@ -43,7 +43,7 @@ nappi (LAMP) on vasemmassa alakulmassa kaikissa tiloissa; tauko, ääni ja koko 
   (SLEEP teltalla, ADD WOOD ja LIGHT FIRE nuotiolla, BOAT veneen luona, GO ASHORE veneestä rantaan).
 - *Onki kädessä, ei heitetty:* CAST (pidä pohjassa, heitto lähtee irrotettaessa), LURE (vieheen vaihto), − / + (koho: koukun
   syvyys HOOK, pohjaonki: syötin etäisyys BAIT, uistin: kelausnopeus SPEED; pidä pohjassa toistaaksesi) ja STOW ROD.
-- *Heitetty:* REEL (pidä pohjassa), PAY OUT (pidä pohjassa), CUT sekä uistimilla kelausnopeuden − / +.
+- *Heitetty:* REEL IN (pidä pohjassa), RELEASE LINE (pidä pohjassa), CUT sekä uistimilla kelausnopeuden − / +.
 
 Oikeassa yläkulmassa näkyy jatkuvasti ruudunpäivitysnopeus ja yhden ruudun laskenta-aika (esim. `60 FPS  4.2 MS`; päivitykset ja
 piirtokomennot, keskiarvo puolen sekunnin ajalta).
@@ -278,7 +278,7 @@ Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan su
   siiman varassa kohti vapaa; siimaa voi päästää kelalta oikealla hiirennapilla. Kelattaessa (1,2 m/s) puntti
   kulkee pohjaa pitkin kohti ongen kärkeä ja painuu taas pohjaan, kun kelaus loppuu. Kun puntti on pohjassa, siima pitää kelata
   kireälle (löysää alle 0,5 m), jotta sivuhaara nousee pois pohjasta: löysä siima makaa pohjalla ja syötti sen mukana, ja
-  pohjassa makaava syötti kiinnostaa kaloja vain vähän (HUD varoittaa: BAIT ON BOTTOM - REEL LINE TIGHT). Siima on kireällä
+  pohjassa makaava syötti kiinnostaa kaloja vain vähän (HUD varoittaa: BAIT ON BOTTOM - REEL IN TO TIGHTEN). Siima on kireällä
   kulmassa, joten pitkä sivuhaara (120 cm) nostaa syötin pohjasta enemmän kuin lyhyt. Tiedoissa näytetään puntin syvyys
   (SINKER). Pohjaonki nousee vedestä vasta, kun puntti on kelattu pintaan aivan pelaajan lähelle (alle 1,5 m); puntin voi siis
   päästää pohjaan myös aivan pelaajan edestä, eikä sitä nosteta ylös ilman kelausta. Kun kala nappaa pohjaonkeen, vavan päässä

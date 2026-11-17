@@ -214,7 +214,7 @@
     b.toggle('st-out', play && rod && out);
     b.toggle('art', !!(player && isArt(player.lure)));
     rodBtn.textContent = rod ? 'STOW ROD' : 'TAKE ROD';
-    castBtn.textContent = out ? 'REEL' : 'CAST';
+    castBtn.textContent = out ? 'REEL IN' : 'CAST';
     const ctx = contextAction();
     actKey = ctx ? ctx.key : null;
     b.toggle('has-act', !!ctx);

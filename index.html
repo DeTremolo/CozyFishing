@@ -14,7 +14,7 @@
 </head>
 <body>
   <canvas id="screen"></canvas>
-  <p class="help">WASD walk &nbsp;·&nbsp; Mouse aim, hold = cast / reel &nbsp;·&nbsp; R rod &nbsp;·&nbsp; Q lure &nbsp;·&nbsp; wheel hook / reel speed &nbsp;·&nbsp; F lamp &nbsp;·&nbsp; C cut &nbsp;·&nbsp; E sleep &nbsp;·&nbsp; T / Shift+T time speed &nbsp;·&nbsp; L sync clock &nbsp;·&nbsp; P pause &nbsp;·&nbsp; M sound</p>
+  <p class="help">WASD walk &nbsp;·&nbsp; Mouse aim, hold = cast / reel in &nbsp;·&nbsp; R rod &nbsp;·&nbsp; Q lure &nbsp;·&nbsp; wheel hook / reel-in speed &nbsp;·&nbsp; F lamp &nbsp;·&nbsp; C cut &nbsp;·&nbsp; E sleep &nbsp;·&nbsp; T / Shift+T time speed &nbsp;·&nbsp; L sync clock &nbsp;·&nbsp; P pause &nbsp;·&nbsp; M sound</p>
   <script>
     // Windows-sovelluksessa F11 vaihtaa koko näytön tilaa (ohjelma hoitaa ikkunan)
     addEventListener('keydown', (e) => {
@@ -35,8 +35,8 @@
     <button id="btn-light" class="tbtn" aria-label="Headlamp">LAMP</button>
     <div class="action-buttons">
       <!-- alhaalta ylös: pääpainike, sivupainikkeet; ryhmät näytetään tilan mukaan -->
-      <button id="btn-cast" class="tbtn big" aria-label="Cast or reel">CAST</button>
-      <button id="btn-pay" class="tbtn" aria-label="Pay out line">PAY OUT</button>
+      <button id="btn-cast" class="tbtn big" aria-label="Cast or reel in">CAST</button>
+      <button id="btn-pay" class="tbtn" aria-label="Release line">RELEASE LINE</button>
       <button id="btn-lure" class="tbtn" aria-label="Change lure">LURE</button>
       <div id="stepper" class="stepper">
         <button id="btn-minus" class="tbtn" aria-label="Decrease">-</button>
