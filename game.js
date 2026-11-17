@@ -1658,6 +1658,39 @@ function harsh(dest, t, f0, f1, dur, vol, formant, q = 3) {
   o.start(t); o.stop(t + dur + 0.02);
 }
 
+// Yksi sorsan kvaak: sahalaita, jonka sävelkorkeus laskee ja väpättää (karheus), kahden muotoutuvan suodattimen läpi (matala ~450 Hz ja
+// laaja ~1,8 kHz) sekä pieni määrä suhinaa
+function duckQuack(dest, t, f0, dur, vol) {
+  const o = actx.createOscillator(); o.type = 'sawtooth';
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.linearRampToValueAtTime(f0 * 0.97, t + dur * 0.5);
+  o.frequency.linearRampToValueAtTime(f0 * 0.8, t + dur);
+  const lfo = actx.createOscillator(), lg = actx.createGain();
+  lfo.frequency.value = rand(48, 62); lg.gain.value = f0 * 0.05;
+  lfo.connect(lg).connect(o.frequency);
+  const env = actx.createGain();
+  env.gain.setValueAtTime(0.0001, t);
+  env.gain.linearRampToValueAtTime(vol, t + 0.014);
+  env.gain.setValueAtTime(vol, t + dur * 0.55);
+  env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  for (const [freq, q, gn] of [[450, 2.2, 0.16], [1800, 1.3, 1.6]]) {
+    const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
+    const g = actx.createGain(); g.gain.value = gn;
+    o.connect(bp).connect(g).connect(env);
+  }
+  env.connect(dest);
+  o.start(t); lfo.start(t); o.stop(t + dur + 0.03); lfo.stop(t + dur + 0.03);
+  // Suhina
+  if (noiseBuf) {
+    const s = actx.createBufferSource(); s.buffer = noiseBuf;
+    const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 1.2;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol * 0.35, t + 0.014); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f).connect(g).connect(dest);
+    s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.02);
+  }
+}
+
 // Metsän ja lammen linnut
 const SONGS = {
   // Peippo: nopea, laskeva liverrys ja loppukiekaisu
@@ -1729,7 +1762,17 @@ const SONGS = {
     if (Math.random() < 0.5) harsh(d, t + 0.05, f * 1.3, f * 0.8, 0.45, 0.1, 1300, 1.6);
   },
   grebe1(d, t) { harsh(d, t, 900, 600, 0.13, 0.12, 1700, 2.2); harsh(d, t + 0.2, 880, 560, 0.15, 0.1, 1700, 2.2); },
-  quack(d, t) { for (let k = 0, n = 2 + Math.floor(rand(0, 3)); k < n; k++) { harsh(d, t, 260, 200, 0.13, 0.16, 1100, 4); t += rand(0.16, 0.26); } },
+  // Sinisorsa: naaraan "kvaak"-sarja, mitattu ääninäytteestä. Perussävel noin 240 Hz laskee loivasti ~190 Hz:iin, ääni on
+  // karhea (nopea sävelkorkeuden värinä) ja sen painopiste on kahdella laajalla alueella (~450 Hz ja ~1,8 kHz). Yksi kvaak kestää
+  // 0,1-0,2 s, ja sarja tulee noin 0,29 s välein hiipuen ja lyhentyen.
+  quack(d, t) {
+    const n = 2 + Math.floor(rand(0, 5)), f0 = rand(215, 250);
+    let vol = 0.056, dur = rand(0.17, 0.2);
+    for (let k = 0; k < n; k++) {
+      duckQuack(d, t, f0 * rand(0.96, 1.04), dur, vol);
+      t += rand(0.27, 0.31); vol *= 0.88; dur = Math.max(0.09, dur * 0.88);
+    }
+  },
 };
 
 function sing(song, pan, vol = 1, far = 8000) {
