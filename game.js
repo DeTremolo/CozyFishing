@@ -1680,9 +1680,39 @@ const SONGS = {
       t += 0.18;
     }
   },
-  // Käki kukkuu kaukana
+  // Käki kukkuu kaukana: kaksi lähes puhdasta siniääntä ("ku-kuu"), joista ensimmäinen nousee ja on napakka ja toinen
+  // on matalampi, tasainen ja hiljaisempi. Mitattu oikeasta käen kutsusta; perässä metsän kaiku (kaksi himmeää viivettä).
   cuckoo(d, t) {
-    for (let k = 0, n = 3 + Math.floor(rand(0, 4)); k < n; k++) { note(d, t, 700, 690, 0.22, 0.08); note(d, t + 0.3, 560, 550, 0.32, 0.08); t += 0.9; }
+    const bus = actx.createGain();
+    bus.connect(d);
+    for (const [dl, gn] of [[0.17, 0.2], [0.39, 0.1], [0.68, 0.05]]) {
+      const dn = actx.createDelay(1), lp = actx.createBiquadFilter(), gg = actx.createGain();
+      dn.delayTime.value = dl; lp.type = 'lowpass'; lp.frequency.value = 1700; gg.gain.value = gn;
+      bus.connect(dn); dn.connect(lp); lp.connect(gg); gg.connect(d);
+    }
+    // Yksi sävel: sini + heikko 2. yläsävel, liukuma f0 -> f1 (glide s), nopea tai hidas alku, tasanne ja pehmeä pää
+    const tone1 = (t0, f0, f1, glide, dur, att, vol, tail) => {
+      for (const [mul, v] of [[1, 1], [2, 0.025], [3, 0.008]]) {
+        const o = actx.createOscillator(), g = actx.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(f0 * mul, t0);
+        o.frequency.linearRampToValueAtTime(f1 * mul, t0 + glide);
+        o.frequency.linearRampToValueAtTime(f1 * mul * 0.985, t0 + dur);   // sävel painuu loppua kohden hieman
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.linearRampToValueAtTime(vol * v, t0 + att);
+        g.gain.setTargetAtTime(vol * v * tail, t0 + att, dur * 0.35);
+        g.gain.setTargetAtTime(0.0001, t0 + dur, 0.03);
+        o.connect(g).connect(bus);
+        o.start(t0); o.stop(t0 + dur + 0.2);
+      }
+    };
+    const base = rand(0.96, 1.05);
+    for (let k = 0, n = 3 + Math.floor(rand(0, 4)); k < n; k++) {
+      const j = rand(0.985, 1.015);
+      tone1(t, 545 * base * j, 612 * base * j, 0.06, 0.13, 0.012, 0.1, 0.35);
+      tone1(t + 0.35, 506 * base * j, 501 * base * j, 0.03, 0.22, 0.04, 0.056, 0.75);
+      t += rand(1.5, 1.8);
+    }
   },
   // Huuhkaja yöllä
   owl(d, t) {
