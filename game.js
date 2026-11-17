@@ -3882,15 +3882,15 @@ function drawDuck(d, sx, sy) {
 // Tilat: swim, dive (sukellus: uppoaa, on pinnan alla, nousee), takeoff (lentoonlähtö), fly, (lasku -> swim).
 // ---------------------------------------------------------------------------
 const GREBE_PAL = { k: '#16181c', K: '#101216', r: '#c0662c', R: '#7e3e1e', w: '#f0ece0', e: '#c8281e', p: '#aaa2a6', P: '#564c56', b: '#6a5a4c', n: '#463c34', m: '#bab4a6', M: '#7c8088',
-  g: '#4a4a54', G: '#6a6c76', c: '#e2d6bc', t: '#a8642e', f: '#f0ece0' };
+  g: '#4a4a54', G: '#6a6c76', c: '#e2d6bc', t: '#a8642e', f: '#f0ece0', S: '#d4e4ee' };
 const GREBE_SPR = {
-  swim: makeSprite(['.....K.K......', '....KKKKK.....', '...rrrKwewp...', '...RrrrwwwpppP', '....KRrww.....', '.....gww......', '.....gcw......', '....ggcw......', 'gGggggcww.....', 'fGGGGGgcc.....', 'fttttttccc....'], GREBE_PAL),
-  dip1: makeSprite(['..............', '..............', '..............', '.....K.K......', '....KKKKK.....', '...rrrKwewp...', '...Rrrrwwwp...', '....KRrwwwP...', 'gGggggcww.....', 'fGGGGGgcc.....', 'fttttttccc....'], GREBE_PAL),   // sukellus: pää taipuu nokka alas kohti vettä
-  dip2: makeSprite(['..............', '..............', '..............', '..............', '..............', 'ff............', 'fGGgg.........', 'tGGGGgc.......', 'ttGGGGgcc.....', 'ttttGGgccc....', 'tttttttccc....'], GREBE_PAL),   // pää veden alla, peräpää nousee
-  fly0: makeSprite(['......gg.......', '.....gwwg......', '....gwwwg......', '...gwwwg.......', 'ggGGGGGwwwwKrpP', '..ccccccc......'], GREBE_PAL),
-  fly1: makeSprite(['ggGGGGGwwwwKrpP', '..ccwwccc......', '...gwwwg.......', '....gwwwg......', '.....gwwg......', '......gg.......'], GREBE_PAL),
+  swim: makeSprite(['....K.K.....', '...KKKKK....', '..rrKwewp...', '..RrrwwwpppP', '...KRrww....', '....gcw.....', 'gGgggcww....', 'fGGGGgcc....', 'fttttttcc...'], GREBE_PAL),
+  dip1: makeSprite(['............', '............', '............', '.....cww....', '......cwKKK.', '......gcrwe.', 'gGgggcwwRwwp', 'fGGGGgcc..pP', 'fttttttcc..P'], GREBE_PAL),   // sukellus: kaula kaartuu alas ja pää painuu veteen
+  dip2: makeSprite(['............', '............', '............', '............', 'ff..........', 'fGGgg....S..', 'ttGGGg.S.S..', 'tttGGGgcc.S.', 'ttttttttcc..'], GREBE_PAL),   // pää veden alla, peräpää nousee, roiskeet
+  fly0: makeSprite(['.....gg......', '....gwwg.....', '...gwwg......', 'ggGGGGwwwKrpP', '..cccccc.....'], GREBE_PAL),
+  fly1: makeSprite(['ggGGGGwwwKrpP', '..ccwcc......', '...gwwg......', '....gwwg.....', '.....gg......'], GREBE_PAL),
 };
-GREBE_SPR.fly0.body = 4; GREBE_SPR.fly1.body = 0;   // rungon rivi (kuvan korkeus vaihtelee siipien mukaan)
+GREBE_SPR.fly0.body = 3; GREBE_SPR.fly1.body = 0;   // rungon rivi (kuvan korkeus vaihtelee siipien mukaan)
 function makeGrebe(x, y) {
   return { x, y, z: 0, a: rand(0, Math.PI * 2), sp: 0, mode: 'swim', t: rand(120, 400), nerve: 0, anim: 0, flip: false, wakeT: 0, vz: 0, callT: rand(900, 2400),
     wx: 0, wy: 0, tx: 0, ty: 0, leg: 0, fly: 0, dive: 0, dx: 0, dy: 0 };
@@ -4035,9 +4035,9 @@ function drawGrebe(d, sx, sy) {
   if (d.z > 0.5) {
     // Lentävä uikku: varjo veden tai maan pinnalla
     ctx.fillStyle = `rgba(0, 0, 0, ${Math.max(0.05, 0.3 - d.z * 0.004).toFixed(3)})`;
-    ctx.fillRect(sx - 4, sy, 9, 1);
+    ctx.fillRect(sx - 3, sy, 7, 1);
     const fi = Math.floor(d.anim / 3) % 2 ? GREBE_SPR.fly0 : GREBE_SPR.fly1;
-    drawImg(fi, sx - 7, sy - Math.round(d.z) - 4 - fi.body, d.flip);
+    drawImg(fi, sx - 6, sy - Math.round(d.z) - 3 - fi.body, d.flip);
     return;
   }
   const img = GREBE_SPR.swim, bob = Math.round(Math.sin(d.anim * 0.06) * 0.5);
@@ -4045,14 +4045,14 @@ function drawGrebe(d, sx, sy) {
     // Uppoaa ja nousee: kuvasta näkyy vain vedenpinnan yläpuolinen osa
     const [di, k] = grebeDiveFrame(d);
     ctx.save();
-    ctx.beginPath(); ctx.rect(sx - 8, sy - 14, 20, 14 + 1); ctx.clip();
-    drawImg(di, sx - 5, sy - di.height + 1 + Math.round(k * di.height), d.flip);
+    ctx.beginPath(); ctx.rect(sx - 8, sy - 12, 18, 12 + 1); ctx.clip();
+    drawImg(di, sx - 4, sy - di.height + 1 + Math.round(k * di.height), d.flip);
     ctx.restore();
     return;
   }
-  drawImg(img, sx - 5, sy - img.height + 1 + bob, d.flip);
+  drawImg(img, sx - 4, sy - img.height + 1 + bob, d.flip);
   ctx.fillStyle = `rgba(${env.ring}, 0.35)`;
-  ctx.fillRect(sx - 5, sy + 1, 8, 1);
+  ctx.fillRect(sx - 4, sy + 1, 7, 1);
 }
 
 function drawGrebeReflection(d, camXr, camYr) {
@@ -4061,8 +4061,8 @@ function drawGrebeReflection(d, camXr, camYr) {
   if (sx < -12 || sx > W + 12 || sy < -4 || sy > H + 40 || !waterPx(sx + camXr, sy + camYr)) return;
   const flying = d.z > 0.5;
   const img = flying ? (Math.floor(d.anim / 3) % 2 ? GREBE_SPR.fly0 : GREBE_SPR.fly1) : d.mode === 'dive' ? grebeDiveFrame(d)[0] : GREBE_SPR.swim;
-  const top = flying ? sy - Math.round(d.z) - 4 - img.body : sy - img.height + 1;
-  const ox = flying ? sx - 7 : sx - 5, mirrorTop = 2 * (sy + 1) - (top + img.height);
+  const top = flying ? sy - Math.round(d.z) - 3 - img.body : sy - img.height + 1;
+  const ox = flying ? sx - 6 : sx - 4, mirrorTop = 2 * (sy + 1) - (top + img.height);
   const g = reflCtxAll;
   g.save();
   g.globalAlpha = flying ? Math.max(0, 1 - d.z / 24) : 1;
