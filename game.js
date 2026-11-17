@@ -2018,6 +2018,8 @@ const RIG_SINK = 1.0;                 // puntin uppoamisnopeus (m/s)
 const RIG_REEL = 1.2 / 60;            // pohjaongen kelausnopeus (m / päivitys)
 const RIG_CAST_MAX = 24;              // pohjaongen heiton enimmäispituus (m); muilla vieheillä CAST_MAX
 const RIG_TIP = 3;                    // ongen kärjen korkeus veden yläpuolella (m), määrää siiman kulman
+// Ongen kärjen korkeus veden pinnasta (m): kärki on RIG_TIP metriä seisontapinnan yläpuolella, ja laituri / vene nostavat sitä vielä
+const tipHeight = () => RIG_TIP + playerLift() / Z_PX;
 const SNAP_T = 14;   // vieheen nosto ongen kärkeen kelauksen lopussa (ruutua)
 const reelStep = (L) => (isRig(L.kind) ? RIG_REEL : isArt(L.kind) ? cast.reelSpeed / 100 / 60 : REEL);
 
@@ -2249,7 +2251,7 @@ function updateCast() {
       L.st = 'float';
       L.onWater = lureInWater(L.x, L.y);
       const O = rigOrigin();   // siima lähtee ongen kärjestä (kaikilla vieheillä)
-      L.out = (isRig(L.kind) ? Math.hypot(Math.hypot(L.x - O.x, L.y - O.y), RIG_TIP + playerLift() / Z_PX) : Math.hypot(L.x - O.x, L.y - O.y)) + 0.3;
+      L.out = Math.hypot(Math.hypot(L.x - O.x, L.y - O.y), tipHeight()) + 0.3;   // siiman todellinen (3D) pituus kärjestä vieheeseen
       if (L.onWater) {
         ripples.push({ x: L.x, y: L.y, t: 0, life: 55, max: 7, a: 0.75 }, { x: L.x, y: L.y, t: -12, life: 50, max: 4.5, a: 0.5 });
         for (let n = 0; n < 6; n++) particles.push({ x: ex + rand(-1, 1), y: ey - 1, vx: rand(-0.4, 0.4), vy: rand(-1.1, -0.4), g: 0.1, life: 40, color: pick(['#d8e4ec', '#ffffff']), floor: ey + rand(-1, 1), splash: true });
@@ -2270,12 +2272,17 @@ function updateCast() {
   // siimaa ei ole riittävästi, puntti ei voi uppoamaan suoraan alas vaan kaartuu kireän siiman varassa kohti
   // vapaa (vaakasuora ulottuma lim = sqrt(siima² - (syvyys + kärki)²)); jos siima on liian lyhyt syvyydelle,
   // puntti pysyy ylempänä.
-  let lim = L.out;
+  // Kaikilla vieheillä siima on kärjestä vieheeseen kulkeva suora: vaakaetäisyys on enintään sqrt(siima² - (syvyys + kärjen korkeus)²),
+  // joten viehe ei voi olla syvemmällä kuin siimaa on (siima miinus kärjen korkeus veden pintaan)
+  const tipH = tipHeight();
+  let lim;
   if (isRig(L.kind) && L.onWater) {
-    const tipH = RIG_TIP + playerLift() / Z_PX;
     L.z = clamp(L.z + RIG_SINK / 60, 0, Math.max(0, depthAt(L.x, L.y) - 0.03));
     if (L.z + tipH > L.out) L.z = Math.max(0, L.out - tipH);
     lim = Math.sqrt(Math.max(0, L.out * L.out - (L.z + tipH) * (L.z + tipH)));
+  } else {
+    const zl = L.onWater && isDirect(L.kind) ? L.z || 0 : 0;
+    lim = Math.sqrt(Math.max(0, L.out * L.out - (zl + tipH) * (zl + tipH)));
   }
   const O = rigOrigin();   // siiman alkupää on ongen kärjen kohdalla maassa (ei hahmon jalkojen kohdalla)
   const dx = O.x - L.x, dy = O.y - L.y, d = Math.hypot(dx, dy) || 0.001;
@@ -2286,7 +2293,7 @@ function updateCast() {
   } else if (L.onWater) {
     // Löysällä siimalla tuuli ajelehtii kohoa hiljalleen
     const nx = L.x + wind.wx * wind.gust * 0.002, ny = L.y + wind.wy * wind.gust * 0.002;
-    if (Math.hypot(O.x - nx, O.y - ny) < L.out && lureInWater(nx, ny)) { L.x = nx; L.y = ny; }
+    if (Math.hypot(O.x - nx, O.y - ny) < lim && lureInWater(nx, ny)) { L.x = nx; L.y = ny; }
   }
   L.onWater = lureInWater(L.x, L.y);
   L.moving = moved > 0.0005;
@@ -2303,13 +2310,18 @@ function updateCast() {
     // lippa nousee kuljettua matkaa kohden. Kelaamisen loputtua lippa painuu pohjaan ja jää paikalleen.
     if (L.onWater) {
       // Vedossa lippa ei juuri uppoa: noin 0,5 m/s vauhdissa uppoaminen lakkaa kokonaan
-      const tipH = 1.2 + playerLift() / Z_PX, slope = (L.z + tipH) / Math.max(1, d);
+      const slope = (L.z + tipH) / Math.max(1, d);
       L.z += (SPOON_SINK / 60) * (1 - Math.min(1, (moved * 60) / 0.5)) - moved * slope;
       L.z = clamp(L.z, 0, Math.max(0, depthAt(L.x, L.y) - 0.03));
     } else L.z = 0;
   } else if (isRig(L.kind)) {
     // Syvyys rajataan uuteen paikkaan; kelattaessa puntti kulkee pohjaa pitkin ja nousee, kun siima on liian lyhyt
     L.z = L.onWater ? clamp(L.z, 0, Math.max(0, depthAt(L.x, L.y) - 0.03)) : 0;
+  }
+  if (L.onWater && !isRig(L.kind) && L.z) {
+    // Viehe ei voi olla syvemmällä kuin siimaa on: syvyys <= sqrt(siima² - vaakaetäisyys²) - kärjen korkeus
+    const dd = Math.hypot(O.x - L.x, O.y - L.y);
+    L.z = Math.min(L.z, Math.max(0, Math.sqrt(Math.max(0, L.out * L.out - dd * dd)) - tipH));
   }
   if (L.onWater) {
     // Liikkuva koho jättää vanaveden ja renkaita, paikallaan oleva keinuu ja väreilee välillä
@@ -2325,8 +2337,7 @@ function updateCast() {
   // Kun kelalla ulkona oleva siima on lyhyempi kuin ongen kärjen korkeus veden pinnasta, viehe ei enää yllä veteen: se napataan nopeasti
   // (SNAP_T ruudussa) ongen kärkeen ja siima palautetaan heti lepotilaan, joten sitä ei tarvitse kelata kärkeen asti
   if (!isRig(L.kind) && !L.fish) {
-    const tipH = RIG_TIP + playerLift() / Z_PX;
-    if (!(L.snap >= 0) && held && L.out < tipH) { L.snap = 0; L.sx = L.x; L.sy = L.y; L.sz = L.z || 0; L.out0 = L.out; }
+    if (!(L.snap >= 0) && held && L.out <= tipH + 0.15) { L.snap = 0; L.sx = L.x; L.sy = L.y; L.sz = L.z || 0; L.out0 = L.out; }
     if (L.snap >= 0) {
       const u = Math.min(1, ++L.snap / SNAP_T), e = u * u * (3 - 2 * u);
       L.x = lerp(L.sx, O.x, e); L.y = lerp(L.sy, O.y, e); L.z = L.sz * (1 - e); L.sub = -3.2 * e; L.out = lerp(L.out0, 0.3, e);
@@ -3416,7 +3427,7 @@ function rigState(L) {
 // Siiman löysä (m): pohjaongella ongen kärjestä puntille kulkevan siiman pituus (3D), muilla vaakaetäisyys
 const lineSlack = (L) => {
   const O = rigOrigin(), d = Math.hypot(L.x - O.x, L.y - O.y);
-  return Math.max(0, L.out - (isRig(L.kind) ? Math.hypot(d, L.z + RIG_TIP + playerLift() / Z_PX) : d));
+  return Math.max(0, L.out - Math.hypot(d, (L.onWater && isDirect(L.kind) ? L.z || 0 : isRig(L.kind) ? L.z : 0) + tipHeight()));
 };
 
 // Syötin paikka (x, y ja syvyys z), kun koho kelluu vedessä ilman kalaa
@@ -3543,10 +3554,12 @@ function updateFight(L, held) {
     if (Math.hypot(p.x - f.x, p.y - f.y) < 0.5) { collectFish(f); return; }
   }
   // Kala ei pääse kauemmas kuin ulkona olevan siiman verran; kelattaessa se vedetään lähemmäs
-  const dx = p.x - f.x, dy = p.y - f.y, d = Math.hypot(dx, dy) || 0.001;
+  const O = rigOrigin(), zl = isDirect(L.kind) ? f.z : 0, th = tipHeight();
+  const limF = Math.sqrt(Math.max(0, L.out * L.out - (zl + th) * (zl + th)));   // siiman 3D-pituus rajaa vaakaetäisyyden ongen kärjestä
+  const dx = O.x - f.x, dy = O.y - f.y, d = Math.hypot(dx, dy) || 0.001;
   let taut = false;
-  if (d > L.out) {
-    const m = d - L.out;
+  if (d > limF) {
+    const m = d - limF;
     f.x += (dx / d) * m; f.y += (dy / d) * m;
     taut = m > 0.002;
     if (f.mode === 'fight') {
@@ -3561,7 +3574,7 @@ function updateFight(L, held) {
   // Voimakas kala (painava, vetävä laji, paljon voimia) rasittaa kireää siimaa myös ilman kelausta.
   // Siimaa pitää silloin päästää kelalta (hiiren oikea nappi), mikä keventää kuormaa; kun kaikki siima
   // on ulkona, siimaa ei voi enää päästää ja lopulta se katkeaa.
-  const pulling = held || (d >= L.out - 0.01 && (p.moving || (p.boat && Math.abs(boat.v) > 0.004)));
+  const pulling = held || (d >= limF - 0.01 && (p.moving || (p.boat && Math.abs(boat.v) > 0.004)));
   const e = f.energy / f.maxE, strength = Math.pow(f.w / 1000, 0.7) * sp.pull * e;
   const paying = mouseHeld2 && !held && L.out < LINE_MAX;
   if (f.mode === 'fight' && pulling) L.tension = (L.tension || 0) + 0.004 * Math.pow(f.w / 1000, 0.7) * sp.pull * (0.3 + 0.7 * e);
@@ -3576,7 +3589,7 @@ function updateFight(L, held) {
   L.sub = f.mode === 'land' || isDirect(L.kind) ? 0 : Math.max(0, f.z - cast.hookDepth);
   if (L.onWater && f.mode === 'fight' && ++L.wakeT % 10 === 0) ripples.push({ x: L.x, y: L.y, t: 0, life: 35, max: L.sub > 0 ? 5 : 3, a: 0.55 });
   // Lähelle kelattu kala nostetaan ilmaan
-  if (L.out <= 1.2 && d < 1.9) { f.mode = 'caught'; f.caughtT = 75; SFX.splash(0.4); }
+  if (limF <= 1.2 && d < 1.9) { f.mode = 'caught'; f.caughtT = 75; SFX.splash(0.4); }
 }
 
 // Siiman katkaisu. Koukussa ollut kala ui lopun siiman ja kohon kanssa hetken ja katoaa sitten
@@ -5549,7 +5562,8 @@ function wobblerLine(camXr, camYr) {
   if (f && (f.mode === 'land' || f.mode === 'caught')) return null;
   const slack = lineSlack(L);
   if (!f && L.z < 0.03 && slack > 0.3) return null;   // löysä siima pinnalla kelluvaan vaappuun
-  const g = rodGeom(), tx = g.tx - camXr, ty = g.ty - camYr, gy = (isRig(L.kind) ? g.gy : isoY(player.x, player.y)) - camYr;
+  // Veden pinnan taso ongen kärjen alla ruudulla: kärjen maapiste (g.gy) on seisontapinnan korkeudella, laituri ja vene nostavat sitä (playerLift)
+  const g = rodGeom(), tx = g.tx - camXr, ty = g.ty - camYr, gy = g.gy + playerLift() - camYr;
   let sx, sy, ex, ey;
   if (f) {
     const [mdx, mdy] = fishMouthScreen(f);
@@ -5614,7 +5628,7 @@ function drawCastLine(g, camXr, camYr) {
   };
   // Siima roikkuu kärjen ja kohon välillä: notko syvenee löysän siiman mukana. Kun notkon pohja ulottuu
   // vedenpintaan (kärjen ja kohon välisen linjan alla oleva pinta), loppu löysä siima lepää pinnalla.
-  const surfMid = (isoY(player.x, player.y) - camYr + ly) / 2, hMid = Math.max(2, surfMid - (ty + ly) / 2);
+  const surfMid = (g.gy + playerLift() - camYr + ly) / 2, hMid = Math.max(2, surfMid - (ty + ly) / 2);
   const sag = 2 + slack * 16;
   if (sag < hMid) { curve(tx, ty, (tx + lx) / 2, (ty + ly) / 2 + sag * 2, lx, ly); return; }
   const rest = slack - (hMid - 2) / 16;   // pinnalle jäävä osa löysästä siimasta

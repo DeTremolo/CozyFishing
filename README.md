@@ -206,6 +206,11 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
 - Kelauksen lopussa kaikki vieheet (koho, vaappu, lippa) nousevat siimaa pitkin ongen kärkeen ja jäävät roikkumaan siitä,
   kuten pohjaongella; siima lähtee aina ongen kärjestä, ei hahmon jaloista.
 - Sorsat ja silkkiuikut roiskivat, synnyttävät aallon ja äännähtävät samalla hetkellä, kun ne osuvat veteen.
+- **Siimageometria**: kaikilla vieheillä (koho, vaappu, lippa, pohjaonki) siima kulkee suorana ongen kärjestä vieheeseen, ja kelalla
+  ulkona oleva siima (`LINE`) on tämän suoran todellinen 3D-pituus. Ongen kärjen korkeus veden pinnasta on 3 m + seisontapinnan
+  korkeus (laituri 0,8 m, vene 0,2 m; `tipHeight`). Viehe ei voi olla kauempana tai syvemmällä kuin siimaa riittää: vaakaetäisyys
+  on enintään sqrt(siima² - (syvyys + kärjen korkeus)²), ja vaapun / lipan syvyys enintään sqrt(siima² - vaakaetäisyys²) - kärjen
+  korkeus. Jos siimaa on vain kärjen korkeuden verran, viehe roikkuu suoraan kärjen alla pinnalla.
 - Kelauksen lopussa viehe (koho, vaappu, lippa) napataan ongen kärkeen heti, kun kelalla ulkona oleva siima on lyhyempi kuin ongen
   kärjen korkeus veden pinnasta (noin 3 m): silloin viehe ei enää yllä veteen, joten se nousee noin 0,25 s:ssa kärkeen ja siima
   palautetaan lepotilaan; sitä ei tarvitse kelata kärkeen asti.
