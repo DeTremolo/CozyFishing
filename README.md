@@ -180,7 +180,7 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
 
 ## Työkalut ja polttopuut
 
-- **Reppu ja polttopuut**: pelaajalla on polttopuuinventaario (`player.wood`, näkyy vasemmalla ylhäällä rivillä `WOOD n`). Klapeja
+- **Reppu ja polttopuut**: pelaajalla on polttopuuinventaario (`player.wood`, näkyy vasemmalla ylhäällä rivillä `WOOD n`); reppuun mahtuu enintään 5 klapia (`MAX_WOOD`): kun reppu on täynnä, katoksesta ei voi ottaa lisää eikä MAKE WOOD näy, ja viidennen klapin valmistuminen päättää hakkuun. Klapeja
   otetaan polttopuukatoksesta (E katoksen avoimen puolen edessä), viedään takaisin katokseen (Y; katokseen mahtuu 20) ja lisätään
   nuotioon (E nuotion vieressä), jolloin klapi poistuu repusta. Katoksen kuva näyttää aina tarkan klapimäärän.
 - **Työkalut**: kirves (X) ja puukko (K) otetaan oikeaan käteen; onki menee silloin aina repun kylkeen eikä työkalua voi ottaa,

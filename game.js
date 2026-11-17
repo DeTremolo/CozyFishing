@@ -1910,6 +1910,7 @@ function updatePlayer() {
     // Teltan, nuotion ja katoksen välissä valitaan lähin
     const a = eAction();
     if (a) { if (a.label === 'SLEEP') { startSleep(); return; } a.run(); }
+    else if (nearShed() && SHED.logs > 0 && p.wood >= MAX_WOOD) notify('Backpack full (' + MAX_WOOD + ' logs)', 100, 'wood');
   }
   if (keyHit('KeyX')) toggleTool('axe');
   if (keyHit('KeyK')) toggleTool('knife');
@@ -2055,7 +2056,8 @@ function toggleTool(kind) {
 // Katos: etäisyys sen avoimen puolen edessä olevaan pisteeseen
 const shedDist = () => Math.hypot(player.x - SHED.x0 - SHED.D - 0.9, player.y - SHED.y0 - SHED.L / 2);
 const nearShed = () => state === 'play' && !player.boat && shedDist() < 2.0;
-const canTakeWood = () => nearShed() && SHED.logs > 0;
+const MAX_WOOD = 5;   // reppuun mahtuu enintään viisi polttopuuta
+const canTakeWood = () => nearShed() && SHED.logs > 0 && player.wood < MAX_WOOD;
 const canStoreWood = () => nearShed() && player.wood > 0 && SHED.logs < SHED.cap;
 function takeWood() {
   SHED.logs--; player.wood++;
@@ -2102,7 +2104,7 @@ function forestNearDir() {
   }
   return best;
 }
-const canMakeWood = () => state === 'play' && !player.boat && player.tool === 'axe' && !player.chop && !!forestNearDir();
+const canMakeWood = () => state === 'play' && !player.boat && player.tool === 'axe' && !player.chop && player.wood < MAX_WOOD && !!forestNearDir();
 function startChop() {
   const f = forestNearDir();
   if (!f) return;
@@ -2126,6 +2128,7 @@ function updateChop(kx, ky) {
         c.hits = 0; p.wood++;
         SFX.logDone();
         notify('+1 firewood   (' + p.wood + ')', 100, 'wood');
+        if (p.wood >= MAX_WOOD) { p.chop = null; notify('Backpack full (' + MAX_WOOD + ' logs)', 130, 'wood'); }
       }
     }
     if (c.swing >= SWING_T) c.swing = -1;
