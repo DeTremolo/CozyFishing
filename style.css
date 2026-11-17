@@ -115,7 +115,7 @@ body.menu .sys-buttons #btn-pause, body.menu .action-buttons, body.menu #btn-lig
 #btn-cast { color: #a7d8f0; }
 #btn-rod, #btn-act { color: #ffcd75; }
 #btn-cut { color: #e0a0a0; }
-#btn-pay { color: #e0b0b8; }
+#btn-release { color: #e0b0b8; }
 #btn-lure { color: #a8c0d8; }
 /* Ei onkea kädessä: ongen otto ja (jos jotain voi tehdä) tee-painike */
 body.st-hand #btn-rod { display: block; }
@@ -124,7 +124,7 @@ body.st-hand.has-act #btn-act { display: block; }
 body.st-ready #btn-cast, body.st-ready #btn-lure, body.st-ready #btn-rod { display: block; }
 body.st-ready #stepper { display: flex; }
 /* Heitetty: kelaus (pidä pohjassa), siiman vapautus, kelausnopeus (vain uistimilla) ja katkaisu */
-body.st-out #btn-cast, body.st-out #btn-pay, body.st-out #btn-cut { display: block; }
+body.st-out #btn-cast, body.st-out #btn-release, body.st-out #btn-cut { display: block; }
 body.st-out.art #stepper { display: flex; }
 .action-buttons .tbtn.down { background: rgba(148, 176, 194, 0.5); }
 

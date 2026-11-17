@@ -1788,7 +1788,7 @@ const SFX = {
   plop: () => { tone(520, 0.09, 'sine', 0.12, 260); noiseBurst(0.12, 1200, 'bandpass', 0.08, 2); },
   thud: () => noiseBurst(0.06, 400, 'lowpass', 0.12, 1),
   reel: () => tone(rand(2600, 3000), 0.012, 'square', 0.025),
-  payout: () => tone(rand(1500, 1900), 0.01, 'square', 0.018),
+  release: () => tone(rand(1500, 1900), 0.01, 'square', 0.018),
   bite: () => { tone(380, 0.12, 'sine', 0.14, 180); noiseBurst(0.15, 900, 'bandpass', 0.12, 2); },
   // Pohjaongen vavan päässä oleva pieni kilikello: nopea sarja korkeita, hopeisia kilahduksia
   bell: () => { for (let k = 0; k < 7; k++) { const f = rand(2900, 3500), d = k * 0.065 + rand(0, 0.02); tone(f, 0.22, 'sine', 0.07, 0, d); tone(f * 1.62, 0.12, 'sine', 0.025, 0, d); } },
@@ -1846,7 +1846,7 @@ function setupWorld() {
   };
   [player.gux, player.guy] = screenDir(Math.cos(player.fa), Math.sin(player.fa));
   line = [];
-  cast = { charging: false, power: 0, pdir: 1, flick: 0, lure: null, reelT: 0, payT: 0, needRelease: false, hookDepth: 0.5, reelSpeed: 40, rigDist: 0.6 };
+  cast = { charging: false, power: 0, pdir: 1, flick: 0, lure: null, reelT: 0, releaseT: 0, needRelease: false, hookDepth: 0.5, reelSpeed: 40, rigDist: 0.6 };
   particles = []; ripples = []; wakes = []; drops = []; animals = []; skyBirds = []; banners = []; loose = [];
   spawnFish();
   catches = [];
@@ -2057,13 +2057,13 @@ function rigOrigin() {
 // ---------------------------------------------------------------------------
 const CAST_MIN = 2.5, CAST_MAX = 16;   // heiton pituus metreinä
 const REEL = 0.05;                     // kelausnopeus (m / päivitys)
-const LINE_MAX = 30, PAYOUT = 0.06;    // kelalla olevan siiman määrä ja vapautusnopeus (hiiren oikea nappi)
+const LINE_MAX = 30, RELEASE = 0.06;    // kelalla olevan siiman määrä ja vapautusnopeus (hiiren oikea nappi)
 
 // Hiiren oikea nappi vapauttaa siimaa kelalta (enintään LINE_MAX metriä ulos)
-function payOut(L) {
+function releaseLine(L) {
   if (L.out < LINE_MAX) {
-    L.out = Math.min(LINE_MAX, L.out + PAYOUT);
-    if (++cast.payT % 5 === 0) SFX.payout();
+    L.out = Math.min(LINE_MAX, L.out + RELEASE);
+    if (++cast.releaseT % 5 === 0) SFX.release();
   } else if (!L.maxMsg) { L.maxMsg = true; banners.unshift({ text: 'All ' + LINE_MAX + ' m of line is out.', t: 120 }); }
 }
 const lureInWater = (x, y) => shoreDist(x, y) < -0.15 && !onDock(x, y, 0.1);
@@ -2117,7 +2117,7 @@ function updateCast() {
   }
   if (L.fish) { updateFight(L, held); return; }
   // Kelaus vähentää ulkona olevaa siimaa; ensin kiristyy löysä siima, sitten koho alkaa liikkua
-  if (mouseHeld2 && !held) payOut(L);
+  if (mouseHeld2 && !held) releaseLine(L);
   if (held) { L.out = Math.max(0, L.out - reelStep(L)); if (++c.reelT % 6 === 0) SFX.reel(); }
   // Pohjaongen puntti uppoaa nopeasti (RIG_SINK), mutta siima kulkee ongen kärjestä (RIG_TIP) puntille: jos
   // siimaa ei ole riittävästi, puntti ei voi uppoamaan suoraan alas vaan kaartuu kireän siiman varassa kohti
@@ -3358,7 +3358,7 @@ function updateFight(L, held) {
   const p = player, f = L.fish, sp = SPECIES[f.kind];
   if (!f.dead) f.anim++;
   if (f.mode === 'caught') { if (--f.caughtT <= 0) collectFish(f); return; }
-  if (mouseHeld2 && !held) payOut(L);
+  if (mouseHeld2 && !held) releaseLine(L);
   if (held) { L.out = Math.max(0, L.out - reelStep(L) * (f.mode === 'fight' ? 0.55 : 1)); if (++cast.reelT % 6 === 0) SFX.reel(); }
   if (f.mode === 'fight') {
     if (--f.dirT <= 0) {

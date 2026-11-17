@@ -162,16 +162,16 @@
   castBtn.addEventListener('touchcancel', castUp, { passive: false });
 
   // Siiman vapautus: pohjassa pitäminen päästää siimaa kelalta (sama kuin hiiren oikea nappi)
-  const payBtn = document.getElementById('btn-pay');
-  payBtn.addEventListener('touchstart', (e) => {
+  const releaseBtn = document.getElementById('btn-release');
+  releaseBtn.addEventListener('touchstart', (e) => {
     if (e.cancelable) e.preventDefault(); e.stopPropagation();
     setTouchMode(true);
-    payBtn.classList.add('down');
+    releaseBtn.classList.add('down');
     if (state === 'play') mouseHeld2 = true;
   }, { passive: false });
-  const payUp = (e) => { if (e.cancelable) e.preventDefault(); e.stopPropagation(); payBtn.classList.remove('down'); mouseHeld2 = false; initAudio(); };
-  payBtn.addEventListener('touchend', payUp, { passive: false });
-  payBtn.addEventListener('touchcancel', payUp, { passive: false });
+  const releaseUp = (e) => { if (e.cancelable) e.preventDefault(); e.stopPropagation(); releaseBtn.classList.remove('down'); mouseHeld2 = false; initAudio(); };
+  releaseBtn.addEventListener('touchend', releaseUp, { passive: false });
+  releaseBtn.addEventListener('touchcancel', releaseUp, { passive: false });
 
   // Plus ja miinus: koho-ongella koukun syvyys, pohjaongella syötin etäisyys, uistimilla kelausnopeus
   // (sama kuin hiiren rulla). Pohjassa pitäminen toistaa askeleen.
