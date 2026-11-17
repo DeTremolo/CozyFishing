@@ -189,7 +189,7 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
   ole kädessä; puukkoa ei piirretä muulloin kuin kädessä. Kirves on metsästyskirves (lämpimän ruskea, hieman kaareva kahva ja
   leveä harmaa teräspää kirkkaalla terällä) ja puukko lyhytteräinen ja puukahvainen. Työkalua pidetään oikeassa kädessä, ja iskun
   aikana oikea käsi heiluu kyynärtaipeesta: olkapää pysyy paikallaan, kyynärvarsi kääntyy kyynärpäästä (nosto taakse, isku, palautus)
-  ja työkalu jatkaa kyynärvarren suuntaa. Vasen käsi roikkuu rentona sivulla. Puukkoa voi heilauttaa samalla tavalla (välilyönti,
+  ja työkalu jatkaa kyynärvarren suuntaa. Kun oikea puoli on vartalon takana (länteen ja lounaaseen katsottaessa), käsi ja työkalu piirretään vartalon taakse, jolloin vartalo peittää ne iskun aikana osittain; kirveen varsi näkyy kädestä 8 px. Vasen käsi roikkuu rentona sivulla. Puukkoa voi heilauttaa samalla tavalla (välilyönti,
   hiiren vasen nappi tai SLASH-nappi), mutta liike on pienempi ja siitä kuuluu vain hiljainen suhahdus; puukolla ei voi vielä
   tehdä mitään.
 - **Polttopuiden teko**: kirves kädessä metsän laidassa (lähin metsäruutu enintään noin 1,9 m päässä) valitaan MAKE WOOD (N).

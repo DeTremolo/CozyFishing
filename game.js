@@ -4907,7 +4907,7 @@ function drawHeldTool(sx, sy) {
   // Piste työkalun koordinaateissa: s = matka kahvaa pitkin kädestä, q = sivusuunta (terä eteenpäin)
   const pt = (s, q, col) => dot(hx + ux * s + px * q, hy + uy * s + py * q, col);
   if (player.tool === 'axe') {
-    const len = 11;
+    const len = 8;   // kahvasta näkyy nyrkin ulkopuolella aiempaa 3 px vähemmän
     plotLine(ctx, hx - ux * 1, hy - uy * 1 + 1, hx + ux * len, hy + uy * len + 1, 'rgba(14, 10, 8, 0.65)');
     for (let s = -2; s <= len; s++) pt(s, 0, s < 0 ? AXE_COL.knob : s % 4 === 3 ? AXE_COL.light : AXE_COL.handle);
     for (let s = 0; s <= len - 3; s += 2) pt(s, -0.6, AXE_COL.dark);
@@ -5437,7 +5437,11 @@ function drawPlayer(sx, sy, camXr, camYr) {
   if (!p.rod && !RB.front) drawBackRod(sx, sy, p.flip, RB.x);
   if (p.tool !== 'axe' && !AB.front) drawBackAxe(sx, sy, AB, p.flip);
   if (p.rod && V.away) drawHeldRod(camXr, camYr);
-  if (p.tool && V.away) drawHeldTool(sx, sy);
+  // Työkalu on oikeassa kädessä: kun oikea puoli on vartalon takana (W, SW) tai hahmo katsoo poispäin, työkalu ja käsi piirretään
+  // vartalon taakse, jolloin vartalo peittää ne iskun aikana osittain
+  const rFar = !!p.tool && ARM_DEPTH[playerDir()].R === 'far';
+  if (p.tool && rFar) drawToolArms(sx, sy, 'far');
+  if (p.tool && (V.away || rFar)) drawHeldTool(sx, sy);
   drawImg(spr.img, sx - 8, sy - 19, p.flip);
   Object.assign(shownPlayer, { img: spr.img, x: sx - 8, y: sy - 19, flip: p.flip, hx: sx, hy: sy - 16 });
   // Otsalamppu hatun etuosassa: valkoinen piste näkyy vain, kun hahmo ei katso poispäin
@@ -5454,8 +5458,7 @@ function drawPlayer(sx, sy, camXr, camYr) {
   if (p.tool !== 'axe' && AB.front) drawBackAxe(sx, sy, AB, p.flip);
   if (p.tool) {
     // Työkalu oikeassa kädessä: kauempi käsi ennen työkalua, lähempi sen päällä
-    drawToolArms(sx, sy, 'far');
-    if (!V.away) drawHeldTool(sx, sy);
+    if (!rFar) { drawToolArms(sx, sy, 'far'); if (!V.away) drawHeldTool(sx, sy); }
     drawToolArms(sx, sy, 'near');
   }
   // Kauempi käsi ennen onkea (onki peittää sen), lähempi käsi onkea pitämässä sen päällä
