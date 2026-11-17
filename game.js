@@ -2018,6 +2018,7 @@ const RIG_SINK = 1.0;                 // puntin uppoamisnopeus (m/s)
 const RIG_REEL = 1.2 / 60;            // pohjaongen kelausnopeus (m / päivitys)
 const RIG_CAST_MAX = 24;              // pohjaongen heiton enimmäispituus (m); muilla vieheillä CAST_MAX
 const RIG_TIP = 3;                    // ongen kärjen korkeus veden yläpuolella (m), määrää siiman kulman
+const SNAP_T = 14;   // vieheen nosto ongen kärkeen kelauksen lopussa (ruutua)
 const reelStep = (L) => (isRig(L.kind) ? RIG_REEL : isArt(L.kind) ? cast.reelSpeed / 100 / 60 : REEL);
 
 function toggleRod() {
@@ -2321,14 +2322,18 @@ function updateCast() {
   // Kokonaan kelattu viehe palaa roikkumaan ongen kärkeen. Pohjaonki nousee vedestä vasta, kun puntti on
   // kelattu pintaan aivan pelaajan lähelle; puntin voi siis päästää pohjaan myös aivan pelaajan edestä
   // (kelaamatta se ei nouse, vaikka etäisyys menisi nollaan).
-  // Kelauksen lopussa viehe nousee siimaa pitkin ongen kärkeen (ei jää hahmon jalkojen alle): viimeisen ~1,3 m aikana se kohoaa
-  // kärjen korkeudelle (L.sub negatiivinen = pinnan yläpuolella) ja kiinnittyy kärkeen
+  // Kun kelalla ulkona oleva siima on lyhyempi kuin ongen kärjen korkeus veden pinnasta, viehe ei enää yllä veteen: se napataan nopeasti
+  // (SNAP_T ruudussa) ongen kärkeen ja siima palautetaan heti lepotilaan, joten sitä ei tarvitse kelata kärkeen asti
   if (!isRig(L.kind) && !L.fish) {
-    const u = clamp((1.7 - L.out) / 1.3, 0, 1);
-    L.sub = -3.2 * u;
-    if (u > 0 && L.z) L.z *= 1 - u * 0.25;   // uppoava viehe nousee pintaan, kun se nostetaan ylös
+    const tipH = RIG_TIP + playerLift() / Z_PX;
+    if (!(L.snap >= 0) && held && L.out < tipH) { L.snap = 0; L.sx = L.x; L.sy = L.y; L.sz = L.z || 0; L.out0 = L.out; }
+    if (L.snap >= 0) {
+      const u = Math.min(1, ++L.snap / SNAP_T), e = u * u * (3 - 2 * u);
+      L.x = lerp(L.sx, O.x, e); L.y = lerp(L.sy, O.y, e); L.z = L.sz * (1 - e); L.sub = -3.2 * e; L.out = lerp(L.out0, 0.3, e);
+      if (u >= 1) L.out = 0;
+    } else L.sub = 0;
   }
-  if (isRig(L.kind) ? held && L.z <= 0.15 && Math.hypot(O.x - L.x, O.y - L.y) < 1.5 : L.out <= 0.4) {
+  if (isRig(L.kind) ? held && L.z <= 0.15 && Math.hypot(O.x - L.x, O.y - L.y) < 1.5 : L.out <= 0.4 || L.snap >= SNAP_T) {
     c.lure = null; c.needRelease = true;
     resetLine();
     SFX.rodIn();
@@ -4137,8 +4142,8 @@ function updateGrebes() {
         duckSplash(d, 4, false);
         SFX.duckWater(false, 0.25);
       }
-      if (d.dive === d.t - SURF + 12) duckSplash(d, 4, false);   // pää nousee pinnalle: pisaroita
-      if (d.dive === d.t - 10) ripples.push({ x: d.x, y: d.y, t: 0, life: 40, max: 3, a: 0.4 });
+      if (d.dive === d.t - SURF + 24) duckSplash(d, 3, false);   // pää nousee pinnalle: pisaroita
+      if (d.dive === d.t - 14) ripples.push({ x: d.x, y: d.y, t: 0, life: 40, max: 3, a: 0.4 });
       if (d.dive > d.t) {
         d.mode = 'swim'; d.t = rand(200, 600); d.sp = 0.006;
         if (Math.random() < 0.4) grebeCall(d, 0.8);
@@ -4179,10 +4184,10 @@ function updateGrebes() {
 
 // Sukelluksen vaiheet (ruutua): 0-9 pää taipuu (dip1), 9-20 pää veden alla ja peräpää ylhäällä (dip2), 20-34 uppoaa, sitten piilossa;
 // pinnalle noustessa viimeiset 14 ruutua kuva nousee vedestä
-const DIVE_SINK = 34, SURF = 30;
+const DIVE_SINK = 34, SURF = 60;
 function grebeDiveFrame(d) {
   // Nousu: pää ilmestyy ensin, kaula ja vartalo kohoavat perässä (hidastuva liike)
-  if (d.dive > d.t - SURF) { const u = clamp((d.t - d.dive) / SURF, 0, 1); return [GREBE_SPR.swim, u * u * u]; }
+  if (d.dive > d.t - SURF) return [GREBE_SPR.swim, clamp((d.t - d.dive) / SURF, 0, 1)];   // nousee tasaisesti pinnan alta uintikorkeuteen (1 s)
   if (d.dive < 9) return [GREBE_SPR.dip1, 0];
   if (d.dive < 20) return [GREBE_SPR.dip2, 0];
   return [GREBE_SPR.dip2, clamp((d.dive - 20) / 14, 0, 1)];
@@ -4299,6 +4304,7 @@ function sealSplash(S, n, big) {
   SFX.sealSplash(big ? 1 : 0.5);
 }
 
+const SEAL_HEAD_T = 60;   // pään nousu ja lasku pinnalla (ruutua = 1,0 s)
 const SEAL_BEND = 12, SEAL_TOUCH = 26, SEAL_ROLL = 34;   // sukelluksen vaiheet (ruutua)
 function startSealRoll(S) {
   // Pyörähtää laiturin sivulta veteen (venettä vastapäiseltä puolelta), tai nokan yli
@@ -4385,7 +4391,7 @@ function updateSeal() {
       sealSplash(S, 6, false);
     } else if (S.swimT <= 0 && !S.haul && depthAt(S.x, S.y) > 0.6) {
       // Pinnalle hengittämään: pelkkä pää näkyy
-      S.st = 'surf'; S.timer = rand(150, 290); S.lookT = rand(50, 100); S.z = 0;
+      S.st = 'surf'; S.timer = rand(150, 290); S.lookT = rand(50, 100); S.z = 0; S.surfAge = 0; S.sinkT = 0;
       ripples.push({ x: S.x, y: S.y, t: 0, life: 50, max: 4.5, a: 0.55 }, { x: S.x, y: S.y, t: -10, life: 50, max: 7, a: 0.35 });
       SFX.sealBreath();
     }
@@ -4393,7 +4399,10 @@ function updateSeal() {
     S.timer--;
     S.x += Math.cos(S.a) * 0.004; S.y += Math.sin(S.a) * 0.004;
     if (--S.lookT <= 0) { S.face = -S.face; S.lookT = rand(60, 120); }
-    if (dp < 2.4 || S.timer <= 0) sealDive(S);
+    S.surfAge++;
+    // Pää nousee pinnan yläpuolelle 1,0 s aikana (surfAge) ja painuu hitaasti veden alle 1,0 s aikana ennen sukellusta (sinkT)
+    if (!S.sinkT && (dp < 2.4 || S.timer <= 0) && S.surfAge >= SEAL_HEAD_T) S.sinkT = SEAL_HEAD_T;
+    if (S.sinkT && --S.sinkT <= 0) sealDive(S);
   } else if (S.st === 'haul') {
     const u = ++S.timer / 18;
     S.x = lerp(S.from[0], S.to[0], u); S.y = lerp(S.from[1], S.to[1], u);
@@ -4413,8 +4422,9 @@ function drawSeal(camXr, camYr) {
     const bob = Math.round(Math.sin(S.anim * 0.05) * 0.6), y = Math.round(sy);
     ctx.fillStyle = 'rgba(8, 14, 18, 0.35)'; ctx.fillRect(sx - 3, y + 1, 7, 1);
     ctx.fillStyle = `rgba(${env.ring}, 0.5)`; ctx.fillRect(sx - 4, y, 9, 1);
+    const hk = S.sinkT ? S.sinkT / SEAL_HEAD_T : clamp(S.surfAge / SEAL_HEAD_T, 0, 1);   // pään korkeus: 0 = veden alla, 1 = täysin pinnalla
     ctx.save(); ctx.beginPath(); ctx.rect(sx - 6, y - 9, 13, 9 + bob); ctx.clip();
-    drawImg(SEAL_SPR.head, sx - 4, y - 7 + bob, S.face < 0);
+    drawImg(SEAL_SPR.head, sx - 4, y - 7 + bob + Math.round((1 - hk) * 8), S.face < 0);
     ctx.restore();
     return;
   }

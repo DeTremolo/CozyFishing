@@ -206,6 +206,11 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
 - Kelauksen lopussa kaikki vieheet (koho, vaappu, lippa) nousevat siimaa pitkin ongen kärkeen ja jäävät roikkumaan siitä,
   kuten pohjaongella; siima lähtee aina ongen kärjestä, ei hahmon jaloista.
 - Sorsat ja silkkiuikut roiskivat, synnyttävät aallon ja äännähtävät samalla hetkellä, kun ne osuvat veteen.
+- Kelauksen lopussa viehe (koho, vaappu, lippa) napataan ongen kärkeen heti, kun kelalla ulkona oleva siima on lyhyempi kuin ongen
+  kärjen korkeus veden pinnasta (noin 3 m): silloin viehe ei enää yllä veteen, joten se nousee noin 0,25 s:ssa kärkeen ja siima
+  palautetaan lepotilaan; sitä ei tarvitse kelata kärkeen asti.
+- Silkkiuikku nousee sukelluksen jälkeen tasaisesti pinnan alta uintikorkeuteen 1,0 s:ssa. Norpan pää nousee pinnalle tulossa
+  pinnan yläpuolelle 1,0 s:ssa ja painuu hitaasti veden alle 1,0 s:ssa ennen sukellusta.
 
 ## Suorituskyky
 
