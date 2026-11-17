@@ -1692,6 +1692,13 @@ const SONGS = {
   },
   crow(d, t) { for (let k = 0, n = 2 + Math.floor(rand(0, 2)); k < n; k++) { harsh(d, t, 420, 330, 0.28, 0.12, 1100, 2); t += 0.42; } },
   gull(d, t) { for (let k = 0, n = 1 + Math.floor(rand(0, 3)); k < n; k++) { harsh(d, t, 900, 1300, 0.12, 0.08, 1800, 2); harsh(d, t + 0.12, 1300, 950, 0.3, 0.08, 1800, 2); t += 0.55; } },
+  // Silkkiuikku: sarja lyhyitä, käheitä haukahduksia "rak-rak-rak" ja välillä venytetty "raaah"
+  grebe(d, t) {
+    const n = 3 + Math.floor(rand(0, 3)), f = rand(560, 700);
+    for (let k = 0; k < n; k++) { harsh(d, t, f * 1.5, f, 0.11, 0.13, 1500, 2.2); t += rand(0.3, 0.38); }
+    if (Math.random() < 0.5) harsh(d, t + 0.05, f * 1.3, f * 0.8, 0.45, 0.1, 1300, 1.6);
+  },
+  grebe1(d, t) { harsh(d, t, 900, 600, 0.13, 0.12, 1700, 2.2); harsh(d, t + 0.2, 880, 560, 0.15, 0.1, 1700, 2.2); },
   quack(d, t) { for (let k = 0, n = 2 + Math.floor(rand(0, 3)); k < n; k++) { harsh(d, t, 260, 200, 0.13, 0.16, 1100, 4); t += rand(0.16, 0.26); } },
 };
 
@@ -1746,6 +1753,7 @@ const SFX = {
 // Pelin tila
 // ---------------------------------------------------------------------------
 let state = 'title';
+let grebes = [];
 let player, line, particles, ripples, wakes, drops, ducks, animals, skyBirds, banners;
 let time, clock, timeScale = 1, clockSync = false, clockStep = 0, weather, wind, birdT, skyBirdT, duckT, animalT, phaseName, sleep, cast;
 const LINE_SEG = 1.6, BOB_I = 7;   // siiman nivelet: koho nivelessä BOB_I, koukku viimeisessä
@@ -1771,6 +1779,7 @@ function setupWorld() {
   catches = [];
   fire = { wood: 3, emb: 1, lit: true, barT: 0 };
   ducks = [makeDuck(C + rand(-8, 8), C + rand(-8, 8), true, false), makeDuck(C + rand(-8, 8), C + rand(-8, 8), false, false)];
+  spawnGrebes();
   seal = makeSeal();
   weatherSeed = Math.floor(Math.random() * 1e9); weatherPlans.clear();
   weather = { kind: 'clear', rain: 0, fog: 0 };
@@ -3793,6 +3802,188 @@ function drawDuck(d, sx, sy) {
 }
 
 // ---------------------------------------------------------------------------
+// Silkkiuikut: pari sorsan kokoista uikkua uiskentelee lammella pitkä valkoinen kaula pystyssä, tupsupää ja
+// ruskea kaulus. Ne sukeltavat välillä ja ilmestyvät pinnalle kauempana. Kun pelaaja tulee kävellen tai
+// veneellä liian lähelle, uikut juoksevat siivet räpyttäen veden pintaa pitkin lentoon, lentävät ison
+// kaaren ja laskeutuvat johonkin toiseen kohtaan lampea (eivät poistu). Yöllä ne säikähtäessään vain sukeltavat.
+// Tilat: swim, dive (sukellus: uppoaa, on pinnan alla, nousee), takeoff (lentoonlähtö), fly, (lasku -> swim).
+// ---------------------------------------------------------------------------
+const GREBE_PAL = { k: '#16181c', r: '#b5602a', R: '#7e3e1e', w: '#ece8dc', e: '#c8281e', p: '#d9a09a', b: '#6a5a4c', n: '#463c34', m: '#bab4a6', M: '#7c8088' };
+const GREBE_SPR = {
+  swim: makeSprite(['.....kk.....', '....kkkk....', '....rrwewpp.', '....Rrrwwp..', '.....nw.....', '.....nw.....', '.....nw.....', 'nnbbbbnbww..', '.mmmmmmmmM..'], GREBE_PAL),
+  fly0: makeSprite(['......nn.......', '.....nwwn......', '....nwwwn......', '...nwwwn.......', 'kkbbbbbwwwwkrpp', '..mmmmmmm......'], GREBE_PAL),
+  fly1: makeSprite(['kkbbbbbwwwwkrpp', '..mmwwmmm......', '...nwwwn.......', '....nwwwn......', '.....nwwn......', '......nn.......'], GREBE_PAL),
+};
+GREBE_SPR.fly0.body = 4; GREBE_SPR.fly1.body = 0;   // rungon rivi (kuvan korkeus vaihtelee siipien mukaan)
+function makeGrebe(x, y) {
+  return { x, y, z: 0, a: rand(0, Math.PI * 2), sp: 0, mode: 'swim', t: rand(120, 400), nerve: 0, anim: 0, flip: false, wakeT: 0, vz: 0, callT: rand(900, 2400),
+    wx: 0, wy: 0, tx: 0, ty: 0, leg: 0, fly: 0, dive: 0, dx: 0, dy: 0 };
+}
+function spawnGrebes() {
+  grebes = [];
+  for (let k = 0; k < 40 && grebes.length < 2; k++) {
+    const a = rand(0, Math.PI * 2), r = rand(4, POND_R * 0.6);
+    const x = C + Math.cos(a) * r + (grebes[0] ? rand(-1, 1) : 0), y = C + Math.sin(a) * r;
+    if (duckFree(x, y) && Math.hypot(x - player.x, y - player.y) > 8 && (!grebes[0] || Math.hypot(x - grebes[0].x, y - grebes[0].y) < 6)) grebes.push(makeGrebe(x, y));
+  }
+}
+const grebePan = (d) => clamp((isoX(d.x, d.y) - isoX(player.x, player.y)) / 200, -1, 1);
+function grebeCall(d, vol) {
+  const dp = Math.hypot(d.x - player.x, d.y - player.y);
+  if (dp < 40) sing(Math.random() < 0.75 ? 'grebe' : 'grebe1', grebePan(d), clamp((vol || 1) * (1.2 - dp / 40), 0.15, 1));
+}
+// Uikun lähestyvä häiriö: kävelevä pelaaja tai liikkuva vene
+const grebeDisturb = () => player.moving || (player.boat && boat && Math.abs(boat.v) > 0.004);
+
+// Mihin uikku laskeutuu: vapaa vesikohta kaukana pelaajasta ja lähtöpaikasta
+function grebeLanding(d) {
+  let best = null, bs = -1;
+  for (let k = 0; k < 40; k++) {
+    const a = rand(0, Math.PI * 2), r = rand(3, POND_R * 0.8), x = C + Math.cos(a) * r, y = C + Math.sin(a) * r;
+    if (!duckFree(x, y)) continue;
+    const sc = Math.min(Math.hypot(x - player.x, y - player.y), 1.6 * Math.hypot(x - d.x, y - d.y)) + rand(0, 4);
+    if (sc > bs) { bs = sc; best = [x, y]; }
+  }
+  return best || [C, C];
+}
+
+function takeOffGrebe(d, partner) {
+  const p = player;
+  d.mode = 'takeoff'; d.leg = 0; d.vz = 0; d.sp = Math.max(d.sp, 0.02); d.nerve = 0;
+  d.a = (partner ? partner.a : Math.atan2(d.y - p.y, d.x - p.x)) + rand(-0.3, 0.3);
+  const [tx, ty] = partner ? [partner.tx + rand(-2, 2), partner.ty + rand(-2, 2)] : grebeLanding(d);
+  d.tx = tx; d.ty = ty;
+  // Ensimmäinen reittipiste: pitkälle lähtösuuntaan, joten lento kaartaa laajasti
+  const L = rand(18, 30);
+  d.wx = d.x + Math.cos(d.a) * L; d.wy = d.y + Math.sin(d.a) * L;
+  d.fly = 0;
+  duckSplash(d, 10, true);
+  SFX.duckWater(false); SFX.flap();
+  grebeCall(d, 1);
+  if (!partner) for (const o of grebes) if (o !== d && o.mode === 'swim' && Math.hypot(o.x - d.x, o.y - d.y) < 12) takeOffGrebe(o, d);
+}
+
+function grebeDive(d, flee) {
+  d.mode = 'dive'; d.dive = 0; d.sp = 0; d.nerve = 0;
+  d.t = flee ? rand(260, 420) : rand(160, 380);
+  // Nousupaikka: eteenpäin tai poispäin pelaajasta, vapaaseen veteen
+  for (let k = 0; k < 20; k++) {
+    const a = flee ? Math.atan2(d.y - player.y, d.x - player.x) + rand(-0.8, 0.8) : d.a + rand(-1.2, 1.2), L = flee ? rand(8, 16) : rand(3, 9);
+    const x = d.x + Math.cos(a) * L, y = d.y + Math.sin(a) * L;
+    if (duckFree(x, y) && !grebes.some((o) => o !== d && Math.hypot(o.x - x, o.y - y) < 1.2)) { d.dx = x; d.dy = y; d.a = a; break; }
+    d.dx = d.x; d.dy = d.y;
+  }
+  ripples.push({ x: d.x, y: d.y, t: 0, life: 45, max: 5, a: 0.6 });
+  duckSplash(d, 4, false);
+  SFX.duckWater(false, 0.35);
+}
+
+function updateGrebes() {
+  const p = player, night = phaseName === 'NIGHT';
+  for (const d of grebes) {
+    d.anim++;
+    const dp = Math.hypot(d.x - p.x, d.y - p.y);
+    if (d.mode === 'swim') {
+      d.nerve = clamp(d.nerve + (grebeDisturb() && dp < 9 ? (9 - dp) * 0.0028 : -0.002), 0, 1);
+      if (d.nerve >= 1 || dp < 3) { if (night) grebeDive(d, true); else takeOffGrebe(d); continue; }
+      let want = 0.008;
+      d.a += rand(-0.03, 0.03);
+      if (shoreDist(d.x, d.y) > -2.4) d.a += angDiff(d.a, Math.atan2(C - d.y, C - d.x)) * 0.06;
+      // Pari pysyy lähekkäin
+      const mate = grebes.find((o) => o !== d && o.mode === 'swim');
+      if (mate) { const md = Math.hypot(mate.x - d.x, mate.y - d.y); if (md > 5) { d.a += angDiff(d.a, Math.atan2(mate.y - d.y, mate.x - d.x)) * 0.04; want = 0.011; } else if (md < 1.2) d.a += angDiff(d.a, Math.atan2(d.y - mate.y, d.x - mate.x)) * 0.05; }
+      if (dp < 7) { d.a += angDiff(d.a, Math.atan2(d.y - p.y, d.x - p.x)) * 0.05; want = 0.016; }
+      paddle(d, want);
+      if (--d.t <= 0) { if (Math.random() < 0.5) grebeDive(d, false); else { d.a += rand(-1.5, 1.5); d.t = rand(200, 600); } }
+      if (--d.callT <= 0) { d.callT = rand(1800, 5000) * (night ? 3 : 1); grebeCall(d, night ? 0.5 : 0.9); }
+    } else if (d.mode === 'dive') {
+      d.dive++;
+      if (d.dive === 14) d.hidden = true;
+      if (d.dive > d.t) {
+        // Nousu pinnalle uudessa paikassa
+        d.x = d.dx; d.y = d.dy; d.mode = 'swim'; d.hidden = false; d.t = rand(200, 600); d.sp = 0.006;
+        ripples.push({ x: d.x, y: d.y, t: 0, life: 45, max: 5, a: 0.6 });
+        duckSplash(d, 3, false);
+        if (Math.random() < 0.4) grebeCall(d, 0.8);
+      }
+    } else if (d.mode === 'takeoff') {
+      // Juoksee siivet räpyttäen veden pinnalla, kunnes nousee ilmaan
+      d.sp = Math.min(0.1, d.sp + 0.0025);
+      d.vz = Math.min(0.6, d.vz + 0.014);
+      d.z += d.vz;
+      d.x += Math.cos(d.a) * d.sp; d.y += Math.sin(d.a) * d.sp;
+      if (d.z < 4 && d.anim % 4 === 0) duckSplash(d, 2, false);
+      if (d.z > 14) { d.mode = 'fly'; d.fly = 0; }
+    } else if (d.mode === 'fly') {
+      d.fly++;
+      const goal = d.leg === 0 ? [d.wx, d.wy] : [d.tx, d.ty];
+      const dx = goal[0] - d.x, dy = goal[1] - d.y, dist = Math.hypot(dx, dy);
+      if (d.leg === 0 && dist < 5) d.leg = 1;
+      const want = Math.atan2(dy, dx), last = d.leg === 1 && dist < 3.5;
+      d.a += last ? angDiff(d.a, want) : clamp(angDiff(d.a, want), -0.032, 0.032);
+      const sp = d.leg === 1 ? Math.min(0.1, 0.035 + dist * 0.004) : 0.1;
+      d.x += Math.cos(d.a) * sp; d.y += Math.sin(d.a) * sp;
+      // Korkeus: nousu matkalentokorkeuteen, loppulähestymisessä liukuva lasku
+      const cruise = 24 + Math.sin(d.fly * 0.03) * 2;
+      const zt = d.leg === 1 ? cruise * clamp((dist - 0.3) / 13, 0, 1) ** 1.2 : cruise;
+      d.z += clamp(zt - d.z, -0.5, 0.35);
+      if ((d.leg === 1 && dist < 0.4) || d.fly > 2200) {
+        d.x = d.leg === 1 ? d.tx : d.x; d.y = d.leg === 1 ? d.ty : d.y;
+        if (!duckFree(d.x, d.y)) { const g = grebeLanding(d); d.x = g[0]; d.y = g[1]; }
+        d.mode = 'swim'; d.z = 0; d.sp = 0.03; d.t = rand(200, 500); d.nerve = 0;
+        duckSplash(d, 14, true);
+        SFX.duckWater(true);
+        grebeCall(d, 1);
+      }
+    }
+    const [sx] = screenDir(Math.cos(d.a), Math.sin(d.a));
+    if (Math.abs(sx) > 0.15) d.flip = sx < 0;
+  }
+}
+
+function drawGrebe(d, sx, sy) {
+  sx = Math.round(sx); sy = Math.round(sy);
+  if (d.mode === 'dive' && d.hidden) return;
+  if (d.z > 0.5) {
+    // Lentävä uikku: varjo veden tai maan pinnalla
+    ctx.fillStyle = `rgba(0, 0, 0, ${Math.max(0.05, 0.3 - d.z * 0.004).toFixed(3)})`;
+    ctx.fillRect(sx - 4, sy, 9, 1);
+    const fi = Math.floor(d.anim / 3) % 2 ? GREBE_SPR.fly0 : GREBE_SPR.fly1;
+    drawImg(fi, sx - 7, sy - Math.round(d.z) - 4 - fi.body, d.flip);
+    return;
+  }
+  const img = GREBE_SPR.swim, bob = Math.round(Math.sin(d.anim * 0.06) * 0.5);
+  if (d.mode === 'dive') {
+    // Uppoaa ja nousee: kuvasta näkyy vain vedenpinnan yläpuolinen osa
+    const k = d.dive < 14 ? d.dive / 14 : d.dive > d.t - 14 ? (d.t - d.dive) / 14 : 1;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(sx - 8, sy - 14, 16, 14 + 1); ctx.clip();
+    drawImg(img, sx - 5, sy - img.height + 1 + Math.round(k * img.height), d.flip);
+    ctx.restore();
+    return;
+  }
+  drawImg(img, sx - 5, sy - img.height + 1 + bob, d.flip);
+  ctx.fillStyle = `rgba(${env.ring}, 0.35)`;
+  ctx.fillRect(sx - 5, sy + 1, 8, 1);
+}
+
+function drawGrebeReflection(d, camXr, camYr) {
+  if (d.mode === 'dive' && d.hidden) return;
+  const sx = Math.round(isoX(d.x, d.y) - camXr), sy = Math.round(isoY(d.x, d.y) - camYr);
+  if (sx < -12 || sx > W + 12 || sy < -4 || sy > H + 40 || !waterPx(sx + camXr, sy + camYr)) return;
+  const flying = d.z > 0.5;
+  const img = flying ? (Math.floor(d.anim / 3) % 2 ? GREBE_SPR.fly0 : GREBE_SPR.fly1) : GREBE_SPR.swim;
+  const top = flying ? sy - Math.round(d.z) - 4 - img.body : sy - img.height + 1;
+  const ox = flying ? sx - 7 : sx - 5, mirrorTop = 2 * (sy + 1) - (top + img.height);
+  const g = reflCtxAll;
+  g.save();
+  g.globalAlpha = flying ? Math.max(0, 1 - d.z / 24) : 1;
+  g.translate(ox + (d.flip ? img.width : 0), mirrorTop + img.height); g.scale(d.flip ? -1 : 1, -1);
+  g.drawImage(img, 0, 0);
+  g.restore();
+}
+
+// ---------------------------------------------------------------------------
 // Norppa (saimaannorppa): lepää pelin alussa laiturin nokassa naama oikealle. Jos pelaaja tulee lähelle, se
 // hypähtelee makuultaan laiturin nokkaan ja pyörähtää veteen (läsähdys ja pyöreät aallot); se voi myös lähteä
 // uimaan ilman syytä. Vedessä se uiskentelee veden alla ja tulee välillä pinnalle hengittämään, jolloin vain
@@ -4356,6 +4547,7 @@ function update() {
   updateCampfire();
   updateBoat();
   updateDucks();
+  updateGrebes();
   updateSeal();
   updateFishes();
   updateLoose();
@@ -4839,6 +5031,7 @@ function drawReflections(camXr, camYr) {
   const items = [{ d: player.x + player.y, fn: () => drawPlayerReflection(camXr, camYr) }];
   if (boat) items.push({ d: boat.x + boat.y, fn: () => drawBoatReflection(camXr, camYr) });
   for (const dk of ducks) if (dk.z <= 24) items.push({ d: dk.x + dk.y, fn: () => drawDuckReflection(dk, camXr, camYr) });
+  for (const gb of grebes) if (gb.z <= 24) items.push({ d: gb.x + gb.y, fn: () => drawGrebeReflection(gb, camXr, camYr) });
   items.sort((a, b) => a.d - b.d);
   for (const it of items) it.fn();
   g.globalCompositeOperation = 'source-atop';
@@ -5609,6 +5802,7 @@ function drawWorld() {
   for (const a of animals) list.push({ d: a.x + a.y, k: 4, a });
   if (water.show) for (const o of waterRocks) list.push({ d: o.x + o.y, k: 7, o });
   for (const dk of ducks) if (dk.z < 3) list.push({ d: dk.x + dk.y, k: 5, dk });
+  for (const gb of grebes) if (gb.z < 3) list.push({ d: gb.x + gb.y, k: 11, gb });
   if (playerShown() && !player.boat) list.push({ d: player.x + player.y + 0.01, k: 6 });
   list.sort((a, b) => a.d - b.d);
 
@@ -5635,6 +5829,8 @@ function drawWorld() {
       drawAnimal(o.a, isoX(o.a.x, o.a.y) - camXr, isoY(o.a.x, o.a.y) - camYr);
     } else if (o.k === 5) {
       drawDuck(o.dk, isoX(o.dk.x, o.dk.y) - camXr, isoY(o.dk.x, o.dk.y) - camYr);
+    } else if (o.k === 11) {
+      drawGrebe(o.gb, isoX(o.gb.x, o.gb.y) - camXr, isoY(o.gb.x, o.gb.y) - camYr);
     } else if (o.k === 10) {
       drawSeal(camXr, camYr);
     } else if (o.k === 9) {
@@ -5662,6 +5858,7 @@ function drawWorld() {
 
   // Ilmassa lentävät sorsat ja taivaan linnut puiden yläpuolella
   for (const dk of ducks) if (dk.z >= 3) drawDuck(dk, isoX(dk.x, dk.y) - camXr, isoY(dk.x, dk.y) - camYr);
+  for (const gb of grebes) if (gb.z >= 3) drawGrebe(gb, isoX(gb.x, gb.y) - camXr, isoY(gb.x, gb.y) - camYr);
   drawSkyBirds(camXr, camYr);
 
   // Partikkelit: savu, kipinät, vesiroiskeet

@@ -125,6 +125,7 @@ Polttopuukatos → Tähtäin ja vieheet (`LURES`) → Pelisilmukka.
 - Eläimet: `ANIMAL_KINDS`, `spawnAnimal`, `updateAnimals` (tilat lurk → approach → forage → leave, flee, home);
   enintään 2 kerrallaan, uusi 800–2200 päivityksen välein.
 - Sorsat: `makeDuck`, `updateDucks`, `takeOff`, `scramble`, `duckSplash`; ääni `SFX.duckWater(land, v)`.
+- Silkkiuikut: `grebes` (kaksi, eivät poistu pelistä), `updateGrebes`, `drawGrebe`, `GREBE_SPR`; tilat swim → dive (sukellus) tai takeoff → fly → lasku (swim); ääni `SONGS.grebe`. Piirtolistan tyyppi `k` 11, heijastukset `drawGrebeReflection`.
 - Norppa: `seal` (tilat rest, hop, roll, swim, surf, haul), `makeSeal`, `updateSeal`, `drawSeal` (laiturilla ja pää pinnalla), `drawSealUnder`
   (veden alla); äänet `SFX.sealSplash`, `SFX.sealBreath`. Kuvat `SEAL_SPR` piirretään koodissa.
 - Ilmoitukset: `notify(text, t, key)` – sama `key` korvaa edellisen bannerin.

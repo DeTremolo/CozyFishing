@@ -160,6 +160,12 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
   Sinisorsat uivat lammella ja jättävät vanaveden, pyrähtävät lentoon ja laskeutuvat takaisin.
   Laskeutumisesta ja lentoonlähdöstä kuuluu pehmeä veden kohahdus ja pisaroiden ropina.
   Taivaalla lentää lintuja, ja metsästä kuuluu linnunlaulua.
+  **Silkkiuikut**: lammella uiskentelee pari silkkiuikkuja (sorsan kokoisia, pitkä valkoinen kaula, tupsupää ja ruskea
+  kaulus). Ne pysyvät lähekkäin, sukeltavat välillä ja nousevat pinnalle kauempana ja huutelevat käheää "rak-rak-rak"-kutsua
+  (äänimalli pohjautuu ääninäytteeseen, ääni syntetisoidaan Web Audiolla). Kun pelaaja tulee kävellen tai veneellä (veneen
+  pitää liikkua) liian lähelle, uikut juoksevat siivet räpyttäen veden pintaa pitkin lentoon, lentävät noin 10 sekunnin
+  kaaren ja laskeutuvat johonkin muuhun kohtaan lampea; ne eivät poistu pelistä. Yöllä uikut säikähtäessään vain sukeltavat
+  (`grebes`, `updateGrebes`, `drawGrebe`).
 - **Yö**: sorsat nukkuvat rantakaislikossa ja pakenevat säikähtäessään siipiä räpyttäen veden pintaa pitkin.
   Metsän eläimet ja lentävät linnut nukkuvat, joten niitä ei näe (yöllä kuuluu vain huuhkajan huhuilu).
   Yöeläimiä voi lisätä `ANIMAL_KINDS.night`-listaan.
