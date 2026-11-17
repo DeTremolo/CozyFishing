@@ -148,7 +148,7 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
   ilmoituksia; kellon vieressä on sääkuvake (aurinko tai yöllä kuu, pilvi ja pisarat, usvajuovat),
   sen alla kompassi, jonka nuoli näyttää tuulen suunnan, ja palkit tuulen voimakkuudelle (0–3).
 - **Norppa** (saimaannorppa): lepää pelin alussa laiturin nokassa naama oikealle. Jos pelaaja tulee lähelle, se hypähtelee
-  makuultaan laiturin nokkaan ja pyörähtää veteen; vedessä kuuluu läsähdys, roiskuu pisaroita ja lammelle leviää pyöreitä
+  makuultaan laiturin nokkaan ja sukeltaa veteen pää edellä (taipuu ensin laiturin reunalla, putoaa pää alaspäin ja painuu pinnan alle); vedessä kuuluu läsähdys, roiskuu pisaroita ja lammelle leviää pyöreitä
   aaltoja. Se voi lähteä uimaan myös ilman, että pelaaja menee sen lähelle (keskimäärin parin minuutin välein), ja se hypähtelee
   välillä pienen matkan laiturilla. Vedessä norppa uiskentelee veden alla (näkyy tummana hahmona; huijaustilassa tarkemmin) ja
   tulee välillä pinnalle hengittämään, jolloin vain sen pää näkyy veden päällä; liian lähelle tuleva pelaaja saa sen sukeltamaan
@@ -169,6 +169,13 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
 - **Yö**: sorsat nukkuvat rantakaislikossa ja pakenevat säikähtäessään siipiä räpyttäen veden pintaa pitkin.
   Metsän eläimet ja lentävät linnut nukkuvat, joten niitä ei näe (yöllä kuuluu vain huuhkajan huhuilu).
   Yöeläimiä voi lisätä `ANIMAL_KINDS.night`-listaan.
+
+## Pieniä yksityiskohtia
+
+- Pelaaja kävelee 0,0525 ruutua päivityksessä (3,15 m/s); kävelyanimaatio ja askeläänet on mitoitettu sen mukaan.
+- Kelauksen lopussa kaikki vieheet (koho, vaappu, lippa) nousevat siimaa pitkin ongen kärkeen ja jäävät roikkumaan siitä,
+  kuten pohjaongella; siima lähtee aina ongen kärjestä, ei hahmon jaloista.
+- Sorsat ja silkkiuikut roiskivat, synnyttävät aallon ja äännähtävät samalla hetkellä, kun ne osuvat veteen.
 
 ## Suorituskyky
 

@@ -12,7 +12,7 @@ const N = 112;             // kartan koko ruutuina (metreinä)
 const C = N / 2;           // lammen keskipiste
 const POND_R = 25;         // lammen keskisäde: halkaisija noin 50 m
 const POND_RMAX = POND_R + 5.5;   // rantaviivan suurin etäisyys keskipisteestä (lahdet)
-const WALK = 0.042;        // kävelynopeus (ruutua / päivitys)
+const WALK = 0.0525;       // kävelynopeus (ruutua / päivitys)
 
 const T_WATER = 0, T_BANK = 1, T_FOREST = 2, T_CLEAR = 3, T_TENT = 4, T_CAMP = 5, T_SHED = 6;
 // Vuorokausi: kellossa CYCLE yksikköä vuorokaudessa (ks. advanceClock). Kellonaika = 4.30 + osuus * 24 h
@@ -315,7 +315,7 @@ const PLAYER_SPR_HELD = Object.fromEntries(Object.entries(HELD_ARMS).map(([dir, 
 }));
 // Hahmon kuva: onki kädessä käytetään kuvaa, josta roikkuvat kädet on poistettu
 const playerSpr = (p) => {
-  const k = p.moving ? Math.floor(p.anim / 8) % 2 : 0;
+  const k = p.moving ? Math.floor(p.anim / 6) % 2 : 0;
   return p.rod ? PLAYER_SPR_HELD[playerDir()][k] : PLAYER_SPR[p.view][k];
 };
 
@@ -1942,7 +1942,7 @@ function updatePlayer() {
     if (!aiming()) faceTo(vx, vy);
     if (moveBody(p, vx, vy)) {
       p.moving = true;
-      if (++p.anim % 16 === 0) SFX.step(onDock(p.x, p.y));
+      if (++p.anim % 12 === 0) SFX.step(onDock(p.x, p.y));
     }
   }
   // Hiirellä pelattaessa hahmo katsoo tähtäimen suuntaan (myös otsalamppu ja onki osoittavat sinne)
@@ -2036,7 +2036,7 @@ function toggleLight() {
 // taipuu taaksepäin sitä enemmän, mitä enemmän voimaa on, ja heiton jälkeen se heilahtaa eteen.
 function rodGeom() {
   const p = player, ax = isoX(p.x, p.y), ay = isoY(p.x, p.y) - playerLift();
-  const step = p.moving ? Math.floor(p.anim / 8) % 2 : 0;
+  const step = p.moving ? Math.floor(p.anim / 6) % 2 : 0;
   const hand = HAND[playerDir()], hx = ax + hand[0], hy = ay + hand[1] + step;
   const sway = Math.sin(time * 0.035) * 0.7;
   const reach = 11 - (cast.charging ? cast.power * 13 : 0) + cast.flick * 0.5;
@@ -2101,8 +2101,8 @@ function updateCast() {
     if (k >= 1) {
       L.st = 'float';
       L.onWater = lureInWater(L.x, L.y);
-      const O = isRig(L.kind) ? rigOrigin() : p;
-      L.out = (isRig(L.kind) ? Math.hypot(Math.hypot(L.x - O.x, L.y - O.y), RIG_TIP + playerLift() / Z_PX) : Math.hypot(L.x - p.x, L.y - p.y)) + 0.3;
+      const O = rigOrigin();   // siima lähtee ongen kärjestä (kaikilla vieheillä)
+      L.out = (isRig(L.kind) ? Math.hypot(Math.hypot(L.x - O.x, L.y - O.y), RIG_TIP + playerLift() / Z_PX) : Math.hypot(L.x - O.x, L.y - O.y)) + 0.3;
       if (L.onWater) {
         ripples.push({ x: L.x, y: L.y, t: 0, life: 55, max: 7, a: 0.75 }, { x: L.x, y: L.y, t: -12, life: 50, max: 4.5, a: 0.5 });
         for (let n = 0; n < 6; n++) particles.push({ x: ex + rand(-1, 1), y: ey - 1, vx: rand(-0.4, 0.4), vy: rand(-1.1, -0.4), g: 0.1, life: 40, color: pick(['#d8e4ec', '#ffffff']), floor: ey + rand(-1, 1), splash: true });
@@ -2130,7 +2130,7 @@ function updateCast() {
     if (L.z + tipH > L.out) L.z = Math.max(0, L.out - tipH);
     lim = Math.sqrt(Math.max(0, L.out * L.out - (L.z + tipH) * (L.z + tipH)));
   }
-  const O = isRig(L.kind) ? rigOrigin() : p;   // pohjaongella siiman alkupää on ongen kärjen kohdalla maassa
+  const O = rigOrigin();   // siiman alkupää on ongen kärjen kohdalla maassa (ei hahmon jalkojen kohdalla)
   const dx = O.x - L.x, dy = O.y - L.y, d = Math.hypot(dx, dy) || 0.001;
   let moved = 0;
   if (d > lim) {
@@ -2175,7 +2175,14 @@ function updateCast() {
   // Kokonaan kelattu viehe palaa roikkumaan ongen kärkeen. Pohjaonki nousee vedestä vasta, kun puntti on
   // kelattu pintaan aivan pelaajan lähelle; puntin voi siis päästää pohjaan myös aivan pelaajan edestä
   // (kelaamatta se ei nouse, vaikka etäisyys menisi nollaan).
-  if (isRig(L.kind) ? held && L.z <= 0.15 && Math.hypot(O.x - L.x, O.y - L.y) < 1.5 : L.out <= 1) {
+  // Kelauksen lopussa viehe nousee siimaa pitkin ongen kärkeen (ei jää hahmon jalkojen alle): viimeisen ~1,3 m aikana se kohoaa
+  // kärjen korkeudelle (L.sub negatiivinen = pinnan yläpuolella) ja kiinnittyy kärkeen
+  if (!isRig(L.kind) && !L.fish) {
+    const u = clamp((1.7 - L.out) / 1.3, 0, 1);
+    L.sub = -3.2 * u;
+    if (u > 0 && L.z) L.z *= 1 - u * 0.25;   // uppoava viehe nousee pintaan, kun se nostetaan ylös
+  }
+  if (isRig(L.kind) ? held && L.z <= 0.15 && Math.hypot(O.x - L.x, O.y - L.y) < 1.5 : L.out <= 0.4) {
     c.lure = null; c.needRelease = true;
     resetLine();
     SFX.rodIn();
@@ -3255,7 +3262,7 @@ function rigState(L) {
 
 // Siiman löysä (m): pohjaongella ongen kärjestä puntille kulkevan siiman pituus (3D), muilla vaakaetäisyys
 const lineSlack = (L) => {
-  const O = isRig(L.kind) ? rigOrigin() : player, d = Math.hypot(L.x - O.x, L.y - O.y);
+  const O = rigOrigin(), d = Math.hypot(L.x - O.x, L.y - O.y);
   return Math.max(0, L.out - (isRig(L.kind) ? Math.hypot(d, L.z + RIG_TIP + playerLift() / Z_PX) : d));
 };
 
@@ -3814,7 +3821,7 @@ function updateDucks() {
       const sp = 0.035 + Math.min(0.065, dist * 0.004);
       d.x += (dx / dist) * sp; d.y += (dy / dist) * sp;
       d.z = 46 * clamp(dist / d.dist0, 0, 1) ** 1.3;
-      if (dist < 0.3) {
+      if (dist < 0.3 || d.z <= 0.5) {   // lasku heti, kun lintu osuu veteen (kuva vaihtuu lentävästä uivaan)
         d.mode = 'swim'; d.z = 0; d.sp = 0.03; d.t = rand(200, 500);
         duckSplash(d, 14, true);
         SFX.duckWater(true);
@@ -4009,10 +4016,9 @@ function updateGrebes() {
       const cruise = 24 + Math.sin(d.fly * 0.03) * 2;
       const zt = d.leg === 1 ? cruise * clamp((dist - 0.3) / 13, 0, 1) ** 1.2 : cruise;
       d.z += clamp(zt - d.z, -0.5, 0.35);
-      if ((d.leg === 1 && dist < 0.4) || d.fly > 2200) {
-        d.x = d.leg === 1 ? d.tx : d.x; d.y = d.leg === 1 ? d.ty : d.y;
+      if ((d.leg === 1 && (dist < 0.4 || d.z <= 0.5)) || d.fly > 2200) {   // lasku heti vesikosketuksessa
         if (!duckFree(d.x, d.y)) { const g = grebeLanding(d); d.x = g[0]; d.y = g[1]; }
-        d.mode = 'swim'; d.z = 0; d.sp = 0.03; d.t = rand(200, 500); d.nerve = 0;
+        d.mode = 'swim'; d.z = 0; d.sp = 0.04; d.t = rand(200, 500); d.nerve = 0;
         duckSplash(d, 14, true);
         SFX.duckWater(true);
         grebeCall(d, 1);
@@ -4114,7 +4120,17 @@ const SEAL_SPR = (() => {
   // Pää veden pinnalla (9 x 8): kupera pää, kaksi silmää, tumma nenä, vaalea kuono ja viikset
   const head = sealCanvas(9, 8, [[1, 8], [0, 5], [1, 2], [3, 0], [6, 0], [8, 2], [9, 5], [8, 8]], [[3, 1], [5, 1]],
     [[2, 3, 'k'], [6, 3, 'k'], [2, 2, 'g'], [6, 2, 'g'], [4, 4, 'g'], [3, 5, 'l'], [5, 5, 'l'], [4, 5, 'k'], [3, 6, 'l'], [4, 6, 'l'], [5, 6, 'l'], [0, 6, 'w'], [1, 6, 'w'], [7, 6, 'w'], [8, 6, 'w'], [0, 5, 'w'], [8, 5, 'w']]);
-  return { rest, swim, head };
+  // Pää edellä sukellus: laiturin reunalla taipunut norppa (22 x 14, selkä kaarella, pää alhaalla oikealla) ja pystyssä veteen
+  // painuva norppa (12 x 20, pää alaspäin, takaevät ylhäällä)
+  const bend = sealCanvas(22, 14,
+    [[0, 13], [0, 11], [2, 9], [4, 6], [7, 3], [10, 1], [13, 0], [16, 0], [18, 1], [20, 3], [21, 6], [22, 9], [22, 12], [21, 14], [19, 14], [18, 11], [17, 8], [15, 7], [12, 7], [9, 8], [6, 10], [3, 12], [1, 14], [0, 14]],
+    [[8, 3], [11, 2], [14, 2], [16, 3], [12, 4], [9, 5], [15, 5], [5, 7], [18, 5]],
+    [[0, 12, 'f'], [1, 12, 'f'], [0, 11, 'f'], [19, 11, 'k'], [21, 13, 'k'], [20, 13, 'l'], [20, 12, 'l'], [21, 11, 'w'], [19, 13, 'w'], [18, 12, 'g']]);
+  const plunge = sealCanvas(12, 20,
+    [[2, 0], [4, 1], [6, 0], [8, 1], [10, 0], [10, 2], [9, 5], [10, 10], [10, 15], [8, 19], [6, 20], [4, 19], [2, 15], [2, 10], [3, 5], [2, 2]],
+    [[4, 6], [7, 8], [5, 11], [8, 12], [6, 3]],
+    [[3, 0, 'f'], [9, 0, 'f'], [4, 17, 'k'], [8, 17, 'k'], [6, 19, 'k'], [5, 18, 'l'], [7, 18, 'l'], [3, 18, 'w'], [9, 18, 'w']]);
+  return { rest, swim, head, bend, plunge };
 })();
 
 let seal = null;
@@ -4135,6 +4151,7 @@ function sealSplash(S, n, big) {
   SFX.sealSplash(big ? 1 : 0.5);
 }
 
+const SEAL_BEND = 12, SEAL_TOUCH = 26, SEAL_ROLL = 34;   // sukelluksen vaiheet (ruutua)
 function startSealRoll(S) {
   // Pyörähtää laiturin sivulta veteen (venettä vastapäiseltä puolelta), tai nokan yli
   const bs = boat ? Math.sign(dockLocal(boat.x, boat.y)[1]) || 1 : 1;
@@ -4191,12 +4208,14 @@ function updateSeal() {
       }
     }
   } else if (S.st === 'roll') {
-    const u = ++S.timer / 22;
-    S.x = lerp(S.from[0], S.to[0], u * u); S.y = lerp(S.from[1], S.to[1], u * u);
-    if (u >= 1) {
+    // Pää edellä sukellus: 0-12 taipuu laiturin reunalla, 12-26 putoaa pää edellä veteen (roiske pään osuessa veteen), 26-34 painuu pinnan alle
+    ++S.timer;
+    const w = Math.min(1, S.timer / SEAL_TOUCH);
+    S.x = lerp(S.from[0], S.to[0], w * w); S.y = lerp(S.from[1], S.to[1], w * w);
+    if (S.timer === SEAL_TOUCH) sealSplash(S, 12, true);
+    if (S.timer >= SEAL_ROLL) {
       S.x = S.to[0]; S.y = S.to[1]; S.st = 'swim'; S.z = 0.2; S.swimT = rand(1200, 3000); S.waterT = 0;
       S.haulAfter = rand(3600, 9000); S.haul = false; newSealTarget(S); S.a = Math.atan2(S.ty - S.y, S.tx - S.x);
-      sealSplash(S, 12, true);
     }
   } else if (S.st === 'swim') {
     S.waterT++; S.swimT--;
@@ -4252,8 +4271,25 @@ function drawSeal(camXr, camYr) {
     return;
   }
   const img = SEAL_SPR.rest, flip = S.face < 0;
-  if (S.st === 'roll' || S.st === 'haul') {
-    // Pyörähdys veteen / hyppy laiturille: lähtö- ja tulopisteen välillä kaarella, kuva kallistuu
+  if (S.st === 'roll') {
+    // Sukellus pää edellä: ensin taipuu laiturin reunalla (bend), sitten putoaa pystyssä pää alaspäin (plunge) ja painuu veteen
+    if (S.timer < SEAL_BEND) {
+      const b = SEAL_SPR.bend;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; ctx.fillRect(sx - 9, Math.round(sy - DOCK_Z) - 1, 19, 2);
+      drawImg(b, sx - (b.width >> 1), Math.round(sy - DOCK_Z) - b.height + 2, flip);
+      return;
+    }
+    const pl = SEAL_SPR.plunge, v = clamp((S.timer - SEAL_BEND) / (SEAL_TOUCH - SEAL_BEND), 0, 1);
+    const sink = clamp((S.timer - SEAL_TOUCH) / (SEAL_ROLL - SEAL_TOUCH), 0, 1);
+    const lift = DOCK_Z * (1 - v * v);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(sx - 16, sy - 60, 32, 60 + 1); ctx.clip();   // vedenpinnan alapuolinen osa piiloon
+    drawImg(pl, sx - (pl.width >> 1), Math.round(sy - lift) - pl.height + 2 + Math.round(sink * pl.height), flip);
+    ctx.restore();
+    return;
+  }
+  if (S.st === 'haul') {
+    // Hyppy laiturille: lähtö- ja tulopisteen välillä kaarella, kuva kallistuu
     const u = S.st === 'roll' ? Math.min(1, S.timer / 22) : Math.min(1, S.timer / 18);
     const lift = S.st === 'roll' ? DOCK_Z * (1 - u * u) : DOCK_Z * u - Math.sin(Math.PI * u) * 4;
     const side = Math.sign(isoX(S.to[0], S.to[1]) - isoX(S.from[0], S.from[1])) || 1;
@@ -5326,7 +5362,7 @@ function drawCastLine(g, camXr, camYr) {
   if (sag < hMid) { curve(tx, ty, (tx + lx) / 2, (ty + ly) / 2 + sag * 2, lx, ly); return; }
   const rest = slack - (hMid - 2) / 16;   // pinnalle jäävä osa löysästä siimasta
   const f = clamp(0.3 - rest * 0.03, 0.06, 0.3);
-  const wx = player.x + (L.x - player.x) * f, wy = player.y + (L.y - player.y) * f;
+  const O0 = rigOrigin(), wx = O0.x + (L.x - O0.x) * f, wy = O0.y + (L.y - O0.y) * f;
   const P = { x: isoX(wx, wy) - camXr, y: restY(wx, wy) };
   curve(tx, ty, tx + (P.x - tx) * 0.3, P.y, P.x, P.y);
   const n = Math.max(2, Math.ceil(Math.hypot(lx - P.x, ly - P.y) / 2)), amp = Math.min(3, rest * 0.7);
