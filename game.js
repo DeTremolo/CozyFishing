@@ -1847,7 +1847,7 @@ function setupWorld() {
   player = {
     x: 37.5, y: 76, fa: -Math.PI / 4, gux: 1, guy: 0, anim: 0, moving: false, view: 'E', flip: false,
     rod: false, light: false, stillT: 0, lure: 'bobber',
-    tool: null, wood: 0, chop: null,   // käsissä oleva työkalu (axe / knife), repun polttopuut ja kesken oleva hakkuu
+    tool: null, wood: 0, chop: null, kswing: -1,   // käsissä oleva työkalu (axe / knife), repun polttopuut ja kesken oleva hakkuu
   };
   SHED.logs = 10;
   [player.gux, player.guy] = screenDir(Math.cos(player.fa), Math.sin(player.fa));
@@ -1941,6 +1941,11 @@ function updatePlayer() {
     updateCast();
     if (p.rod && !cast.lure) updateLine();
     return;
+  }
+  if (p.tool === 'knife') {
+    // Puukon heilautus (ei vielä käyttöä): sama liike kuin kirveellä mutta pienempi; välilyönti / hiiri / SLASH
+    if (p.kswing >= 0) { if (++p.kswing === KNIFE_HIT - 4) SFX.whoosh(); if (p.kswing >= KNIFE_T) p.kswing = -1; }
+    else if (keyHit('Space', 'MouseL')) p.kswing = 0;
   }
   if (p.chop) { updateChop(kx, ky); if (p.chop) kx = ky = 0; }   // hakatessa hahmo ei liiku (kävely keskeyttää hakkuun)
   if (kx || ky) {
@@ -2040,7 +2045,7 @@ function toggleRod() {
 function putAwayTool() {
   const p = player;
   if (!p.tool) return;
-  p.tool = null; p.chop = null;
+  p.tool = null; p.chop = null; p.kswing = -1;
   SFX.rodIn();
 }
 function toggleTool(kind) {
@@ -2049,7 +2054,7 @@ function toggleTool(kind) {
   if (cast.lure) { notify('Reel in the line first.', 120, 'hint'); return; }
   if (p.boat) { notify('Not in the boat.', 90, 'hint'); return; }
   p.rod = false; cast.charging = false;
-  p.tool = kind; p.chop = null;
+  p.tool = kind; p.chop = null; p.kswing = -1;
   SFX.rodOut();
 }
 
@@ -2138,10 +2143,19 @@ function updateChop(kx, ky) {
   if (kx || ky) { p.chop = null; return; }
   if (c.cd <= 0 && keyHit('Space', 'MouseL')) { c.swing = 0; c.cd = SWING_CD; }
 }
-// Kirveen / puukon kulma pystysuunnasta (rad, positiivinen = eteenpäin): lepoasento, nosto taakse, isku, palautus
+// Kirveen / puukon kulma pystysuunnasta (rad, positiivinen = eteenpäin) = oikean käden kyynärvarren suunta: lepoasento, nosto
+// taakse, isku ja palautus. Puukon liike on pienempi (kyynärpää taipuu vain vähän).
+const KNIFE_T = 20, KNIFE_HIT = 9;
 function toolAngle(p) {
+  if (p.tool === 'knife') {
+    const t = p.kswing;
+    if (t < 0) return 0.5;
+    if (t < 5) return lerp(0.5, 0.0, t / 5);
+    if (t < KNIFE_HIT) return lerp(0.0, 1.45, ((t - 5) / (KNIFE_HIT - 5)) ** 2);
+    if (t < KNIFE_HIT + 3) return 1.45;
+    return lerp(1.45, 0.5, (t - KNIFE_HIT - 3) / (KNIFE_T - KNIFE_HIT - 3));
+  }
   const c = p.chop;
-  if (p.tool === 'knife') return 1.25;
   if (!c || c.swing < 0) return 0.5;
   const t = c.swing;
   if (t < 7) return lerp(0.5, -0.95, t / 7);
@@ -4858,44 +4872,80 @@ function drawBackRod(sx, sy, flip, rodX) {
   dot(x - lean, y0 - 4, '#3a3e44'); dot(x - lean, y0 - 5, '#6a7078');   // kela
 }
 
-// Kirves repun vasemmassa reunassa (vastakkaisella puolella kuin onki): pieni varsi ja teräspää. Piirretään vain kun
-// kirves ei ole kädessä. Sivusta katsottaessa vastakkainen laita on repun toisella puolella (edessä <-> takana).
+// Kirves (kuvan mukainen metsästyskirves): hieman kaareva, lämpimän ruskea kahva ja leveä harmaa teräspää, jonka terä on kirkas.
+const AXE_COL = { handle: '#b8733a', light: '#d9904e', dark: '#7e4a22', knob: '#9a5c2c', poll: '#5e646a', cheek: '#9097a0', cheek2: '#a8afb6', edge: '#e6ecf0', edgeEnd: '#b8c0c6' };
+// Kirves repun vasemmassa reunassa (vastakkaisella puolella kuin onki). Piirretään vain kun kirves ei ole kädessä.
+// Sivusta katsottaessa vastakkainen laita on repun toisella puolella (edessä <-> takana).
 const AXE_BACK = (dir, rb) => ({ x: -rb.x, front: dir === 'E' || dir === 'W' ? !rb.front : rb.front });
 function drawBackAxe(sx, sy, x) {
   const bx = Math.round(sx + x), y0 = Math.round(sy - 5), o = x < 0 ? -1 : 1;
-  for (let h = 0; h < 10; h++) dot(bx, y0 - h, h < 2 ? '#6a4a2c' : h % 3 ? '#8a5a30' : '#a06c3a');   // varsi
-  dot(bx - o, y0 - 9, 'rgba(14, 10, 8, 0.7)'); dot(bx - o, y0 - 8, 'rgba(14, 10, 8, 0.7)');
-  dot(bx, y0 - 10, '#5a626a'); dot(bx + o, y0 - 10, '#aab2ba'); dot(bx + o, y0 - 9, '#8a929a'); dot(bx + o, y0 - 11, '#8a929a');
-  dot(bx + o * 2, y0 - 10, '#e8eef2'); dot(bx + o * 2, y0 - 9, '#aab2ba'); dot(bx + o * 2, y0 - 11, '#aab2ba');
+  for (let h = 0; h < 10; h++) {
+    dot(bx - o, y0 - h, 'rgba(14, 10, 8, 0.6)');
+    dot(bx, y0 - h, h < 2 ? AXE_COL.knob : h % 3 ? AXE_COL.handle : AXE_COL.light);   // kahva
+  }
+  // Teräpää kahvan päässä: kiila, jonka terä osoittaa ulospäin
+  dot(bx, y0 - 10, AXE_COL.poll); dot(bx, y0 - 11, AXE_COL.poll);
+  dot(bx + o, y0 - 9, AXE_COL.cheek); dot(bx + o, y0 - 10, AXE_COL.cheek2); dot(bx + o, y0 - 11, AXE_COL.cheek);
+  dot(bx + o * 2, y0 - 8, AXE_COL.edgeEnd); dot(bx + o * 2, y0 - 9, AXE_COL.edge); dot(bx + o * 2, y0 - 10, AXE_COL.edge); dot(bx + o * 2, y0 - 11, AXE_COL.edge); dot(bx + o * 2, y0 - 12, AXE_COL.edgeEnd);
 }
-// Kädessä oleva työkalu: oikean käden otteesta (HAND) varsi suuntaan, jonka määrää toolAngle (kirves: nosto, isku ja palautus)
-function toolHand(sx, sy) { const h = HAND[playerDir()]; return [sx + h[0], sy + h[1]]; }
-function drawHeldTool(sx, sy) {
-  const p = player, a = toolAngle(p), [hx, hy] = toolHand(sx, sy);
-  const fx = p.gux, fy = p.guy;
-  let ux = fx * Math.sin(a), uy = -Math.cos(a) + fy * Math.sin(a) * 0.6;
+// Oikean käden asento työkalua pitäessä: olkapää (SHOULDER_R) on paikallaan, kyynärpää roikkuu olkapään alla ja kyynärvarsi
+// kääntyy kyynärpäästä toolAnglen mukaan; käsi on kyynärvarren päässä ja työkalu jatkaa samaa suuntaa.
+function toolPose(sx, sy) {
+  const p = player, dir = playerDir(), s0 = SHOULDER_R[dir], a = toolAngle(p);
+  const S = [sx + s0[0], sy + s0[1]], E = [S[0] + p.gux * 1.5, S[1] + 4];
+  let ux = p.gux * Math.sin(a), uy = -Math.cos(a) + p.guy * Math.sin(a) * 0.6;
   const l = Math.hypot(ux, uy) || 1; ux /= l; uy /= l;
-  const side = fx < 0 ? -1 : 1, px = -uy * side, py = ux * side;   // varren kohtisuora, terä osoittaa eteenpäin
-  if (p.tool === 'axe') {
-    const len = 11, ex = hx + ux * len, ey = hy + uy * len;
-    plotLine(ctx, hx, hy + 1, ex, ey + 1, 'rgba(14, 10, 8, 0.7)');
-    plotLine(ctx, hx - ux * 2, hy - uy * 2, ex, ey, '#9a6a3a');
-    dot(ex, ey, '#4a5258'); dot(ex - ux, ey - uy, '#4a5258');
-    dot(ex + px, ey + py, '#9aa2aa'); dot(ex + px - ux, ey + py - uy, '#8a929a'); dot(ex + px + ux, ey + py + uy, '#8a929a');
-    dot(ex + px * 2, ey + py * 2, '#e8eef2'); dot(ex + px * 2 - ux, ey + py * 2 - uy, '#c0c8d0'); dot(ex + px * 2 + ux, ey + py * 2 + uy, '#c0c8d0');
+  const side = p.gux < 0 ? -1 : 1;
+  return { S, E, H: [E[0] + ux * 4, E[1] + uy * 4], ux, uy, px: -uy * side, py: ux * side };
+}
+function drawHeldTool(sx, sy) {
+  const T = toolPose(sx, sy), { ux, uy, px, py } = T, [hx, hy] = T.H;
+  // Piste työkalun koordinaateissa: s = matka kahvaa pitkin kädestä, q = sivusuunta (terä eteenpäin)
+  const pt = (s, q, col) => dot(hx + ux * s + px * q, hy + uy * s + py * q, col);
+  if (player.tool === 'axe') {
+    const len = 11;
+    plotLine(ctx, hx - ux * 1, hy - uy * 1 + 1, hx + ux * len, hy + uy * len + 1, 'rgba(14, 10, 8, 0.65)');
+    for (let s = -2; s <= len; s++) pt(s, 0, s < 0 ? AXE_COL.knob : s % 4 === 3 ? AXE_COL.light : AXE_COL.handle);
+    for (let s = 0; s <= len - 3; s += 2) pt(s, -0.6, AXE_COL.dark);
+    // Teräpää: takana tumma niska, keskellä posket ja edessä kirkas terä
+    for (let s = len - 1; s <= len + 1; s++) pt(s, 0, AXE_COL.poll);
+    for (let s = len - 2; s <= len + 1; s++) pt(s, 1, s === len ? AXE_COL.cheek2 : AXE_COL.cheek);
+    for (let s = len - 3; s <= len + 2; s++) pt(s, 2, AXE_COL.cheek2);
+    for (let s = len - 4; s <= len + 3; s++) pt(s, 3, s === len - 4 || s === len + 3 ? AXE_COL.edgeEnd : AXE_COL.edge);
   } else {
-    // Puukko: lyhyt tumma kahva ja vaalea terä eteenpäin
-    plotLine(ctx, hx, hy, hx + ux * 3, hy + uy * 3, '#3a2a1c');
-    plotLine(ctx, hx + ux * 3, hy + uy * 3, hx + ux * 8, hy + uy * 8, '#d8e0e6');
-    dot(hx + ux * 3 + px, hy + uy * 3 + py, '#8a929a');
+    // Puukko (lyhytteräinen, puukahvainen): ruskea kahva ja lyhyt tumma terä, jonka selkä on vaaleampi
+    for (let s = -1; s <= 3; s++) { pt(s, 0, s === -1 || s === 3 ? '#5a3a1c' : s % 2 ? '#8a5a30' : '#a06c3a'); }
+    pt(4, 0, '#c8a060');   // sorkkarauta
+    for (let s = 5; s <= 8; s++) pt(s, 0, '#aab2ba');
+    pt(9, 0, '#d8e0e6');
+    for (let s = 5; s <= 7; s++) pt(s, 1, '#4a5058');
   }
 }
-// Kädet työkalun kanssa: oikea käsi pitää kahvasta, vasen roikkuu vartalon vieressä
+// Käsivarsi olkapäästä kyynärpään kautta käteen: kaksi suoraa osaa; poispäin katsottaessa näkyy vain olkavarsi (kuten drawArm)
+function drawArmElbow(S, E, H, away, out) {
+  const [sx0, sy0] = S, ex = Math.round(E[0]), ey = Math.round(E[1]), hx = Math.round(H[0]), hy = Math.round(H[1]);
+  if (away) {
+    const o = out < 0 ? -1 : 1;
+    plotLine(ctx, sx0 + o, sy0, ex + o, ey, '#120c0a'); dot(ex + o, ey + 1, '#120c0a'); dot(ex, ey + 1, '#120c0a');
+    plotLine(ctx, sx0, sy0, ex, ey, '#6c8c40'); dot(ex, ey, '#40541e');
+    return;
+  }
+  plotLine(ctx, sx0, sy0 + 1, ex, ey + 1, '#22300f'); plotLine(ctx, ex, ey + 1, hx, hy + 1, '#22300f');
+  plotLine(ctx, sx0, sy0, ex, ey, '#6c8c40'); plotLine(ctx, ex, ey, hx, hy, '#6c8c40');
+  plotLine(ctx, sx0, sy0 - 1, ex, ey - 1, '#8aa856');
+  ctx.fillStyle = '#2a2018'; ctx.fillRect(hx - 1, hy - 1, 4, 1); ctx.fillRect(hx + 2, hy, 1, 3); ctx.fillRect(hx - 1, hy + 2, 3, 1); ctx.fillRect(hx - 1, hy, 1, 2);
+  ctx.fillStyle = '#f6d0ac'; ctx.fillRect(hx, hy, 2, 2);
+  ctx.fillStyle = '#d29c7c'; ctx.fillRect(hx, hy + 1, 2, 1);
+}
+// Kädet työkalun kanssa: oikea käsi heiluu kyynärpäästä (toolPose), vasen roikkuu rentona vartalon vieressä
 function drawToolArms(sx, sy, phase) {
   const dir = playerDir(), depth = ARM_DEPTH[dir], away = VIEW_INFO[player.view].away;
   const outwards = (x) => (dir === 'E' || dir === 'W' ? 0 : x < 0 ? -1.5 : 1.5);
-  if (depth.L === phase && SHOULDER_L[dir]) { const s0 = SHOULDER_L[dir]; drawArm(sx + s0[0], sy + s0[1], sx + s0[0] + outwards(s0[0]) * 0.3, sy + s0[1] + 7, outwards(s0[0]), away); }
-  if (depth.R === phase) { const s0 = SHOULDER_R[dir], [hx, hy] = toolHand(sx, sy); drawArm(sx + s0[0], sy + s0[1], hx, hy, outwards(s0[0]), away); }
+  if (depth.L === phase && SHOULDER_L[dir]) {
+    const s0 = SHOULDER_L[dir], o = outwards(s0[0]);
+    drawArm(sx + s0[0], sy + s0[1], sx + s0[0] + o * 0.4, sy + s0[1] + 7, o, away);
+  }
+  if (depth.R === phase) { const T = toolPose(sx, sy); drawArmElbow(T.S, T.E, T.H, away, outwards(SHOULDER_R[dir][0])); }
 }
 
 // Kädessä oleva onki ja siima: kärjestä roikkuu siima, jossa puna-valkoinen koho ja koukku
@@ -6759,6 +6809,7 @@ function render() {
     // Työkalut ja polttopuut: rivit pinotaan ylöspäin
     const extra = [];
     if (player.chop) extra.push(['SPACE / CLICK  SWING THE AXE', '#ffcd75'], ['MOVE  STOP CHOPPING', '#94b0c2']);
+    if (player.tool === 'knife') extra.push(['SPACE / CLICK  SWING THE KNIFE', '#94b0c2']);
     if (!inBoat) {
       extra.push([player.tool === 'axe' ? 'X  STOW AXE' : 'X  TAKE AXE', player.tool === 'axe' ? '#ffcd75' : '#94b0c2']);
       extra.push([player.tool === 'knife' ? 'K  STOW KNIFE' : 'K  TAKE KNIFE', player.tool === 'knife' ? '#ffcd75' : '#94b0c2']);

@@ -186,7 +186,12 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
 - **Työkalut**: kirves (X) ja puukko (K) otetaan oikeaan käteen; onki menee silloin aina repun kylkeen eikä työkalua voi ottaa,
   jos viehe on heitetty. Ongen ottaminen (R) laittaa työkalun pois, ja kädessä olevan työkalun voi laittaa takaisin reppuun
   milloin tahansa (silloin kädet ovat tyhjät). Kirves roikkuu repun vasemmassa reunassa (ongen vastakkaisella puolella), kun se ei
-  ole kädessä; puukkoa ei piirretä muulloin kuin kädessä. Puukolla ei voi vielä tehdä mitään.
+  ole kädessä; puukkoa ei piirretä muulloin kuin kädessä. Kirves on metsästyskirves (lämpimän ruskea, hieman kaareva kahva ja
+  leveä harmaa teräspää kirkkaalla terällä) ja puukko lyhytteräinen ja puukahvainen. Työkalua pidetään oikeassa kädessä, ja iskun
+  aikana oikea käsi heiluu kyynärtaipeesta: olkapää pysyy paikallaan, kyynärvarsi kääntyy kyynärpäästä (nosto taakse, isku, palautus)
+  ja työkalu jatkaa kyynärvarren suuntaa. Vasen käsi roikkuu rentona sivulla. Puukkoa voi heilauttaa samalla tavalla (välilyönti,
+  hiiren vasen nappi tai SLASH-nappi), mutta liike on pienempi ja siitä kuuluu vain hiljainen suhahdus; puukolla ei voi vielä
+  tehdä mitään.
 - **Polttopuiden teko**: kirves kädessä metsän laidassa (lähin metsäruutu enintään noin 1,9 m päässä) valitaan MAKE WOOD (N).
   Hahmo kääntyy metsään päin, ja hänen päällään näkyy viisiosainen edistymispalkki. Kirveellä iskeä saa välilyönnillä, hiiren
   vasemmalla napilla tai CHOP-napilla enintään kerran sekunnissa. Isku on animoitu (nosto taakse, isku ja palautus; osuma

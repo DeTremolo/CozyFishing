@@ -121,7 +121,7 @@ body.menu .sys-buttons #btn-pause, body.menu .action-buttons, body.menu #btn-lig
 body.st-hand #btn-rod, body.st-hand #btn-axe, body.st-hand #btn-knife { display: block; }
 /* Työkalu kädessä: pois laitto, hakkuu-isku (kun hakkuu on käynnissä) ja tee-painikkeet */
 body.st-tool #btn-stow { display: block; }
-body.st-tool.chopping #btn-chop { display: block; }
+body.st-tool.chopping #btn-chop, body.st-tool.knife #btn-chop { display: block; }
 body.st-hand.has-act #btn-act, body.st-tool.has-act #btn-act { display: block; }
 body.st-hand.has-act2 #btn-act2, body.st-tool.has-act2 #btn-act2 { display: block; }
 body.st-hand.has-act3 #btn-act3, body.st-tool.has-act3 #btn-act3 { display: block; }

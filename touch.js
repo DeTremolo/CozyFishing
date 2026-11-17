@@ -202,7 +202,7 @@
 
   // Napit seuraavat pelin tilaa: st-hand (ei onkea kädessä), st-ready (onki kädessä, ei heitetty), st-out (heitetty)
   const rodBtn = document.getElementById('btn-rod'), lightBtn = document.getElementById('btn-light');
-  const stowBtn = document.getElementById('btn-stow'), stepLabel = document.getElementById('step-label');
+  const chopBtn = document.getElementById('btn-chop'), stowBtn = document.getElementById('btn-stow'), stepLabel = document.getElementById('step-label');
   setInterval(() => {
     const play = state === 'play', rod = !!(player && player.rod), out = !!(cast && cast.lure), tool = player && player.tool;
     const b = document.body.classList;
@@ -211,6 +211,8 @@
     b.toggle('st-hand', play && !rod && !tool);
     b.toggle('st-tool', play && !rod && !!tool);
     b.toggle('chopping', play && !!(player && player.chop));
+    b.toggle('knife', play && tool === 'knife');
+    chopBtn.textContent = tool === 'knife' ? 'SLASH' : 'CHOP';
     b.toggle('st-ready', play && rod && !out);
     b.toggle('st-out', play && rod && out);
     b.toggle('art', !!(player && isArt(player.lure)));
