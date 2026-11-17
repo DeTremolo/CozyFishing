@@ -4943,7 +4943,8 @@ function drawToolArms(sx, sy, phase) {
   const outwards = (x) => (dir === 'E' || dir === 'W' ? 0 : x < 0 ? -1.5 : 1.5);
   if (depth.L === phase && SHOULDER_L[dir]) {
     const s0 = SHOULDER_L[dir], o = outwards(s0[0]);
-    drawArm(sx + s0[0], sy + s0[1], sx + s0[0] + o * 0.4, sy + s0[1] + 7, o, away);
+    // Vapaa vasen käsi: lyhyt, kämmen 3 px olkapään alla (4 px aiempaa ylempänä) ja 1 px lähempänä vartaloa
+    drawArm(sx + s0[0], sy + s0[1], sx + s0[0] + o * 0.4 - Math.sign(s0[0]), sy + s0[1] + 3, o, away);
   }
   if (depth.R === phase) { const T = toolPose(sx, sy); drawArmElbow(T.S, T.E, T.H, away, outwards(SHOULDER_R[dir][0])); }
 }
