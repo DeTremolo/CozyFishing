@@ -1658,34 +1658,36 @@ function harsh(dest, t, f0, f1, dur, vol, formant, q = 3) {
   o.start(t); o.stop(t + dur + 0.02);
 }
 
-// Yksi sorsan kvaak: sahalaita, jonka sävelkorkeus laskee ja väpättää (karheus), kahden muotoutuvan suodattimen läpi (matala ~450 Hz ja
-// laaja ~1,8 kHz) sekä pieni määrä suhinaa
+// Yksi sorsan kvaak (mitattu ääninäytteestä): sahalaidan perussävel ~240 Hz laskee ~190 Hz:iin pienen satunnaisen värinän kera, ja
+// ylipäästön jälkeen energia keskittyy kapeiden muotoutuvien suodattimien kautta alueelle 1,3-2,5 kHz (näytteessä ~80 % energiasta).
+// Verhokäyrä: alku ~22 ms, huippu ja pehmeä, nopeasti hiipuva häntä (ei tasaista ylläpitoa); mukana vähän suhinaa.
 function duckQuack(dest, t, f0, dur, vol) {
   const o = actx.createOscillator(); o.type = 'sawtooth';
   o.frequency.setValueAtTime(f0, t);
-  o.frequency.linearRampToValueAtTime(f0 * 0.97, t + dur * 0.5);
+  o.frequency.linearRampToValueAtTime(f0 * 0.97, t + dur * 0.45);
   o.frequency.linearRampToValueAtTime(f0 * 0.8, t + dur);
-  const lfo = actx.createOscillator(), lg = actx.createGain();
-  lfo.frequency.value = rand(48, 62); lg.gain.value = f0 * 0.05;
-  lfo.connect(lg).connect(o.frequency);
+  // Karheus: epäsäännöllinen sävelkorkeuden värinä (ei tasaista värähtelyä, joka kuulostaisi surinalta)
+  for (let k = 0; k * 0.009 < dur; k++) o.detune.setValueAtTime(rand(-22, 22), t + k * 0.009);
+  const hp = actx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1100; hp.Q.value = 0.7;
   const env = actx.createGain();
   env.gain.setValueAtTime(0.0001, t);
-  env.gain.linearRampToValueAtTime(vol, t + 0.014);
-  env.gain.setValueAtTime(vol, t + dur * 0.55);
-  env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  for (const [freq, q, gn] of [[450, 2.2, 0.16], [1800, 1.3, 1.6]]) {
+  env.gain.linearRampToValueAtTime(vol, t + 0.022);
+  env.gain.setTargetAtTime(vol * 0.18, t + 0.022, dur * 0.3);
+  env.gain.setTargetAtTime(0.0001, t + dur, 0.015);
+  o.connect(hp);
+  for (const [freq, q, gn] of [[1750, 2.6, 1], [2150, 3, 0.8]]) {
     const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
     const g = actx.createGain(); g.gain.value = gn;
-    o.connect(bp).connect(g).connect(env);
+    hp.connect(bp).connect(g).connect(env);
   }
   env.connect(dest);
-  o.start(t); lfo.start(t); o.stop(t + dur + 0.03); lfo.stop(t + dur + 0.03);
+  o.start(t); o.stop(t + dur + 0.08);
   // Suhina
   if (noiseBuf) {
     const s = actx.createBufferSource(); s.buffer = noiseBuf;
-    const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 1.2;
+    const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2000; f.Q.value = 1.2;
     const g = actx.createGain();
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol * 0.35, t + 0.014); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol * 0.3, t + 0.022); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     s.connect(f).connect(g).connect(dest);
     s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.02);
   }
@@ -1766,8 +1768,8 @@ const SONGS = {
   // karhea (nopea sävelkorkeuden värinä) ja sen painopiste on kahdella laajalla alueella (~450 Hz ja ~1,8 kHz). Yksi kvaak kestää
   // 0,1-0,2 s, ja sarja tulee noin 0,29 s välein hiipuen ja lyhentyen.
   quack(d, t) {
-    const n = 2 + Math.floor(rand(0, 5)), f0 = rand(215, 250);
-    let vol = 0.056, dur = rand(0.17, 0.2);
+    const n = 2 + Math.floor(rand(0, 3)), f0 = rand(215, 250);
+    let vol = 0.05, dur = rand(0.16, 0.2);
     for (let k = 0; k < n; k++) {
       duckQuack(d, t, f0 * rand(0.96, 1.04), dur, vol);
       t += rand(0.27, 0.31); vol *= 0.88; dur = Math.max(0.09, dur * 0.88);
