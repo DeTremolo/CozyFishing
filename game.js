@@ -4883,10 +4883,10 @@ function drawBackAxe(sx, sy, x) {
     dot(bx - o, y0 - h, 'rgba(14, 10, 8, 0.6)');
     dot(bx, y0 - h, h < 2 ? AXE_COL.knob : h % 3 ? AXE_COL.handle : AXE_COL.light);   // kahva
   }
-  // Teräpää kahvan päässä: kiila, jonka terä osoittaa ulospäin
+  // Teräpää kahvan päässä: pieni kiila, jonka terä osoittaa ulospäin
   dot(bx, y0 - 10, AXE_COL.poll); dot(bx, y0 - 11, AXE_COL.poll);
   dot(bx + o, y0 - 9, AXE_COL.cheek); dot(bx + o, y0 - 10, AXE_COL.cheek2); dot(bx + o, y0 - 11, AXE_COL.cheek);
-  dot(bx + o * 2, y0 - 8, AXE_COL.edgeEnd); dot(bx + o * 2, y0 - 9, AXE_COL.edge); dot(bx + o * 2, y0 - 10, AXE_COL.edge); dot(bx + o * 2, y0 - 11, AXE_COL.edge); dot(bx + o * 2, y0 - 12, AXE_COL.edgeEnd);
+  dot(bx + o * 2, y0 - 9, AXE_COL.edgeEnd); dot(bx + o * 2, y0 - 10, AXE_COL.edge); dot(bx + o * 2, y0 - 11, AXE_COL.edgeEnd);
 }
 // Oikean käden asento työkalua pitäessä: olkapää (SHOULDER_R) on paikallaan, kyynärpää roikkuu olkapään alla ja kyynärvarsi
 // kääntyy kyynärpäästä toolAnglen mukaan; käsi on kyynärvarren päässä ja työkalu jatkaa samaa suuntaa.
@@ -4907,11 +4907,12 @@ function drawHeldTool(sx, sy) {
     plotLine(ctx, hx - ux * 1, hy - uy * 1 + 1, hx + ux * len, hy + uy * len + 1, 'rgba(14, 10, 8, 0.65)');
     for (let s = -2; s <= len; s++) pt(s, 0, s < 0 ? AXE_COL.knob : s % 4 === 3 ? AXE_COL.light : AXE_COL.handle);
     for (let s = 0; s <= len - 3; s += 2) pt(s, -0.6, AXE_COL.dark);
-    // Teräpää: takana tumma niska, keskellä posket ja edessä kirkas terä
+    // Teräpää (kuvan mukainen kiila): kapea niska kahvan päässä, joka levenee eteenpäin kohti kaarevaa, kirkasta terää
+    pt(len - 1, -1, AXE_COL.poll); pt(len, -1, AXE_COL.poll);
     for (let s = len - 1; s <= len + 1; s++) pt(s, 0, AXE_COL.poll);
-    for (let s = len - 2; s <= len + 1; s++) pt(s, 1, s === len ? AXE_COL.cheek2 : AXE_COL.cheek);
-    for (let s = len - 3; s <= len + 2; s++) pt(s, 2, AXE_COL.cheek2);
-    for (let s = len - 4; s <= len + 3; s++) pt(s, 3, s === len - 4 || s === len + 3 ? AXE_COL.edgeEnd : AXE_COL.edge);
+    for (let s = len - 1; s <= len + 1; s++) pt(s, 1, s === len ? AXE_COL.cheek2 : AXE_COL.cheek);
+    for (let s = len - 2; s <= len + 2; s++) pt(s, 2, s === len - 2 || s === len + 2 ? AXE_COL.cheek : AXE_COL.cheek2);
+    pt(len - 1, 3, AXE_COL.edgeEnd); pt(len, 3, AXE_COL.edge); pt(len + 1, 3, AXE_COL.edgeEnd);
   } else {
     // Puukko (lyhytteräinen, puukahvainen): ruskea kahva ja lyhyt tumma terä, jonka selkä on vaaleampi
     for (let s = -1; s <= 3; s++) { pt(s, 0, s === -1 || s === 3 ? '#5a3a1c' : s % 2 ? '#8a5a30' : '#a06c3a'); }
@@ -4941,7 +4942,8 @@ function drawArmElbow(S, E, H, away, out) {
 function drawToolArms(sx, sy, phase) {
   const dir = playerDir(), depth = ARM_DEPTH[dir], away = VIEW_INFO[player.view].away;
   const outwards = (x) => (dir === 'E' || dir === 'W' ? 0 : x < 0 ? -1.5 : 1.5);
-  if (depth.L === phase && SHOULDER_L[dir]) {
+  // Kauempana oleva vasen käsi (SE, E) jää vartalon taakse, joten sitä ei piirretä (kämmen näkyisi vartalon läpi)
+  if (depth.L === phase && depth.L === 'near' && SHOULDER_L[dir]) {
     const s0 = SHOULDER_L[dir], o = outwards(s0[0]);
     // Vapaa vasen käsi: lyhyt, kämmen 3 px olkapään alla (4 px aiempaa ylempänä) ja 1 px lähempänä vartaloa
     drawArm(sx + s0[0], sy + s0[1], sx + s0[0] + o * 0.4 - Math.sign(s0[0]), sy + s0[1] + 3, o, away);
