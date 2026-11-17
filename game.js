@@ -3842,8 +3842,8 @@ const GREBE_PAL = { k: '#16181c', K: '#101216', r: '#c0662c', R: '#7e3e1e', w: '
   g: '#4a4a54', G: '#6a6c76', c: '#e2d6bc', t: '#a8642e', f: '#f0ece0' };
 const GREBE_SPR = {
   swim: makeSprite(['.....K.K......', '....KKKKK.....', '...rrrKwewp...', '...RrrrwwwpppP', '....KRrww.....', '.....gww......', '.....gcw......', '....ggcw......', 'gGggggcww.....', 'fGGGGGgcc.....', 'fttttttccc....'], GREBE_PAL),
-  fly0: makeSprite(['......nn.......', '.....nwwn......', '....nwwwn......', '...nwwwn.......', 'kkbbbbbwwwwkrpp', '..mmmmmmm......'], GREBE_PAL),
-  fly1: makeSprite(['kkbbbbbwwwwkrpp', '..mmwwmmm......', '...nwwwn.......', '....nwwwn......', '.....nwwn......', '......nn.......'], GREBE_PAL),
+  fly0: makeSprite(['......gg.......', '.....gwwg......', '....gwwwg......', '...gwwwg.......', 'ggGGGGGwwwwKrpP', '..ccccccc......'], GREBE_PAL),
+  fly1: makeSprite(['ggGGGGGwwwwKrpP', '..ccwwccc......', '...gwwwg.......', '....gwwwg......', '.....gwwg......', '......gg.......'], GREBE_PAL),
 };
 GREBE_SPR.fly0.body = 4; GREBE_SPR.fly1.body = 0;   // rungon rivi (kuvan korkeus vaihtelee siipien mukaan)
 function makeGrebe(x, y) {
