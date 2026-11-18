@@ -80,7 +80,7 @@ body.touch #touch-ui {
   position: absolute;
   right: max(14px, env(safe-area-inset-right));
   bottom: 14px;
-  width: 104px;
+  width: 52px;
   height: 250px;
   box-sizing: border-box;
   border: 2px solid rgba(148, 176, 194, 0.6);

@@ -54,7 +54,7 @@ nappi (LAMP) on vasemmassa alakulmassa kaikissa tiloissa; tauko, ääni ja koko 
   -nappeja eikä kelausnopeuden lukua.
 - *Heitetty:* REEL IN (pidä pohjassa), RELEASE LINE (pidä pohjassa) ja CUT. Uistimilla REEL IN -painike muuttuu pohjassa pidettäessä
   pystysuoraksi **liukusäätimeksi**, jolloin REEL IN-, RELEASE LINE- ja CUT-napit piiloutuvat: sormen siirto ylös / alas säätää
-  kelausnopeutta (alhaalla pienin 10 cm/s, ylhäällä suurin 100 cm/s, 10 cm/s askelin; nopeus säilyy, kunnes sormi liikkuu), ja
+  kelausnopeutta (alhaalla pienin 10 cm/s, ylhäällä suurin 100 cm/s, 10 cm/s askelin; kelaus alkaa heti nopeudella, joka vastaa painalluksen kohtaa; liukusäädin on kapea, 52 px), ja
   kun sormen nostaa, liukusäädin piiloutuu ja napit palaavat. Tietokoneella kelausnopeutta säädetään edelleen hiiren rullalla.
 - *Veneen ohjaus:* liiketikun nuppi liikkuu veneessä neliömäisellä alueella: ylös / alas säätää kaasua eteen ja taakse ja
   vasen / oikea ohjausta erikseen, joten täysi vauhti ja täysi käännös onnistuvat yhtä aikaa (kävellessä tikku on pyöreä).

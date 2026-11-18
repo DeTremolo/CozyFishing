@@ -163,7 +163,7 @@
   // Uistimella (vaappu, lippa) kelaus-painike muuttuu pohjassa pidettäessä pystysuoraksi liukusäätimeksi: sormen siirto ylös / alas
   // säätää kelausnopeutta (alhaalla pienin 10 cm/s, ylhäällä suurin 100 cm/s), ja sormen noston jälkeen painikkeet palaavat.
   const castBtn = document.getElementById('btn-cast'), slider = document.getElementById('reel-slider'), sliderKnob = document.getElementById('reel-knob');
-  let sliderId = null, sliderY0 = 0, sliderMoved = false;
+  let sliderId = null;
   function sliderShow() {
     // Nuppi sormen (tai nykyisen nopeuden) kohdalle
     const r = slider.getBoundingClientRect(), kh = sliderKnob.offsetHeight, f = (cast.reelSpeed - 10) / 90;
@@ -180,17 +180,16 @@
     castBtn.classList.add('down');
     touch.cast = state === 'play';
     if (state === 'play' && player && cast && cast.lure && isArt(player.lure)) {
-      sliderId = e.changedTouches[0].identifier; sliderY0 = e.changedTouches[0].clientY; sliderMoved = false;
+      sliderId = e.changedTouches[0].identifier;
       slider.classList.add('on'); document.body.classList.add('sliding');
-      sliderShow();
+      sliderSet(e.changedTouches[0].clientY);   // kelaus alkaa nopeudella, joka vastaa kohtaa, johon painiketta painettiin
     }
   }, { passive: false });
   addEventListener('touchmove', (e) => {
     if (sliderId === null) return;
     for (const t of e.changedTouches) {
       if (t.identifier !== sliderId) continue;
-      if (!sliderMoved && Math.abs(t.clientY - sliderY0) < 6) continue;   // nopeus säilyy, kunnes sormi liikkuu
-      sliderMoved = true; sliderSet(t.clientY);
+      sliderSet(t.clientY);
     }
   }, { passive: false });
   const castUp = (e) => {
