@@ -1422,7 +1422,7 @@ function drawWater(camXr, camYr) {
     const sr = lerp(E.sky[0], E.zen[0], f), sg = lerp(E.sky[1], E.zen[1], f), sb = lerp(E.sky[2], E.zen[2], f);
     const wr = sr * sk, wg = sg * sk, wb = sb * sk;
     // Aaltojen kohokohta: veden oman värin sävyinen, vain hieman vettä vaaleampi (aiemmin lähes valkoinen)
-    const hr = lerp(wr, sr, 0.6) + 8, hg = lerp(wg, sg, 0.6) + 9, hb = lerp(wb, sb, 0.6) + 9;
+    const hr = lerp(wr, sr, 0.5) + 3, hg = lerp(wg, sg, 0.5) + 3, hb = lerp(wb, sb, 0.5) + 3;
     const mr = lerp(wr, sr, 0.5), mg = lerp(wg, sg, 0.5), mb = lerp(wb, sb, 0.5);
     const nA = ((ay + oAy) & (NOISE_H - 1)) * NOISE_W, nB = ((ay + oBy) & (NOISE_H - 1)) * NOISE_W;
     const wob = rowWob[y];
@@ -1441,7 +1441,7 @@ function drawWater(camXr, camYr) {
         if (a > thrA) { r = E.reflHi[0]; gg = E.reflHi[1]; bb = E.reflHi[2]; aR = 0.75; }
         else if (refl > 90 || b > 0.93) { r = E.reflMid[0]; gg = E.reflMid[1]; bb = E.reflMid[2]; aR = 0.6; }
         else { r = E.refl[0]; gg = E.refl[1]; bb = E.refl[2]; aR = 0.5; }
-      } else if (a > thrA) { r = hr; gg = hg; bb = hb; aR = 0.75; }
+      } else if (a > thrA) { r = hr; gg = hg; bb = hb; aR = 0.55; }
       else if (b > thrB) { r = mr; gg = mg; bb = mb; aR = 0.35; }
       else { r = wr; gg = wg; bb = wb; aR = E.reflK; }
       const aT = turbAlpha[k] / 255, kb = (1 - aR) * aT, A = aR + kb;
@@ -2000,8 +2000,8 @@ function switchLure() {
 // Vaapun kelausnopeus (cm/s) säädetään rullalla tai -/+ -näppäimillä
 const REEL_MIN = 10, REEL_MAX = 100;
 function adjustReel(dv) {
-  cast.reelSpeed = clamp(cast.reelSpeed + dv, REEL_MIN, REEL_MAX);
-  notify('Reel-in speed ' + cast.reelSpeed + ' cm/s', 90, 'reel');
+  cast.reelSpeed = clamp(Math.round(cast.reelSpeed / 10) * 10 + dv, REEL_MIN, REEL_MAX);   // rulla ja näppäimet säätävät 10 cm/s askelin, kosketuksen liukusäädin portaattomasti
+  notify('Reel-in speed ' + Math.round(cast.reelSpeed) + ' cm/s', 90, 'reel');
   SFX.reel();
 }
 // Kelaus metreinä päivitystä kohden: koholla nopea vakio, vaapulla säädetty nopeus
@@ -6809,7 +6809,7 @@ function render() {
     const line = (str, col) => { text(str, 6, ly, 4, col, 'left'); ly += 8; };
     if (player.rod && isArt(player.lure)) {
       line(player.lure === 'spoon' ? 'SPOON' : 'WOBBLER', '#a8c0d8');
-      line('REEL IN ' + cast.reelSpeed + ' cm/s' + (touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
+      line('REEL IN ' + Math.round(cast.reelSpeed) + ' cm/s' + (touch.on ? '' : '  (WHEEL)'), '#e0b0b8');
     } else if (player.rod && isRig(player.lure)) {
       line(LURES[player.lure].name, '#a8c0d8');
       line('BAIT ' + Math.round(cast.rigDist * 100) + ' cm' + (cast.lure ? '' : touch.on ? '' : '  (WHEEL)'), '#e0b0b8');

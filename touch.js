@@ -171,7 +171,7 @@
   }
   function sliderSet(clientY) {
     const r = slider.getBoundingClientRect(), f = Math.max(0, Math.min(1, (r.bottom - clientY) / r.height));
-    cast.reelSpeed = Math.round((10 + f * 90) / 10) * 10;
+    cast.reelSpeed = 10 + f * 90;   // portaaton 10-100 cm/s
     sliderShow();
   }
   castBtn.addEventListener('touchstart', (e) => {
