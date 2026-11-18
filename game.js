@@ -3264,7 +3264,7 @@ const SPECIES = {
   // Pitää eniten boiliesta, hieman vähemmän pohjaongen madosta ja koho-ongen madosta; uistimiin se ei yleensä tartu.
   // Nuori lahna on hopeinen, vanhempi kuparinvärinen ja tummanpuhuva; evät ovat tummanharmaat.
   bream: {
-    name: 'bream', count: 8, shape: 'bream', bottom: true, shore: true,
+    name: 'bream', count: 10, shape: 'bream', bottom: true, shore: true,
     weight: { median: 420, sigma: 0.65, min: 120, max: 6000 },   // yleensä enintään kilon painoinen, suurimmat jopa kuusikiloisia
     lenK: 0.0094, lenE: 3.07,         // 30 cm ~ 320 g, 40 cm ~ 780 g, 50 cm ~ 1,5 kg, 70 cm ~ 4,3 kg
     depth: [0.6, 3], speed: 0.008, fight: 0.028,
@@ -3407,29 +3407,46 @@ function makeFishDirSprite(pal, L, frame, shape, key) {
   const hh = Math.max(2, L * (pike ? 0.2 : bream ? 0.5 : 0.36)) / 2, hw = Math.max(1, hh * (vert ? 0.6 : 0.85));
   const size = Math.ceil(Lp + hw * 2 + 6), c = makeCanvas(size, size), g = c.getContext('2d');
   const cx = size / 2, cy = size / 2, tx0 = cx - ux * Lp / 2, ty0 = cy - uy * Lp / 2;
+  // Lahnan profiili: kyttyrä selkä (huippu t ≈ 0,4) ja suippo kuono (sama muoto kuin sivukuvassa)
+  const hump = (t) => 1 + 0.28 * Math.exp(-((t - 0.4) ** 2) / 0.035), snout = (t) => (t > 0.82 ? 1 - (t - 0.82) * 2.2 : 1);
   const prof = (t) => pike ? (t > 0.85 ? (1 - t) / 0.15 * 0.8 + 0.2 : t < 0.12 ? 0.55 + t * 3.5 : 1)
+    : bream ? Math.sin(Math.PI * clamp((t + 0.03) / 1.03, 0, 1)) ** 0.8 * snout(t)
     : Math.sin(Math.PI * clamp((t + 0.05) / 1.02, 0, 1)) ** 0.6;
+  const lighten = (col, k) => { const n = parseInt(col.slice(1), 16); return '#' + [16, 8, 0].map((sh) => Math.min(255, ((n >> sh) & 255) + k).toString(16).padStart(2, '0')).join(''); };
+  const hiCol = pal.hi || lighten(pal.body, 22), scaleCol = lighten(pal.body, 10);
   const wig = frame ? 0.8 : -0.8;
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const px = x + 0.5 - tx0, py = y + 0.5 - ty0, t = (px * ux + py * uy) / Lp, d = px * nx + py * ny;
     let col = null;
     if (t >= 0 && t <= 1) {
-      const wd = hw * prof(t) * (vert && t > 0.75 ? 1 - (t - 0.75) * 2 : 1) + 0.45, rel = d / wd;
+      // Lahnalla selän puoli (d < 0) on korkeampi kuin vatsan puoli
+      const wd = hw * prof(t) * (vert && t > 0.75 ? 1 - (t - 0.75) * 2 : 1) * (bream && !vert ? (d < 0 ? hump(t) : 0.78) : 1) + 0.45, rel = d / wd;
       if (Math.abs(rel) <= 1) {
         if (vert) col = Math.abs(rel) < 0.45 ? pal.back : pal.body;
+        else if (bream) {
+          const r = (rel + 1) / 2;   // 0 = selkä, 1 = vatsa
+          col = r < 0.28 ? pal.back : r > 0.7 ? pal.belly : pal.body;
+          if (Math.abs(r - 0.48) < 0.09 && t > 0.15 && t < 0.8) col = hiCol;                                  // vaalea sivujuova
+          else if (L >= 9 && col === pal.body && t > 0.12 && t < 0.8 && (x + y) % 2 === 0) col = scaleCol;   // suomut
+          if (t > 0.78 && t < 0.82) col = pal.back;                                                           // kidusluukku
+        }
         else col = rel < -0.3 ? pal.back : rel < 0.4 ? pal.body : pal.belly;
         // Ahvenen poikkijuovat ja hauen vaaleat täplät
         if (!pike && !bream && t > 0.2 && t < 0.8 && Math.floor(t * L) % 3 === 1 && rel < 0.4) col = pal.bar;
         if (pike && t > 0.15 && t < 0.8 && rel > -0.6 && rel < 0.6 && (Math.floor(t * L * 1.3) * 7 + Math.floor(rel * 3 + 3) * 3) % 5 === 0) col = pal.bar;
         // Silmät pään lähellä
+        if (bream && L >= 10 && t > 0.84 && t < 0.99 && (vert ? Math.abs(Math.abs(rel) - 0.75) < 0.5 : Math.abs(rel + 0.35) < 0.55)) col = pal.ring || '#c8b060';   // silmän kultainen rengas
         if (t > 0.86 && t < 0.97 && (vert ? Math.abs(Math.abs(rel) - 0.75) < 0.3 : Math.abs(rel + 0.35) < 0.3)) col = pal.eye;
-      } else if (!vert && !pike && rel < -1 && rel > -1.9 && t > 0.35 && t < 0.7 && Math.floor(t * L) % 2 === 0) col = pal.back;   // selkäevä
+      } else if (bream && !vert && rel < -1 && t > 0.32 && t < 0.56 && rel > -1 - 1.0 * Math.max(0.25, 1 - Math.abs(t - 0.36) / 0.2)) col = pal.fin;   // korkea kolmiomainen selkäevä
+      else if (bream && !vert && rel > 1 && t > 0.14 && t < 0.5 && rel < 1 + 0.9 * (1 - (t - 0.14) / 0.36 * 0.5)) col = pal.fin;   // pitkä peräevä
+      else if (bream && vert && Math.abs(rel) > 1 && Math.abs(rel) < 2.2 && Math.abs(t - 0.7) < 0.07) col = pal.pec || pal.fin;   // rintaevät
+      else if (!vert && !pike && !bream && rel < -1 && rel > -1.9 && t > 0.35 && t < 0.7 && Math.floor(t * L) % 2 === 0) col = pal.back;   // selkäevä
       else if (!vert && pike && rel < -1 && rel > -1.9 && t > 0.12 && t < 0.24) col = pal.fin;
-      else if (!vert && rel > 1 && rel < 1.9 && Math.abs(t - (pike ? 0.18 : 0.55)) < 0.06) col = pal.fin;   // vatsaevä
-      else if (vert && Math.abs(rel) > 1 && Math.abs(rel) < 2.2 && Math.abs(t - 0.7) < 0.07) col = pal.fin;   // rintaevät
+      else if (!vert && !bream && rel > 1 && rel < 1.9 && Math.abs(t - (pike ? 0.18 : 0.55)) < 0.06) col = pal.fin;   // vatsaevä
+      else if (vert && !bream && Math.abs(rel) > 1 && Math.abs(rel) < 2.2 && Math.abs(t - 0.7) < 0.07) col = pal.fin;   // rintaevät
     } else if (t < 0 && t > -0.16) {
       // Pyrstö: haarukka, joka heilahtaa sivulle uidessa
-      const dd = d - wig * (-t) * 6, spread = 0.7 + (-t) * L * 0.45;
+      const dd = d - wig * (-t) * 6, spread = (0.7 + (-t) * L * 0.45) * (bream ? 1.35 : 1);
       if (Math.abs(dd) <= spread && !(t < -0.08 && Math.abs(dd) < spread * 0.35)) col = pal.fin;
     }
     if (col) { g.fillStyle = col; g.fillRect(x, y, 1, 1); }
@@ -3469,12 +3486,13 @@ function makeFish(kind) {
   const sp = SPECIES[kind];
   const w = clamp(Math.exp(Math.log(sp.weight.median) + gauss() * sp.weight.sigma), sp.weight.min, sp.weight.max);
   const len = Math.pow(w / sp.lenK, 1 / sp.lenE);
-  const home = kind === 'pike' ? pikeHome() : null;
+  // Yli 1,5 kilon lahna ui aina lammen syvimmässä kohdassa (syvänne), muut lahnat rantojen lähellä
+  const home = kind === 'pike' ? pikeHome() : kind === 'bream' && w > 1500 ? { x: deepHole.x, y: deepHole.y, r: deepHole.r, deep: true } : null;
   let x = C, y = C, z = 1;
   for (let k = 0; k < 200; k++) {
     const a = rand(0, Math.PI * 2), r = home ? rand(0, home.r) : rand(2, POND_R - 2);
     x = (home ? home.x : C) + Math.cos(a) * r; y = (home ? home.y : C) + Math.sin(a) * r;
-    if (sp.shore) { const rr = pondR(a) - rand(1.5, 7); x = C + Math.cos(a) * rr; y = C + Math.sin(a) * rr; }   // lahna rantojen lähellä
+    if (sp.shore && !home) { const rr = pondR(a) - rand(1.5, 7); x = C + Math.cos(a) * rr; y = C + Math.sin(a) * rr; }   // lahna rantojen lähellä
     const bd = depthAt(x, y);
     z = sp.bottom ? bd - 0.25 : Math.min(fishDepth(sp, home), bd - 0.2);
     if (z > 0.25 && fishFree(x, y, z)) break;
@@ -3552,7 +3570,7 @@ function updateFishes() {
         for (let k = 0; k < 20; k++) {
           const a = rand(0, Math.PI * 2), r = H ? rand(H.deep ? H.r * 0.4 : 0, H.r) : rand(3, 10);
           let tx = (H ? H.x : f.x) + Math.cos(a) * r, ty = (H ? H.y : f.y) + Math.sin(a) * r;
-          if (sp.shore) { const aa = Math.atan2(f.y - C, f.x - C) + rand(-0.9, 0.9), rr = pondR(aa) - rand(1.5, 7); tx = C + Math.cos(aa) * rr; ty = C + Math.sin(aa) * rr; }
+          if (sp.shore && !H) { const aa = Math.atan2(f.y - C, f.x - C) + rand(-0.9, 0.9), rr = pondR(aa) - rand(1.5, 7); tx = C + Math.cos(aa) * rr; ty = C + Math.sin(aa) * rr; }
           if (fishFree(tx, ty, 0.3)) { f.tx = tx; f.ty = ty; break; }
         }
         f.tz = sp.bottom ? Math.max(0.3, depthAt(f.tx, f.ty) - 0.25) : Math.min(fishDepth(sp, H), depthAt(f.tx, f.ty) - 0.2);
@@ -3589,7 +3607,10 @@ function updateFishes() {
       nibbleBait(f, bait, sp);
       if (f.mode !== 'nibble') continue;
     }
-    f.z += clamp(f.tz - f.z, -0.004, 0.004);
+    // Pohjakala (lahna) seuraa pohjan muotoa: uintisyvyys on aina noin 25 cm pohjan yläpuolella, myös jyrkissä rinteissä
+    if (sp.bottom && f.mode === 'roam') f.tz = Math.max(0.3, depthAt(f.x, f.y) - 0.25);
+    const vz = sp.bottom ? 0.012 : 0.004;
+    f.z += clamp(f.tz - f.z, -vz, vz);
     f.z = clamp(f.z, 0.15, Math.max(0.15, depthAt(f.x, f.y) - 0.1));
   }
 }

@@ -283,10 +283,10 @@ on vaaleita täpliä. Kaislikon hauki (noin kaksi kolmesta) vaanii pienellä alu
 ja palaa aina kaislikon suojaan. Syvänteen hauki partioi syvännettä koko ajan uiden. Hauki huomaa syötin kauempaa, hiipii lähemmäs ja
 iskee viimeiset puolitoista metriä nopealla syöksyllä. Se taistelee ahventa voimakkaammin.
 
-Kolmas laji on **lahna** (common bream, 8 kpl): litteä ja korkea kala (selkä kaareva, tummanharmaat evät, syvä pyrstö), joka ui lähellä
+Kolmas laji on **lahna** (common bream, 10 kpl): litteä ja korkea kala (selkä kaareva, tummanharmaat evät, syvä pyrstö), joka ui lähellä
 pohjaa (noin 25 cm pohjan yläpuolella) ja yleensä rantojen lähellä. Se on aluksi hopeinen (alle 30 cm), vanhempana himmeämpi (30-40 cm)
 ja yli 40 cm:n lahna on kuparinvärinen ja tummanpuhuva. Paino on yleensä enintään kilon (mediaani 420 g, 25-50 cm), mutta suurimmat
-kasvavat jopa kuusikiloisiksi. Lahna pitää eniten pohjaongen boiliesta (1,3-kertaisesti), hieman vähemmän pohjaongen madosta (0,65) ja
+kasvavat jopa kuusikiloisiksi. **Yli 1,5 kilon lahna ui aina lammen syvimmässä kohdassa** (syvänteessä, noin 25 cm pohjan yläpuolella) ja hyvin isot lahnat ovat siis aina siellä; muut lahnat seuraavat pohjan muotoa rantojen lähellä. Lahna pitää eniten pohjaongen boiliesta (1,3-kertaisesti), hieman vähemmän pohjaongen madosta (0,65) ja
 koho-ongen madosta (0,55); uistimiin se ei yleensä tartu (vaappu 0,03, lippa 0,04). **Lahna ei iske heti**: kun se löytää syötin, se
 maistelee sitä 4-9 sekuntia ennen kuin jää koukkuun (80 %) tai jättää sen (20 %). Maistelun aikana koho painuu hetkeksi veden alle
 (enintään 20 cm) tai kellahtaa pinnalla poikittain ja kulkee kalan mukana, ja pohjaongen kello kilahtaa vaikka kala ei ole vielä
