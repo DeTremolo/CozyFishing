@@ -174,13 +174,17 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
   Sinisorsat uivat lammella ja jättävät vanaveden, pyrähtävät lentoon ja laskeutuvat takaisin. Niiden kvaakuminen on mallinnettu ääninäytteen mukaan (~240 Hz:n karhea ääni, jonka energia on alueella 1,3-2,5 kHz, terävä alku ja hiipuva häntä ilman surinaa, 2-4 kvaakin sarja noin 0,29 s välein).
   Laskeutumisesta ja lentoonlähdöstä kuuluu pehmeä veden kohahdus ja pisaroiden ropina.
   Taivaalla lentää lintuja, ja metsästä kuuluu linnunlaulua (käen kuukkuu on mallinnettu oikean käen kutsun mukaan: kaksi puhdasta sävelkorkeutta, metsän kaiku; käki kukkuu aamulla ja illalla vain yksi kerrallaan, harvoin ja muita lintuja hiljaisemmin).
-  **Silkkiuikut**: lammella uiskentelee pari silkkiuikkuja (sorsan kokoisia, pitkä valkoinen kaula, tupsupää ja ruskea
+  **Silkkiuikut**: yöksi uikut uivat sorsien tapaan kaislikon viereen nukkumaan (pää selkäsulkien alla) ja heräävät aamulla; lähelle tuleva
+  pelaaja tai vene säikäyttää ne sukeltamaan pakoon. Lammella uiskentelee pari silkkiuikkuja (sorsan kokoisia, pitkä valkoinen kaula, tupsupää ja ruskea
   kaulus). Ne pysyvät lähekkäin, sukeltavat välillä (pää edellä: pää taipuu nokka alas, painuu veden alle peräpää kohoten ja uikku uppoaa) ja nousevat pinnalle kauempana (pää ilmestyy ensin, kaula ja vartalo kohoavat perässä aaltorenkaiden ja pisaroiden kera) ja huutelevat käheää "rak-rak-rak"-kutsua
   (äänimalli pohjautuu ääninäytteeseen, ääni syntetisoidaan Web Audiolla). Kun pelaaja tulee kävellen tai veneellä (veneen
   pitää liikkua) liian lähelle, uikut juoksevat siivet räpyttäen veden pintaa pitkin lentoon, lentävät noin 10 sekunnin
   kaaren ja laskeutuvat johonkin muuhun kohtaan lampea; ne eivät poistu pelistä. Yöllä uikut säikähtäessään vain sukeltavat
   (`grebes`, `updateGrebes`, `drawGrebe`).
-- **Yö**: sorsat nukkuvat rantakaislikossa ja pakenevat säikähtäessään siipiä räpyttäen veden pintaa pitkin.
+- **Yö**: sorsat ja silkkiuikut nukkuvat rantakaislikossa; sorsat pakenevat säikähtäessään siipiä räpyttäen veden pintaa pitkin ja uikut
+  sukeltamalla. Norppa ei tule yöllä laiturille: illalla se pyörähtää veteen, uiskentelee syvään veteen ja nukkuu veden alla lähellä pohjaa
+  (`nap`), nousee pintaan hengittämään 40 sekunnin välein (pää nousee pinnalle ja painuu takaisin 1,0 s:ssa) ja palaa päivätoimintaan
+  aamulla auringon noustessa; lähelle tuleva pelaaja tai vene herättää sen, ja se uiskentelee muutaman kymmenen sekuntia ennen unen jatkamista.
   Metsän eläimet ja lentävät linnut nukkuvat, joten niitä ei näe (yöllä kuuluu vain huuhkajan huhuilu).
   Yöeläimiä voi lisätä `ANIMAL_KINDS.night`-listaan.
 
@@ -278,6 +282,15 @@ Toinen laji on **hauki** (5 kpl, mediaani noin 1,1 kg, enintään 12 kg). Hauki 
 on vaaleita täpliä. Kaislikon hauki (noin kaksi kolmesta) vaanii pienellä alueella pitkiä aikoja paikallaan
 ja palaa aina kaislikon suojaan. Syvänteen hauki partioi syvännettä koko ajan uiden. Hauki huomaa syötin kauempaa, hiipii lähemmäs ja
 iskee viimeiset puolitoista metriä nopealla syöksyllä. Se taistelee ahventa voimakkaammin.
+
+Kolmas laji on **lahna** (common bream, 8 kpl): litteä ja korkea kala (selkä kaareva, tummanharmaat evät, syvä pyrstö), joka ui lähellä
+pohjaa (noin 25 cm pohjan yläpuolella) ja yleensä rantojen lähellä. Se on aluksi hopeinen (alle 30 cm), vanhempana himmeämpi (30-40 cm)
+ja yli 40 cm:n lahna on kuparinvärinen ja tummanpuhuva. Paino on yleensä enintään kilon (mediaani 420 g, 25-50 cm), mutta suurimmat
+kasvavat jopa kuusikiloisiksi. Lahna pitää eniten pohjaongen boiliesta (1,3-kertaisesti), hieman vähemmän pohjaongen madosta (0,65) ja
+koho-ongen madosta (0,55); uistimiin se ei yleensä tartu (vaappu 0,03, lippa 0,04). **Lahna ei iske heti**: kun se löytää syötin, se
+maistelee sitä 4-9 sekuntia ennen kuin jää koukkuun (80 %) tai jättää sen (20 %). Maistelun aikana koho painuu hetkeksi veden alle
+(enintään 20 cm) tai kellahtaa pinnalla poikittain ja kulkee kalan mukana, ja pohjaongen kello kilahtaa vaikka kala ei ole vielä
+koukussa. Kalan koko (ikäkausi) ja paino näkyvät saaliissa kuten muillakin lajeilla.
 
 Syötin lähelle osuva ja suunnilleen samalla syvyydellä uiva kala voi kiinnostua syötistä
 (melko harvoin). Ahven nielaisee syötin heti. Koukkuun tarttunut kala yrittää pakoon ja kuluttaa

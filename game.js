@@ -3259,7 +3259,28 @@ const SPECIES = {
     energy: 3, regen: 4, pull: 1.1,
     pal: { back: '#2a3a1c', body: '#5c7434', belly: '#d8d4b0', bar: '#c8c878', fin: '#8a6a2a', eye: '#101010' },
   },
+  // Lahna: litteä ja korkea, ui lähellä pohjaa (yleensä rantojen lähellä) ja syö syöttiä hetken ennen kuin tarttuu koukkuun:
+  // koho painuu hetkeksi veden alle (enintään 20 cm) tai kellahtaa poikittain ja kulkee kalan mukana, pohjaongen kello kilahtaa.
+  // Pitää eniten boiliesta, hieman vähemmän pohjaongen madosta ja koho-ongen madosta; uistimiin se ei yleensä tartu.
+  // Nuori lahna on hopeinen, vanhempi kuparinvärinen ja tummanpuhuva; evät ovat tummanharmaat.
+  bream: {
+    name: 'bream', count: 8, shape: 'bream', bottom: true, shore: true,
+    weight: { median: 420, sigma: 0.65, min: 120, max: 6000 },   // yleensä enintään kilon painoinen, suurimmat jopa kuusikiloisia
+    lenK: 0.0094, lenE: 3.07,         // 30 cm ~ 320 g, 40 cm ~ 780 g, 50 cm ~ 1,5 kg, 70 cm ~ 4,3 kg
+    depth: [0.6, 3], speed: 0.008, fight: 0.028,
+    bite: 'nibble', interest: 1.2 / (60 * 20), sight: 3,
+    lures: { bobber: 0.55, wobbler: 0.03, spoon: 0.04, rigworm: 0.65, rigboilie: 1.3 },
+    energy: 3.5, regen: 2.5, pull: 0.9,
+    pal: { back: '#5a6672', body: '#b4c0c8', belly: '#e6ebee', bar: '#b4c0c8', fin: '#4a525a', eye: '#101010' },
+    palAges: [   // ikäkausi pituuden mukaan: < 30 cm hopeinen, 30-40 cm himmeämpi, yli 40 cm kuparinvärinen ja tumma
+      { back: '#5a6672', body: '#b4c0c8', belly: '#e6ebee', bar: '#b4c0c8', fin: '#4a525a', eye: '#101010' },
+      { back: '#4a4a3c', body: '#9a9078', belly: '#cfc8b0', bar: '#9a9078', fin: '#46484e', eye: '#101010' },
+      { back: '#2e2a22', body: '#7a6438', belly: '#a89868', bar: '#7a6438', fin: '#3a3c42', eye: '#101010' },
+    ],
+  },
 };
+// Lajin kuvasarjan avain: lahnalla ikäkausi (0 = hopeinen, 1, 2 = kuparinvärinen) valitsee paletin
+const fishSprKey = (f) => (f.age ? f.kind + f.age : f.kind);
 
 // Hauen kotipaikka: joko rantakaislikon reuna tai syvänne. Hauki pysyttelee sen lähellä.
 function pikeHome() {
@@ -3275,6 +3296,7 @@ function pikeHome() {
 // Kala sivulta, pää oikealla. L = pituus pikseleinä, frame = pyrstön asento.
 function makeFishSprite(pal, L, frame, shape) {
   if (shape === 'pike') return makePikeSprite(pal, L, frame);
+  if (shape === 'bream') return makeBreamSprite(pal, L, frame);
   const h = Math.max(3, Math.round(L * 0.36)), cw = L + 2, ch = h + 4, mid = Math.floor(ch / 2);
   const c = makeCanvas(cw, ch), g = c.getContext('2d');
   const px = (x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
@@ -3294,6 +3316,32 @@ function makeFishSprite(pal, L, frame, shape) {
   // Pyrstö: haarukka vasemmalla, asento vaihtuu uidessa
   const o = frame ? 1 : 0;
   px(1, mid - 1 + o, pal.fin); px(0, mid - 2 + o, pal.fin); px(1, mid + 1 + o, pal.fin); px(0, mid + 2 + o, pal.fin); px(1, mid + o, pal.fin);
+  return c;
+}
+// Lahna: korkea ja litteä vartalo (selkä kaareva), tummat evät: selkäevä, pitkä peräevä ja syvälle haarautunut pyrstö
+function makeBreamSprite(pal, L, frame) {
+  const h = Math.max(4, Math.round(L * 0.5)), cw = L + 3, ch = h + 6, mid = Math.floor(ch / 2);
+  const c = makeCanvas(cw, ch), g = c.getContext('2d');
+  const px = (x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
+  for (let x = 3; x < cw; x++) {
+    const t = (x - 3) / Math.max(1, L - 1);
+    const prof = Math.sin(Math.PI * clamp((t + 0.04) / 1.04, 0, 1)) ** 0.7;
+    const top = mid - Math.max(1, Math.round(h * 0.55 * prof)), bot = mid + Math.max(0, Math.round(h * 0.4 * prof));
+    for (let y = top; y <= bot; y++) px(x, y, y <= top ? pal.back : y < mid - h * 0.08 ? pal.back : y > mid + h * 0.1 ? pal.belly : pal.body);
+    if (t > 0.3 && t < 0.56) px(x, top - 1, pal.fin);
+    if (t > 0.36 && t < 0.5) px(x, top - 2, pal.fin);
+    if (t > 0.15 && t < 0.5) px(x, bot + 1, pal.fin);
+    if (t > 0.2 && t < 0.4) px(x, bot + 2, pal.fin);
+  }
+  px(cw - 3, mid - 1, pal.eye);
+  // Pyrstö: syvä haarukka
+  const o = frame ? 1 : 0, sp = Math.max(2, Math.round(h * 0.45));
+  px(2, mid + o, pal.fin);
+  for (let k = 1; k <= sp; k++) {
+    const x = Math.max(0, 2 - Math.floor(k * 0.7));
+    px(x, mid - k + o, pal.fin); px(x, mid + k + o, pal.fin);
+    if (x < 2) { px(x + 1, mid - k + o, pal.fin); px(x + 1, mid + k + o, pal.fin); }
+  }
   return c;
 }
 // Hauki: pitkä ja kapea, litteä nokka, vaaleita täpliä kyljessä, selkä- ja peräevä pyrstön lähellä
@@ -3324,10 +3372,10 @@ const FISH_PX_MAX = 22;
 // Kuva lasketaan pikseli kerrallaan: t = paikka pyrstöstä päähän, rel = etäisyys keskilinjasta.
 const FISH_DIRS = { se: [2, 1], ne: [2, -1], s: [0, 1], n: [0, -1] };
 function makeFishDirSprite(pal, L, frame, shape, key) {
-  const pike = shape === 'pike', vert = key === 's' || key === 'n';
+  const pike = shape === 'pike', bream = shape === 'bream', vert = key === 's' || key === 'n';
   const [vx, vy] = FISH_DIRS[key], vl = Math.hypot(vx, vy), ux = vx / vl, uy = vy / vl, nx = -uy, ny = ux;
   const Lp = Math.max(3, Math.round(L * (vert ? 0.7 : 0.9)));
-  const hh = Math.max(2, L * (pike ? 0.2 : 0.36)) / 2, hw = Math.max(1, hh * (vert ? 0.6 : 0.85));
+  const hh = Math.max(2, L * (pike ? 0.2 : bream ? 0.5 : 0.36)) / 2, hw = Math.max(1, hh * (vert ? 0.6 : 0.85));
   const size = Math.ceil(Lp + hw * 2 + 6), c = makeCanvas(size, size), g = c.getContext('2d');
   const cx = size / 2, cy = size / 2, tx0 = cx - ux * Lp / 2, ty0 = cy - uy * Lp / 2;
   const prof = (t) => pike ? (t > 0.85 ? (1 - t) / 0.15 * 0.8 + 0.2 : t < 0.12 ? 0.55 + t * 3.5 : 1)
@@ -3342,7 +3390,7 @@ function makeFishDirSprite(pal, L, frame, shape, key) {
         if (vert) col = Math.abs(rel) < 0.45 ? pal.back : pal.body;
         else col = rel < -0.3 ? pal.back : rel < 0.4 ? pal.body : pal.belly;
         // Ahvenen poikkijuovat ja hauen vaaleat täplät
-        if (!pike && t > 0.2 && t < 0.8 && Math.floor(t * L) % 3 === 1 && rel < 0.4) col = pal.bar;
+        if (!pike && !bream && t > 0.2 && t < 0.8 && Math.floor(t * L) % 3 === 1 && rel < 0.4) col = pal.bar;
         if (pike && t > 0.15 && t < 0.8 && rel > -0.6 && rel < 0.6 && (Math.floor(t * L * 1.3) * 7 + Math.floor(rel * 3 + 3) * 3) % 5 === 0) col = pal.bar;
         // Silmät pään lähellä
         if (t > 0.86 && t < 0.97 && (vert ? Math.abs(Math.abs(rel) - 0.75) < 0.3 : Math.abs(rel + 0.35) < 0.3)) col = pal.eye;
@@ -3364,7 +3412,11 @@ const fishSet = (sp, L) => {
   for (const k in FISH_DIRS) o[k] = [makeFishDirSprite(sp.pal, L, 0, sp.shape, k), makeFishDirSprite(sp.pal, L, 1, sp.shape, k)];
   return o;
 };
-const FISH_SPR = Object.fromEntries(Object.entries(SPECIES).map(([k, sp]) => [k, Array.from({ length: FISH_PX_MAX + 1 }, (_, L) => (L < 4 ? null : fishSet(sp, L)))]));
+const FISH_SPR = {};
+for (const [k, sp] of Object.entries(SPECIES)) {
+  const pals = sp.palAges || [sp.pal];
+  pals.forEach((pal, age) => { FISH_SPR[age ? k + age : k] = Array.from({ length: FISH_PX_MAX + 1 }, (_, L) => (L < 4 ? null : fishSet({ ...sp, pal }, L))); });
+}
 // Kalan suunta ruudulla kahdeksaan suuntaan: 0 = itä, 1 = kaakko, 2 = etelä, … 7 = koillinen
 function fishDir(f) {
   const [sx, sy] = screenDir(Math.cos(f.a), Math.sin(f.a));
@@ -3393,12 +3445,13 @@ function makeFish(kind) {
   for (let k = 0; k < 200; k++) {
     const a = rand(0, Math.PI * 2), r = home ? rand(0, home.r) : rand(2, POND_R - 2);
     x = (home ? home.x : C) + Math.cos(a) * r; y = (home ? home.y : C) + Math.sin(a) * r;
+    if (sp.shore) { const rr = pondR(a) - rand(1.5, 7); x = C + Math.cos(a) * rr; y = C + Math.sin(a) * rr; }   // lahna rantojen lähellä
     const bd = depthAt(x, y);
-    z = Math.min(fishDepth(sp, home), bd - 0.2);
+    z = sp.bottom ? bd - 0.25 : Math.min(fishDepth(sp, home), bd - 0.2);
     if (z > 0.25 && fishFree(x, y, z)) break;
   }
   return {
-    kind, w, len, px: clamp(Math.round(len * 0.3), 4, FISH_PX_MAX), x, y, z, tz: z, a: rand(0, Math.PI * 2), sp: 0, tx: x, ty: y, home,
+    kind, w, len, age: kind === 'bream' ? (len < 30 ? 0 : len < 40 ? 1 : 2) : 0, px: clamp(Math.round(len * 0.3), 4, FISH_PX_MAX), x, y, z, tz: z, a: rand(0, Math.PI * 2), sp: 0, tx: x, ty: y, home,
     t: rand(60, 400), mode: 'roam', energy: 0, maxE: (120 + Math.min(w * 0.5, 900)) * sp.energy, anim: Math.floor(rand(0, 100)),
     dirT: 0, hop: 0, hopT: 0, hvx: 0, hvy: 0, flopT: 0, caughtT: 0,
   };
@@ -3460,6 +3513,7 @@ function updateFishes() {
     if ((cast.lure && cast.lure.fish === f) || f.loose) continue;   // koukussa olevaa kalaa ohjaa updateFight
     const sp = SPECIES[f.kind];
     f.anim++;
+    if (f.shy > 0) f.shy--;
     if (f.mode === 'roam') {
       // Uusi kohde muutaman metrin päästä ja välillä uusi uintisyvyys
       if (--f.t <= 0 || Math.hypot(f.tx - f.x, f.ty - f.y) < 0.5) {
@@ -3468,10 +3522,11 @@ function updateFishes() {
         const H = f.home;
         for (let k = 0; k < 20; k++) {
           const a = rand(0, Math.PI * 2), r = H ? rand(H.deep ? H.r * 0.4 : 0, H.r) : rand(3, 10);
-          const tx = (H ? H.x : f.x) + Math.cos(a) * r, ty = (H ? H.y : f.y) + Math.sin(a) * r;
+          let tx = (H ? H.x : f.x) + Math.cos(a) * r, ty = (H ? H.y : f.y) + Math.sin(a) * r;
+          if (sp.shore) { const aa = Math.atan2(f.y - C, f.x - C) + rand(-0.9, 0.9), rr = pondR(aa) - rand(1.5, 7); tx = C + Math.cos(aa) * rr; ty = C + Math.sin(aa) * rr; }
           if (fishFree(tx, ty, 0.3)) { f.tx = tx; f.ty = ty; break; }
         }
-        f.tz = Math.min(fishDepth(sp, H), depthAt(f.tx, f.ty) - 0.2);
+        f.tz = sp.bottom ? Math.max(0.3, depthAt(f.tx, f.ty) - 0.25) : Math.min(fishDepth(sp, H), depthAt(f.tx, f.ty) - 0.2);
         f.t = H && !H.deep ? rand(300, 900) : rand(200, 500);
         f.lurk = H && !H.deep ? rand(400, 1400) : 0;
       }
@@ -3483,7 +3538,7 @@ function updateFishes() {
       }
       // Kala voi kiinnostua lähellä olevasta syötistä, jos se ui suunnilleen samalla syvyydellä
       if (bait && Math.hypot(f.x - bait.x, f.y - bait.y) < (sp.sight || 3) && Math.abs(f.z - bait.z) < 1.2
-        && (!isArt(bait.lure) || bait.moving) && Math.random() < sp.interest * sp.lures[bait.lure] * (bait.lying ? 0.2 : 1)) {
+        && !(f.shy > 0) && (!isArt(bait.lure) || bait.moving) && Math.random() < sp.interest * sp.lures[bait.lure] * (bait.lying ? 0.2 : 1)) {
         f.mode = 'interest'; f.t = rand(240, 720);
       }
     } else if (f.mode === 'interest') {
@@ -3497,10 +3552,50 @@ function updateFishes() {
       // Liikkuvaa vaappua kala jahtaa uintinopeuttaan nopeammin
       moveFish(f, sp.strike && bd < 1.5 ? sp.strike : bait.moving ? sp.fight * 1.1 : sp.speed * 0.8);
       const [nx, ny] = fishMouth(f);
-      if (Math.hypot(nx - bait.x, ny - bait.y, (f.z - bait.z) * 0.5) < (isArt(bait.lure) ? 0.3 : 0.22) && sp.bite === 'instant') hookFish(f);
+      if (Math.hypot(nx - bait.x, ny - bait.y, (f.z - bait.z) * 0.5) < (isArt(bait.lure) ? 0.3 : 0.22)) {
+        if (sp.bite === 'instant') hookFish(f);
+        else { f.mode = 'nibble'; f.t = rand(240, 540); f.tugT = rand(20, 60); f.tug = null; }   // lahna maistelee syöttiä ennen koukkuun jäämistä
+      }
+    } else if (f.mode === 'nibble') {
+      nibbleBait(f, bait, sp);
+      if (f.mode !== 'nibble') continue;
     }
     f.z += clamp(f.tz - f.z, -0.004, 0.004);
     f.z = clamp(f.z, 0.15, Math.max(0.15, depthAt(f.x, f.y) - 0.1));
+  }
+}
+
+// Lahnan maistelu: kala pysyttelee syötin luona ja nykii sitä. Koholla koho painuu hetkeksi veden alle (enintään 20 cm) tai kellahtaa
+// poikittain ja kulkee kalan mukana; pohjaongen kello kilahtaa, vaikka kala ei ole vielä koukussa. Lopuksi kala jää koukkuun
+// (80 %) tai jättää syötin (20 %).
+function nibbleBait(f, bait, sp) {
+  const L = cast.lure;
+  const stop = () => { if (L && !L.fish) { L.sub = 0; L.flat = false; } f.mode = 'roam'; f.t = 0; };
+  if (!bait || !L || L.fish) { stop(); return; }
+  const [mx, my] = fishMouth(f), ax = bait.x - (mx - f.x), ay = bait.y - (my - f.y);
+  f.tz = bait.z;
+  f.a += angDiff(f.a, Math.atan2(ay - f.y, ax - f.x)) * 0.06 + rand(-0.03, 0.03);
+  const far = Math.hypot(ax - f.x, ay - f.y);
+  moveFish(f, far > 0.12 ? 0.007 : 0.001);
+  // Nykäykset: koho painuu (dip), kellahtaa ja kulkee kalan mukana (drag) tai pohjaongen kello kilahtaa (bell)
+  if (!f.tug && --f.tugT <= 0) {
+    f.tug = { t: 0, len: Math.round(rand(24, 70)), kind: bait.lure === 'bobber' ? (Math.random() < 0.35 ? 'drag' : 'dip') : 'bell', dip: rand(0.05, 0.2) };
+    if (f.tug.kind === 'bell') { SFX.bell(); bellT = 70; }
+  }
+  const tg = f.tug;
+  if (tg) {
+    tg.t++;
+    if (L.kind === 'bobber') {
+      const u = Math.sin(Math.PI * clamp(tg.t / tg.len, 0, 1));
+      if (tg.kind === 'dip') L.sub = tg.dip * u;
+      else { L.flat = true; L.x = lerp(L.x, mx, 0.1); L.y = lerp(L.y, my, 0.1); }
+    }
+    if (tg.t >= tg.len) { f.tug = null; f.tugT = rand(25, 100); L.flat = false; if (L.kind === 'bobber') L.sub = 0; }
+  }
+  if (--f.t <= 0) {
+    if (L.kind === 'bobber') { L.sub = 0; L.flat = false; }
+    if (Math.random() < 0.8) hookFish(f);
+    else { stop(); f.shy = 900; }
   }
 }
 
@@ -3719,8 +3814,8 @@ function collectFish(f) {
 
 // Kalan kuva (flip = pää vasemmalle); koukussa riuhtova kala vipattaa pyrstöään nopeammin
 function drawFishImg(f, x, y, flip, beat, dir) {
-  let set = FISH_SPR[f.kind][f.px].side;
-  if (dir !== undefined) { const v = DIR_VIEW[dir]; set = FISH_SPR[f.kind][f.px][v[0]]; flip = v[1]; }
+  let set = FISH_SPR[fishSprKey(f)][f.px].side;
+  if (dir !== undefined) { const v = DIR_VIEW[dir]; set = FISH_SPR[fishSprKey(f)][f.px][v[0]]; flip = v[1]; }
   const img = set[(beat >> 2) % 2];
   drawImg(img, x - (img.width >> 1), y - (img.height >> 1), flip);
 }
@@ -3775,6 +3870,8 @@ function drawUnderwater(camXr, camYr) {
       plotLine(g, lx, ly, lx, hy, 'rgba(200, 205, 210, 0.55)');
       g.globalAlpha = underVis(hz);
       drawHookBait(lx, hy);
+      // Maistelevan kalan veden alle painama koho (lahna)
+      if (L.sub > 0.05) { g.globalAlpha = underVis(L.sub); bobberBehind = behindPlayer(L.x, L.y); drawBobberAt(lx, Math.round(ly + L.sub * Z_PX), false, false, underVis(L.sub) * 0.6); }
     }
   }
   drawStems(g, camXr, camYr);
@@ -3902,14 +3999,14 @@ function paddle(d, want) {
 }
 
 // Yöpaikka kaislikon vierestä, kaukana pelaajasta; parin toinen sorsa asettuu toisen viereen
-function roostSpot(d) {
-  const mate = ducks.find((o) => o !== d && (o.mode === 'roost' || o.mode === 'sleep'));
+function roostSpot(d, pool = ducks) {
+  const mate = pool.find((o) => o !== d && (o.mode === 'roost' || o.mode === 'sleep'));
   const reeds = decor.filter((o) => o.reed && Math.hypot(o.x - player.x, o.y - player.y) > 8);
   for (let k = 0; k < 40 && reeds.length; k++) {
     const o = mate && k < 20 ? { x: mate.tx, y: mate.ty } : pick(reeds);
     const a = Math.atan2(o.y - C, o.x - C) + (mate && k < 20 ? rand(-0.06, 0.06) : 0);
     const r = pondR(a) - 1.05, x = C + Math.cos(a) * r, y = C + Math.sin(a) * r;
-    if (duckFree(x, y) && !ducks.some((q) => q !== d && (q.mode === 'roost' || q.mode === 'sleep') && Math.hypot(q.tx - x, q.ty - y) < 0.7)) return [x, y];
+    if (duckFree(x, y) && ![...ducks, ...grebes].some((q) => q !== d && (q.mode === 'roost' || q.mode === 'sleep') && Math.hypot(q.tx - x, q.ty - y) < 0.7)) return [x, y];
   }
   return null;
 }
@@ -4066,6 +4163,7 @@ const GREBE_PAL = { k: '#16181c', K: '#101216', r: '#c0662c', R: '#7e3e1e', w: '
 const GREBE_SPR = {
   swim: makeSprite(['....K.K.....', '...KKKKK....', '..rrKwewp...', '..RrrwwwpppP', '...KRrww....', '....gcw.....', 'gGgggcww....', 'fGGGGgcc....', 'fttttttcc...'], GREBE_PAL),
   dip1: makeSprite(['............', '............', '............', '.....cww....', '......cwKKK.', '......gcrwe.', 'gGgggcwwRwwp', 'fGGGGgcc..pP', 'fttttttcc..P'], GREBE_PAL),   // sukellus: kaula kaartuu alas ja pää painuu veteen
+  sleep: makeSprite(['............', '............', '............', '............', '......KK....', '.....rrw....', 'gGgggRrwgg..', 'fGGGGGGcc...', 'fttttttcc...'], GREBE_PAL),   // nukkuva uikku: pää selkäsulkien alla
   dip2: makeSprite(['............', '............', '............', '............', 'ff..........', 'fGGgg....S..', 'ttGGGg.S.S..', 'tttGGGgcc.S.', 'ttttttttcc..'], GREBE_PAL),   // pää veden alla, peräpää nousee, roiskeet
   fly0: makeSprite(['......gg.........', '.....gwwg........', '....gwwwwg.......', '...gwwwwg........', '..gwwwg..........', 'ggGGGGGGwwwwwKrpP', '..cccccccc.......'], GREBE_PAL),
   fly1: makeSprite(['ggGGGGGGwwwwwKrpP', '..ccccwwcc.......', '...gwwwwg........', '....gwwwwg.......', '.....gwwwg.......', '......gwwg.......', '.......gg........'], GREBE_PAL),
@@ -4143,6 +4241,11 @@ function updateGrebes() {
     if (d.mode === 'swim') {
       d.nerve = clamp(d.nerve + (grebeDisturb() && dp < 9 ? (9 - dp) * 0.0028 : -0.002), 0, 1);
       if (d.nerve >= 1 || dp < 3) { if (night) grebeDive(d, true); else takeOffGrebe(d); continue; }
+      // Yöksi uikut uivat kaislikon viereen nukkumaan sorsien tapaan
+      if (night) {
+        const spot = roostSpot(d, grebes);
+        if (spot) { d.mode = 'roost'; [d.tx, d.ty] = spot; continue; }
+      }
       let want = 0.008;
       d.a += rand(-0.03, 0.03);
       if (shoreDist(d.x, d.y) > -2.4) d.a += angDiff(d.a, Math.atan2(C - d.y, C - d.x)) * 0.06;
@@ -4153,6 +4256,16 @@ function updateGrebes() {
       paddle(d, want);
       if (--d.t <= 0) { if (Math.random() < 0.5) grebeDive(d, false); else { d.a += rand(-1.5, 1.5); d.t = rand(200, 600); } }
       if (--d.callT <= 0) { d.callT = rand(1800, 5000) * (night ? 3 : 1); grebeCall(d, night ? 0.5 : 0.9); }
+    } else if (d.mode === 'roost' || d.mode === 'sleep') {
+      // Uidaan kaislikon viereen ja nukutaan aamuun; lähelle tuleva tai lähistöllä liikkuva pelaaja herättää ja uikku sukeltaa pakoon
+      if (!night) { d.mode = 'swim'; d.t = rand(100, 300); d.nerve = 0; continue; }
+      if (dp < 2.8 || (grebeDisturb() && dp < 6)) { grebeDive(d, true); continue; }
+      if (d.mode === 'roost') {
+        const dx = d.tx - d.x, dy = d.ty - d.y, dist = Math.hypot(dx, dy);
+        d.a += angDiff(d.a, Math.atan2(dy, dx)) * 0.08;
+        paddle(d, dist < 1 ? 0.006 : 0.012);
+        if (dist < 0.25) { d.mode = 'sleep'; d.sp = 0; }
+      }
     } else if (d.mode === 'dive') {
       d.dive++;
       if (d.dive === DIVE_SINK) d.hidden = true;
@@ -4225,7 +4338,7 @@ function drawGrebe(d, sx, sy) {
     drawImg(fi, sx - 8, sy - Math.round(d.z) - 3 - fi.body, d.flip);
     return;
   }
-  const img = GREBE_SPR.swim, bob = Math.round(Math.sin(d.anim * 0.06) * 0.5);
+  const img = d.mode === 'sleep' ? GREBE_SPR.sleep : GREBE_SPR.swim, bob = Math.round(Math.sin(d.anim * (d.mode === 'sleep' ? 0.03 : 0.06)) * 0.5);
   if (d.mode === 'dive') {
     // Uppoaa ja nousee: kuvasta näkyy vain vedenpinnan yläpuolinen osa
     const [di, k] = grebeDiveFrame(d);
@@ -4245,7 +4358,7 @@ function drawGrebeReflection(d, camXr, camYr) {
   const sx = Math.round(isoX(d.x, d.y) - camXr), sy = Math.round(isoY(d.x, d.y) - camYr);
   if (sx < -12 || sx > W + 12 || sy < -4 || sy > H + 40 || !waterPx(sx + camXr, sy + camYr)) return;
   const flying = d.z > 0.5;
-  const img = flying ? (Math.floor(d.anim / 3) % 2 ? GREBE_SPR.fly0 : GREBE_SPR.fly1) : d.mode === 'dive' ? grebeDiveFrame(d)[0] : GREBE_SPR.swim;
+  const img = flying ? (Math.floor(d.anim / 3) % 2 ? GREBE_SPR.fly0 : GREBE_SPR.fly1) : d.mode === 'dive' ? grebeDiveFrame(d)[0] : d.mode === 'sleep' ? GREBE_SPR.sleep : GREBE_SPR.swim;
   const top = flying ? sy - Math.round(d.z) - 3 - img.body : sy - img.height + 1;
   const ox = flying ? sx - 8 : sx - 4, mirrorTop = 2 * (sy + 1) - (top + img.height);
   const g = reflCtxAll;
@@ -4326,6 +4439,7 @@ function sealSplash(S, n, big) {
   SFX.sealSplash(big ? 1 : 0.5);
 }
 
+const SEAL_BREATH_T = 40 * 60;   // yöunen aikana norppa nousee hengittämään 40 s välein
 const SEAL_HEAD_T = 60;   // pään nousu ja lasku pinnalla (ruutua = 1,0 s)
 const SEAL_BEND = 12, SEAL_TOUCH = 26, SEAL_ROLL = 34;   // sukelluksen vaiheet (ruutua)
 function startSealRoll(S) {
@@ -4347,7 +4461,8 @@ function newSealTarget(S) {
   }
 }
 function sealDive(S) {
-  S.st = 'swim'; S.z = 0.25; S.swimT = rand(1200, 3000); newSealTarget(S);
+  if (phaseName === 'NIGHT') { S.st = 'nap'; S.z = 0.25; S.breathT = SEAL_BREATH_T; S.napCool = 0; }   // yöllä palataan nukkumaan pohjan lähelle
+  else { S.st = 'swim'; S.z = 0.25; S.swimT = rand(1200, 3000); newSealTarget(S); }
   ripples.push({ x: S.x, y: S.y, t: 0, life: 45, max: 5, a: 0.6 });
   SFX.duckWater(false, 0.5);
 }
@@ -4357,6 +4472,9 @@ function updateSeal() {
   if (!S) return;
   S.anim++;
   const dp = Math.hypot(p.x - S.x, p.y - S.y), [pt] = dockLocal(p.x, p.y);
+  const night = phaseName === 'NIGHT';
+  // Yöllä norppa ei ole laiturilla: laiturilla lepäävä norppa pyörähtää veteen illan tullen
+  if (night && (S.st === 'rest' || S.st === 'hop')) { startSealRoll(S); return; }
   if (S.st === 'rest') {
     [S.x, S.y] = dockPt(S.t, 0);
     if (dp < 2.4) startSealRoll(S);
@@ -4397,8 +4515,16 @@ function updateSeal() {
     S.waterT++; S.swimT--;
     // Takaisin laiturille vain kun pelaaja ei ole lähellä nokkaa
     const [hx, hy] = dockPt(DOCK_LEN + 1.0, 0), dTip = Math.hypot(p.x - hx, p.y - hy);
-    if (!S.haul && S.waterT > S.haulAfter && dTip > 9) S.haul = true;
+    if (!S.haul && S.waterT > S.haulAfter && dTip > 9 && !night) S.haul = true;
+    if (night) S.haul = false;
     if (S.haul && dTip < 6) S.haul = false;
+    // Yöllä uidaan syvään veteen (ei laiturin lähelle) ja vaivutaan uneen pohjan lähelle
+    if (night && !S.haul && (S.napCool || 0) <= 0 && S.waterT > 60) {
+      if (!S.napSpot) { newSealTarget(S); S.napSpot = [S.tx, S.ty]; }
+      S.tx = S.napSpot[0]; S.ty = S.napSpot[1];
+      if (Math.hypot(S.tx - S.x, S.ty - S.y) < 1.0) { S.st = 'nap'; S.napSpot = null; S.breathT = SEAL_BREATH_T; return; }
+    }
+    if (S.napCool > 0) S.napCool--;
     const tx = S.haul ? hx : S.tx, ty = S.haul ? hy : S.ty;
     S.a += angDiff(S.a, Math.atan2(ty - S.y, tx - S.x)) * 0.05;
     const v = 0.03, nx = S.x + Math.cos(S.a) * v, ny = S.y + Math.sin(S.a) * v;
@@ -4425,6 +4551,17 @@ function updateSeal() {
     // Pää nousee pinnan yläpuolelle 1,0 s aikana (surfAge) ja painuu hitaasti veden alle 1,0 s aikana ennen sukellusta (sinkT)
     if (!S.sinkT && (dp < 2.4 || S.timer <= 0) && S.surfAge >= SEAL_HEAD_T) S.sinkT = SEAL_HEAD_T;
     if (S.sinkT && --S.sinkT <= 0) sealDive(S);
+  } else if (S.st === 'nap') {
+    // Uni pohjan lähellä: paikallaan, hengitys 40 s välein (nousu pintaan); aamulla herää päivätoimintaan, lähellä oleva pelaaja herättää
+    S.napSpot = null;
+    S.z += clamp(Math.max(0.3, depthAt(S.x, S.y) - 0.3) - S.z, -0.01, 0.01);
+    if (!night) { S.st = 'swim'; S.swimT = rand(600, 1500); S.waterT = 0; S.haul = false; newSealTarget(S); S.a = Math.atan2(S.ty - S.y, S.tx - S.x); }
+    else if (dp < 2.4) { S.st = 'swim'; S.napCool = 1200; S.swimT = rand(400, 900); S.waterT = 0; newSealTarget(S); S.a = Math.atan2(S.ty - S.y, S.tx - S.x); }
+    else if (--S.breathT <= 0) {
+      S.st = 'surf'; S.timer = rand(90, 140); S.lookT = rand(50, 100); S.surfAge = 0; S.sinkT = 0;
+      ripples.push({ x: S.x, y: S.y, t: 0, life: 50, max: 4.5, a: 0.55 }, { x: S.x, y: S.y, t: -10, life: 50, max: 7, a: 0.35 });
+      SFX.sealBreath();
+    }
   } else if (S.st === 'haul') {
     const u = ++S.timer / 18;
     S.x = lerp(S.from[0], S.to[0], u); S.y = lerp(S.from[1], S.to[1], u);
@@ -4490,11 +4627,11 @@ function drawSeal(camXr, camYr) {
 // Veden alla uiva norppa (tumma hahmo, häivytys syvyyden mukaan); pinnalla olevan pään alla näkyy vaalea vartalo
 function drawSealUnder(g, camXr, camYr) {
   const S = seal;
-  if (!S || (S.st !== 'swim' && S.st !== 'surf')) return;
+  if (!S || (S.st !== 'swim' && S.st !== 'surf' && S.st !== 'nap')) return;
   const x = Math.round(isoX(S.x, S.y) - camXr), z = S.st === 'surf' ? 0.5 : S.z, y = Math.round(isoY(S.x, S.y) - camYr + z * Z_PX);
   if (x < -14 || x > W + 14 || y < -10 || y > H + 20) return;
   g.globalAlpha = underVis(z) * (S.st === 'surf' ? 0.8 : 0.95);
-  drawImg(SEAL_SPR.swim[(S.anim >> 3) % 2], x - 10, y - 3, S.face < 0);
+  drawImg(SEAL_SPR.swim[S.st === 'nap' ? 0 : (S.anim >> 3) % 2], x - 10, y - 3, S.face < 0);
   g.globalAlpha = 1;
 }
 
@@ -4785,6 +4922,7 @@ function wakeUp(morning) {
   sleep.phase = 'out'; sleep.t = 0;
   particles = []; ripples = []; wakes = []; drops = []; animals = []; skyBirds = [];
   for (const d of ducks) if (d.mode === 'roost' || (d.mode === 'sleep' && phaseName !== 'NIGHT')) { d.mode = 'swim'; d.t = rand(100, 300); }
+  for (const d of grebes) if (d.mode === 'roost' || (d.mode === 'sleep' && phaseName !== 'NIGHT')) { d.mode = 'swim'; d.t = rand(100, 300); }
   banners = [{ text: morning ? 'Good morning!' : 'You wake up.', t: 200 }];
   player.stillT = 0;
   // Herätessä astutaan ulos teltan ovesta
@@ -5619,7 +5757,7 @@ function drawCastLine(g, camXr, camYr) {
   }
   if (L.fish && L.fish.mode === 'caught') {
     // Saalis roikkuu ilmassa ongen kärjestä pää ylöspäin ja sätkii
-    const f = L.fish, img = FISH_SPR[f.kind][f.px].side[(f.anim >> 2) % 2];
+    const f = L.fish, img = FISH_SPR[fishSprKey(f)][f.px].side[(f.anim >> 2) % 2];
     plotLine(ctx, tx, ty, tx, ty + 6, col);
     if (!isArt(L.kind)) drawBobberAt(Math.round(tx), Math.round(ty + 4), false);
     ctx.save();
@@ -5753,7 +5891,12 @@ function drawLure(camXr, camYr) {
   // Kalan riuhtoessa koho nykii pinnalla
   const jerk = f && f.mode === 'fight' ? Math.round(rand(-1, 1)) : 0;
   bobberBehind = behindPlayer(L.x, L.y);
-  if (L.onWater) drawBobberAt(x + jerk, y + Math.round(Math.sin(time * 0.08 + 1) * 0.6) + (jerk ? 1 : 0), true);
+  if (L.onWater && L.flat) {
+    // Poikittain pinnalla kelluva koho (kala kuljettaa sitä): piirretään 90 astetta kierrettynä
+    ctx.save(); ctx.translate(x, y + 1); ctx.rotate(Math.PI / 2);
+    drawBobberAt(0, 0, true);
+    ctx.restore();
+  } else if (L.onWater) drawBobberAt(x + jerk, y + Math.round(Math.sin(time * 0.08 + 1) * 0.6) + (jerk ? 1 : 0), true);
   else drawBobberAt(x, y, false, true);
 }
 
