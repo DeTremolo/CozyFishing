@@ -3273,9 +3273,9 @@ const SPECIES = {
     energy: 3.5, regen: 2.5, pull: 0.9,
     pal: { back: '#5a6672', body: '#b4c0c8', belly: '#e6ebee', bar: '#b4c0c8', fin: '#4a525a', eye: '#101010' },
     palAges: [   // ikäkausi pituuden mukaan: < 30 cm hopeinen, 30-40 cm himmeämpi, yli 40 cm kuparinvärinen ja tumma
-      { back: '#5a6672', body: '#b4c0c8', belly: '#e6ebee', bar: '#b4c0c8', fin: '#4a525a', eye: '#101010' },
-      { back: '#4a4a3c', body: '#9a9078', belly: '#cfc8b0', bar: '#9a9078', fin: '#46484e', eye: '#101010' },
-      { back: '#2e2a22', body: '#7a6438', belly: '#a89868', bar: '#7a6438', fin: '#3a3c42', eye: '#101010' },
+      { back: '#56626e', body: '#b4c0c8', belly: '#eef2f4', hi: '#d4dee4', bar: '#b4c0c8', fin: '#4a525a', pec: '#c8785a', ring: '#d8c070', eye: '#101010' },
+      { back: '#454538', body: '#9a9078', belly: '#d2cbb2', hi: '#b8ae90', bar: '#9a9078', fin: '#46484e', pec: '#8a6a50', ring: '#c8b060', eye: '#101010' },
+      { back: '#2a261e', body: '#7a6438', belly: '#b09c6a', hi: '#94784a', bar: '#7a6438', fin: '#3a3c42', pec: '#5a4a38', ring: '#c8a850', eye: '#101010' },
     ],
   },
 };
@@ -3318,29 +3318,58 @@ function makeFishSprite(pal, L, frame, shape) {
   px(1, mid - 1 + o, pal.fin); px(0, mid - 2 + o, pal.fin); px(1, mid + 1 + o, pal.fin); px(0, mid + 2 + o, pal.fin); px(1, mid + o, pal.fin);
   return c;
 }
-// Lahna: korkea ja litteä vartalo (selkä kaareva), tummat evät: selkäevä, pitkä peräevä ja syvälle haarautunut pyrstö
+// Lahna: korkea ja litteä vartalo, jonka selkä on kyttyrä (korkeimmillaan selkäevän kohdalla) ja pää pieni ja suippo alasuuntaisella suulla.
+// Kyljessä on suomutekstuuri ja vaaleampi sivujuova, silmässä kullanvärinen rengas, kidusluukulla tumma viiva; selkäevä on korkea kolmio,
+// peräevä pitkä, rinta- ja vatsaevät pienet (nuorilla punertavat) ja pyrstö syvä haarukka, jonka alalohko on pidempi.
 function makeBreamSprite(pal, L, frame) {
-  const h = Math.max(4, Math.round(L * 0.5)), cw = L + 3, ch = h + 6, mid = Math.floor(ch / 2);
+  const h = Math.max(4, Math.round(L * 0.52)), cw = L + 3, ch = h + 7, mid = Math.floor(ch / 2) + 1;
   const c = makeCanvas(cw, ch), g = c.getContext('2d');
   const px = (x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
+  const lighten = (col, k) => { const n = parseInt(col.slice(1), 16); return '#' + [16, 8, 0].map((sh) => Math.min(255, ((n >> sh) & 255) + k).toString(16).padStart(2, '0')).join(''); };
+  const hi = pal.hi || lighten(pal.body, 22);
+  let topAt = [], botAt = [];
   for (let x = 3; x < cw; x++) {
     const t = (x - 3) / Math.max(1, L - 1);
-    const prof = Math.sin(Math.PI * clamp((t + 0.04) / 1.04, 0, 1)) ** 0.7;
-    const top = mid - Math.max(1, Math.round(h * 0.55 * prof)), bot = mid + Math.max(0, Math.round(h * 0.4 * prof));
-    for (let y = top; y <= bot; y++) px(x, y, y <= top ? pal.back : y < mid - h * 0.08 ? pal.back : y > mid + h * 0.1 ? pal.belly : pal.body);
-    if (t > 0.3 && t < 0.56) px(x, top - 1, pal.fin);
-    if (t > 0.36 && t < 0.5) px(x, top - 2, pal.fin);
-    if (t > 0.15 && t < 0.5) px(x, bot + 1, pal.fin);
-    if (t > 0.2 && t < 0.4) px(x, bot + 2, pal.fin);
+    // Epäsymmetrinen profiili: kyttyrä selkä (huippu t ≈ 0,4), pää (t > 0,8) kapenee nopeasti suippoon kuonoon
+    const body = Math.sin(Math.PI * clamp((t + 0.03) / 1.03, 0, 1)) ** 0.8;
+    const hump = 1 + 0.28 * Math.exp(-((t - 0.4) ** 2) / 0.035);
+    const snout = t > 0.82 ? 1 - (t - 0.82) * 2.2 : 1;
+    const top = mid - Math.max(1, Math.round(h * 0.52 * body * hump * snout)), bot = mid + Math.max(0, Math.round(h * 0.4 * body * (t > 0.88 ? 0.8 : 1)));
+    topAt[x] = top; botAt[x] = bot;
+    for (let y = top; y <= bot; y++) {
+      const r = (y - top) / Math.max(1, bot - top);   // 0 = selkä, 1 = vatsa
+      let col = r < 0.28 ? pal.back : r > 0.7 ? pal.belly : pal.body;
+      if (Math.abs(r - 0.48) < 0.09 && t > 0.15 && t < 0.8) col = hi;                    // vaalea sivujuova
+      else if (L >= 9 && col === pal.body && t > 0.12 && t < 0.8 && (x + y) % 2 === 0) col = lighten(pal.body, 10);   // suomut
+      px(x, y, col);
+    }
   }
-  px(cw - 3, mid - 1, pal.eye);
-  // Pyrstö: syvä haarukka
-  const o = frame ? 1 : 0, sp = Math.max(2, Math.round(h * 0.45));
+  // Kidusluukku ja pää
+  const gx = cw - 1 - Math.max(2, Math.round(L * 0.2));
+  for (let y = topAt[gx] + 1; y < botAt[gx]; y++) px(gx, y, pal.back);
+  // Silmä: kullanvärinen rengas ja tumma pupilli
+  const ex = cw - 1 - Math.max(1, Math.round(L * 0.1)), ey = mid - Math.max(1, Math.round(h * 0.12));
+  if (L >= 10) { px(ex - 1, ey, pal.ring || '#c8b060'); px(ex, ey - 1, pal.ring || '#c8b060'); }
+  px(ex, ey, pal.eye);
+  // Suu: pieni tumma piste kuonon alapuolella
+  px(cw - 1, botAt[cw - 1] - 1 - (L >= 12 ? 1 : 0), pal.back);
+  // Selkäevä (korkea kolmio hyppyrin kohdalla), peräevä (pitkä), rinta- ja vatsaevä
+  const dorsalH = Math.max(2, Math.round(h * 0.27));
+  for (let x = 3; x < cw; x++) {
+    const t = (x - 3) / Math.max(1, L - 1);
+    if (t > 0.32 && t < 0.56) { const k = 1 - Math.abs(t - 0.36) / 0.2, hh = Math.max(1, Math.round(dorsalH * clamp(k, 0.3, 1))); for (let q = 1; q <= hh; q++) px(x, topAt[x] - q, pal.fin); }
+    if (t > 0.14 && t < 0.5) { const k = 1 - (t - 0.14) / 0.36 * 0.5, hh = Math.max(1, Math.round(h * 0.2 * k)); for (let q = 1; q <= hh; q++) px(x, botAt[x] + q, pal.fin); }
+  }
+  const pec = pal.pec || pal.fin;
+  px(gx - 1, mid + 1, pec); px(gx - 2, mid + 2, pec);                       // rintaevä
+  px(3 + Math.round(L * 0.5), botAt[3 + Math.round(L * 0.5)] + 1, pec);   // vatsaevä
+  // Pyrstö: syvä haarukka, alalohko pidempi
+  const o = frame ? 1 : 0, up = Math.max(2, Math.round(h * 0.42)), dn = up + 1;
   px(2, mid + o, pal.fin);
-  for (let k = 1; k <= sp; k++) {
-    const x = Math.max(0, 2 - Math.floor(k * 0.7));
-    px(x, mid - k + o, pal.fin); px(x, mid + k + o, pal.fin);
-    if (x < 2) { px(x + 1, mid - k + o, pal.fin); px(x + 1, mid + k + o, pal.fin); }
+  for (let k = 1; k <= dn; k++) {
+    const xd = Math.max(0, 2 - Math.floor(k * 0.7));
+    if (k <= up) { px(xd, mid - k + o, pal.fin); if (xd < 2) px(xd + 1, mid - k + o, pal.fin); }
+    px(xd, mid + k + o, pal.fin); if (xd < 2) px(xd + 1, mid + k + o, pal.fin);
   }
   return c;
 }
