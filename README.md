@@ -25,7 +25,7 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 | X | AXE / STOW AXE | kirves oikeaan käteen / pois (onki menee samalla repun kylkeen; ei voi ottaa, jos viehe on heitetty) |
 | K | KNIFE / STOW KNIFE | puukko oikeaan käteen / pois (puukolla ei voi vielä tehdä mitään) |
 | N (metsän laidassa, kirves kädessä) | MAKE WOOD (tee-painike) | aloita polttopuun teko: hahmo kääntyy metsään päin |
-| välilyönti tai hiiren vasen nappi | CHOP | iske kirveellä (hakkuu käynnissä; enintään kerran sekunnissa, 5 iskua = 1 klapi) |
+| välilyönti tai hiiren vasen nappi | CHOP | iske kirveellä (hakkuu käynnissä; enintään 1,25 iskua sekunnissa eli 0,8 s välein, 5 iskua = 1 klapi) |
 | Z (nuotion vieressä) | LIGHT FIRE (tee-painike) | sytytä sammunut nuotio (kun siinä on puita) |
 | hiiren oikea nappi pohjassa | RELEASE LINE (pidä pohjassa) | vapauta siimaa kelalta (enintään 30 m ulkona) |
 | Q | LURE | vaihda viehe: koho ja mato / vaappu / lippa / pohjaonki ja mato / pohjaonki ja boilie (vain kun siima on kelattu sisään) |
@@ -50,8 +50,14 @@ nappi (LAMP) on vasemmassa alakulmassa kaikissa tiloissa; tauko, ääni ja koko 
   MAKE WOOD metsän laidassa kirves kädessä, BOAT veneen luona, GO ASHORE veneestä rantaan).
 - *Työkalu kädessä:* STOW AXE / STOW KNIFE, tee-painikkeet sekä hakatessa CHOP (isku).
 - *Onki kädessä, ei heitetty:* CAST (pidä pohjassa, heitto lähtee irrotettaessa), LURE (vieheen vaihto), − / + (koho: koukun
-  syvyys HOOK, pohjaonki: syötin etäisyys BAIT, uistin: kelausnopeus SPEED; pidä pohjassa toistaaksesi) ja STOW ROD.
-- *Heitetty:* REEL IN (pidä pohjassa), RELEASE LINE (pidä pohjassa), CUT sekä uistimilla kelausnopeuden − / +.
+  syvyys HOOK, pohjaonki: syötin etäisyys BAIT; pidä pohjassa toistaaksesi) ja STOW ROD. Uistimilla (vaappu, lippa) ei ole − / +
+  -nappeja eikä kelausnopeuden lukua.
+- *Heitetty:* REEL IN (pidä pohjassa), RELEASE LINE (pidä pohjassa) ja CUT. Uistimilla REEL IN -painike muuttuu pohjassa pidettäessä
+  pystysuoraksi **liukusäätimeksi**, jolloin REEL IN-, RELEASE LINE- ja CUT-napit piiloutuvat: sormen siirto ylös / alas säätää
+  kelausnopeutta (alhaalla pienin 10 cm/s, ylhäällä suurin 100 cm/s, 10 cm/s askelin; nopeus säilyy, kunnes sormi liikkuu), ja
+  kun sormen nostaa, liukusäädin piiloutuu ja napit palaavat. Tietokoneella kelausnopeutta säädetään edelleen hiiren rullalla.
+- *Veneen ohjaus:* liiketikun nuppi liikkuu veneessä neliömäisellä alueella: ylös / alas säätää kaasua eteen ja taakse ja
+  vasen / oikea ohjausta erikseen, joten täysi vauhti ja täysi käännös onnistuvat yhtä aikaa (kävellessä tikku on pyöreä).
 
 Oikeassa yläkulmassa näkyy jatkuvasti ruudunpäivitysnopeus ja yhden ruudun laskenta-aika (esim. `60 FPS  4.2 MS`; päivitykset ja
 piirtokomennot, keskiarvo puolen sekunnin ajalta).
@@ -194,7 +200,7 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
   tehdä mitään.
 - **Polttopuiden teko**: kirves kädessä metsän laidassa (lähin metsäruutu enintään noin 1,9 m päässä) valitaan MAKE WOOD (N).
   Hahmo kääntyy metsään päin, ja hänen päällään näkyy viisiosainen edistymispalkki. Kirveellä iskeä saa välilyönnillä, hiiren
-  vasemmalla napilla tai CHOP-napilla enintään kerran sekunnissa. Isku on animoitu (nosto taakse, isku ja palautus; osuma
+  vasemmalla napilla tai CHOP-napilla enintään 0,8 sekunnin välein (iskun kesto 0,4 s). Isku on animoitu (nosto taakse, isku ja palautus; osuma
   iskun puolivälin jälkeen, ja siitä kuuluu puun hakkaamisen ääni ja lentää lastuja; heilautuksesta kuuluu pieni hiljainen
   suhahdus). Viisi iskua täyttää palkin ja repun lisätään yksi polttopuu, minkä jälkeen palkki alkaa alusta. Iskun aikana hahmoa
   ei voi liikuttaa; kävely (iskujen välillä) keskeyttää hakkuun ja palkki nollautuu. Koodissa `startChop`, `updateChop`,
@@ -202,7 +208,9 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
 
 ## Pieniä yksityiskohtia
 
-- Pelaaja kävelee 0,0525 ruutua päivityksessä (3,15 m/s); kävelyanimaatio ja askeläänet on mitoitettu sen mukaan.
+- Veden pinnan aaltokuvio (tuulen mukana liikkuvat vaaleat viirut) on veden omaa sävyä ja vain hieman vettä vaaleampi.
+
+- Pelaaja kävelee 0,063 ruutua päivityksessä (3,78 m/s); kävelyanimaatio ja askeläänet on mitoitettu sen mukaan.
 - Kelauksen lopussa kaikki vieheet (koho, vaappu, lippa) nousevat siimaa pitkin ongen kärkeen ja jäävät roikkumaan siitä,
   kuten pohjaongella; siima lähtee aina ongen kärjestä, ei hahmon jaloista.
 - Sorsat ja silkkiuikut roiskivat, synnyttävät aallon ja äännähtävät samalla hetkellä, kun ne osuvat veteen.

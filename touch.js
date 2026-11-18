@@ -11,6 +11,7 @@
 (() => {
   const STICK_R = 56;        // tikun säde CSS-pikseleinä
   const MOVE_DEAD = 0.2;     // liiketikun kuollut alue
+  const SQUARE_DEAD = 0.12;  // veneen neliötikun kuollut alue (akselikohtainen)
 
   const ui = document.getElementById('touch-ui');
   const sticks = {};         // kosketuksen id -> tikku
@@ -23,9 +24,10 @@
   base.appendChild(knob);
   ui.appendChild(base);
 
-  function showStick(x, y) {
+  function showStick(x, y, square) {
     base.style.left = x + 'px';
     base.style.top = y + 'px';
+    base.classList.toggle('square', !!square);
     knob.style.transform = 'translate(-50%, -50%)';
     base.classList.add('show');
   }
@@ -59,6 +61,15 @@
 
   function stickUpdate(s, t) {
     let dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if (s.square) {
+      // Veneen ohjaus: nuppi liikkuu neliömäisellä alueella, ylös / alas = kaasu eteen / taakse ja vasen / oikea = ohjaus
+      // erikseen, jolloin täysi vauhti ja täysi käännös onnistuvat yhtä aikaa (pyöreä alue rajaisi niiden summan)
+      dx = Math.max(-STICK_R, Math.min(STICK_R, dx)); dy = Math.max(-STICK_R, Math.min(STICK_R, dy));
+      knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      const axis = (v) => { const a = Math.abs(v) / STICK_R; return a > SQUARE_DEAD ? Math.sign(v) * Math.min(1, (a - SQUARE_DEAD) / (1 - SQUARE_DEAD)) : 0; };
+      touch.mx = axis(dx); touch.my = axis(dy);
+      return;
+    }
     const len = Math.hypot(dx, dy), k = len > STICK_R ? STICK_R / len : 1;
     dx *= k; dy *= k;
     knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
@@ -73,11 +84,11 @@
     for (const t of e.changedTouches) {
       // Napautus oikean yläkulman FPS-lukemaan: ajoitusnäkymä päälle / pois
       if (state === 'play' && t.clientX > innerWidth - 190 && t.clientY < 46) { pressed.KeyO = true; continue; }
-      const s = { x: t.clientX, y: t.clientY, startState: state, move: false };
+      const s = { x: t.clientX, y: t.clientY, startState: state, move: false, square: !!(player && player.boat && boat && boat.rider === 'drive') };
       sticks[t.identifier] = s;
       if (state !== 'play' || moveId !== null) continue;
       s.move = true; moveId = t.identifier;
-      showStick(s.x, s.y);
+      showStick(s.x, s.y, s.square);
       stickUpdate(s, t);
     }
   }, { passive: false });
@@ -148,15 +159,45 @@
   });
 
   // Heitto- ja kelausnappia pidetään pohjassa: heitto lähtee sormen noustessa katsesuuntaan, ja heitetyn
-  // vieheen kanssa pohjassa pitäminen kelaa siimaa sisään (sama kuin hiiren vasen nappi)
-  const castBtn = document.getElementById('btn-cast');
+  // vieheen kanssa pohjassa pitäminen kelaa siimaa sisään (sama kuin hiiren vasen nappi).
+  // Uistimella (vaappu, lippa) kelaus-painike muuttuu pohjassa pidettäessä pystysuoraksi liukusäätimeksi: sormen siirto ylös / alas
+  // säätää kelausnopeutta (alhaalla pienin 10 cm/s, ylhäällä suurin 100 cm/s), ja sormen noston jälkeen painikkeet palaavat.
+  const castBtn = document.getElementById('btn-cast'), slider = document.getElementById('reel-slider'), sliderKnob = document.getElementById('reel-knob');
+  let sliderId = null, sliderY0 = 0, sliderMoved = false;
+  function sliderShow() {
+    // Nuppi sormen (tai nykyisen nopeuden) kohdalle
+    const r = slider.getBoundingClientRect(), kh = sliderKnob.offsetHeight, f = (cast.reelSpeed - 10) / 90;
+    sliderKnob.style.bottom = Math.round(f * (r.height - 4 - kh)) + 'px';
+  }
+  function sliderSet(clientY) {
+    const r = slider.getBoundingClientRect(), f = Math.max(0, Math.min(1, (r.bottom - clientY) / r.height));
+    cast.reelSpeed = Math.round((10 + f * 90) / 10) * 10;
+    sliderShow();
+  }
   castBtn.addEventListener('touchstart', (e) => {
     if (e.cancelable) e.preventDefault(); e.stopPropagation();
     setTouchMode(true);
     castBtn.classList.add('down');
     touch.cast = state === 'play';
+    if (state === 'play' && player && cast && cast.lure && isArt(player.lure)) {
+      sliderId = e.changedTouches[0].identifier; sliderY0 = e.changedTouches[0].clientY; sliderMoved = false;
+      slider.classList.add('on'); document.body.classList.add('sliding');
+      sliderShow();
+    }
   }, { passive: false });
-  const castUp = (e) => { if (e.cancelable) e.preventDefault(); e.stopPropagation(); castBtn.classList.remove('down'); touch.cast = false; initAudio(); };
+  addEventListener('touchmove', (e) => {
+    if (sliderId === null) return;
+    for (const t of e.changedTouches) {
+      if (t.identifier !== sliderId) continue;
+      if (!sliderMoved && Math.abs(t.clientY - sliderY0) < 6) continue;   // nopeus säilyy, kunnes sormi liikkuu
+      sliderMoved = true; sliderSet(t.clientY);
+    }
+  }, { passive: false });
+  const castUp = (e) => {
+    if (e.cancelable) e.preventDefault(); e.stopPropagation();
+    castBtn.classList.remove('down'); touch.cast = false; initAudio();
+    sliderId = null; slider.classList.remove('on'); document.body.classList.remove('sliding');
+  };
   castBtn.addEventListener('touchend', castUp, { passive: false });
   castBtn.addEventListener('touchcancel', castUp, { passive: false });
 
@@ -226,7 +267,7 @@
       if (acts[i]) btn.textContent = acts[i].label;
     });
     if (player && cast) {
-      stepLabel.textContent = isArt(player.lure) ? 'SPEED ' + cast.reelSpeed : isRig(player.lure) ? 'BAIT ' + Math.round(cast.rigDist * 100) : 'HOOK ' + cast.hookDepth.toFixed(1);
+      stepLabel.textContent = isRig(player.lure) ? 'BAIT ' + Math.round(cast.rigDist * 100) : 'HOOK ' + cast.hookDepth.toFixed(1);
     }
   }, 100);
 

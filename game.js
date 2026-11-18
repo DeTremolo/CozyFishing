@@ -12,7 +12,7 @@ const N = 112;             // kartan koko ruutuina (metreinä)
 const C = N / 2;           // lammen keskipiste
 const POND_R = 25;         // lammen keskisäde: halkaisija noin 50 m
 const POND_RMAX = POND_R + 5.5;   // rantaviivan suurin etäisyys keskipisteestä (lahdet)
-const WALK = 0.0525;       // kävelynopeus (ruutua / päivitys)
+const WALK = 0.063;        // kävelynopeus (ruutua / päivitys)
 
 const T_WATER = 0, T_BANK = 1, T_FOREST = 2, T_CLEAR = 3, T_TENT = 4, T_CAMP = 5, T_SHED = 6;
 // Vuorokausi: kellossa CYCLE yksikköä vuorokaudessa (ks. advanceClock). Kellonaika = 4.30 + osuus * 24 h
@@ -315,7 +315,7 @@ const PLAYER_SPR_HELD = Object.fromEntries(Object.entries(HELD_ARMS).map(([dir, 
 }));
 // Hahmon kuva: onki kädessä käytetään kuvaa, josta roikkuvat kädet on poistettu
 const playerSpr = (p) => {
-  const k = p.moving ? Math.floor(p.anim / 6) % 2 : 0;
+  const k = p.moving ? Math.floor(p.anim / 5) % 2 : 0;
   return p.rod || p.tool ? PLAYER_SPR_HELD[playerDir()][k] : PLAYER_SPR[p.view][k];
 };
 
@@ -1421,7 +1421,8 @@ function drawWater(camXr, camYr) {
     const f = clamp((ay - PB.y0) / PB.h, 0, 1), sk = 0.55 + (1 - f) * 0.3;
     const sr = lerp(E.sky[0], E.zen[0], f), sg = lerp(E.sky[1], E.zen[1], f), sb = lerp(E.sky[2], E.zen[2], f);
     const wr = sr * sk, wg = sg * sk, wb = sb * sk;
-    const hr = lerp(sr, 240, 0.4), hg = lerp(sg, 244, 0.4), hb = lerp(sb, 244, 0.4);
+    // Aaltojen kohokohta: veden oman värin sävyinen, vain hieman vettä vaaleampi (aiemmin lähes valkoinen)
+    const hr = lerp(wr, sr, 0.6) + 8, hg = lerp(wg, sg, 0.6) + 9, hb = lerp(wb, sb, 0.6) + 9;
     const mr = lerp(wr, sr, 0.5), mg = lerp(wg, sg, 0.5), mb = lerp(wb, sb, 0.5);
     const nA = ((ay + oAy) & (NOISE_H - 1)) * NOISE_W, nB = ((ay + oBy) & (NOISE_H - 1)) * NOISE_W;
     const wob = rowWob[y];
@@ -1440,7 +1441,7 @@ function drawWater(camXr, camYr) {
         if (a > thrA) { r = E.reflHi[0]; gg = E.reflHi[1]; bb = E.reflHi[2]; aR = 0.75; }
         else if (refl > 90 || b > 0.93) { r = E.reflMid[0]; gg = E.reflMid[1]; bb = E.reflMid[2]; aR = 0.6; }
         else { r = E.refl[0]; gg = E.refl[1]; bb = E.refl[2]; aR = 0.5; }
-      } else if (a > thrA) { r = hr; gg = hg; bb = hb; aR = 0.85; }
+      } else if (a > thrA) { r = hr; gg = hg; bb = hb; aR = 0.75; }
       else if (b > thrB) { r = mr; gg = mg; bb = mb; aR = 0.35; }
       else { r = wr; gg = wg; bb = wb; aR = E.reflK; }
       const aT = turbAlpha[k] / 255, kb = (1 - aR) * aT, A = aR + kb;
@@ -1958,7 +1959,7 @@ function updatePlayer() {
     if (!aiming()) faceTo(vx, vy);
     if (moveBody(p, vx, vy)) {
       p.moving = true;
-      if (++p.anim % 12 === 0) SFX.step(onDock(p.x, p.y));
+      if (++p.anim % 10 === 0) SFX.step(onDock(p.x, p.y));
     }
   }
   // Hiirellä pelattaessa hahmo katsoo tähtäimen suuntaan (myös otsalamppu ja onki osoittavat sinne)
@@ -2122,13 +2123,14 @@ function startChop() {
   faceTo(f[0], f[1]);
   notify(touch.on ? 'Press CHOP to swing the axe' : 'SPACE or click: swing the axe', 150, 'hint');
 }
-const SWING_T = 30, SWING_HIT = 14, SWING_CD = 60, CHOPS_PER_LOG = 5;   // iskun kesto, osumahetki, väli (1 s) ja iskut / klapi
+const SWING_SPEED = 1.25;   // hakkuu 25 % nopeammin kuin alkuperäinen (30 ruudun isku, 60 ruudun väli)
+const SWING_T = Math.round(30 / SWING_SPEED), SWING_HIT = Math.round(14 / SWING_SPEED), SWING_CD = Math.round(60 / SWING_SPEED), CHOPS_PER_LOG = 5;   // iskun kesto, osumahetki, väli (0,8 s) ja iskut / klapi
 function updateChop(kx, ky) {
   const p = player, c = p.chop;
   if (c.cd > 0) c.cd--;
   if (c.swing >= 0) {
     c.swing++;
-    if (c.swing === SWING_HIT - 7) SFX.whoosh();
+    if (c.swing === SWING_HIT - Math.round(7 / SWING_SPEED)) SFX.whoosh();
     if (c.swing === SWING_HIT) {
       SFX.chop();
       c.hits++;
@@ -2162,11 +2164,12 @@ function toolAngle(p) {
   }
   const c = p.chop;
   if (!c || c.swing < 0) return 0.5;
-  const t = c.swing;
+  // Animaation vaiheet on mitoitettu 30 ruudun iskulle (nosto 0-7, isku 7-14, pito 14-17, palautus 17-30); aika skaalataan
+  const t = c.swing * SWING_SPEED, HIT = 14, T = 30;
   if (t < 7) return lerp(0.5, -0.95, t / 7);
-  if (t < SWING_HIT) return lerp(-0.95, 2.1, ((t - 7) / (SWING_HIT - 7)) ** 2);
-  if (t < SWING_HIT + 3) return 2.1;
-  return lerp(2.1, 0.5, (t - SWING_HIT - 3) / (SWING_T - SWING_HIT - 3));
+  if (t < HIT) return lerp(-0.95, 2.1, ((t - 7) / (HIT - 7)) ** 2);
+  if (t < HIT + 3) return 2.1;
+  return lerp(2.1, 0.5, (t - HIT - 3) / (T - HIT - 3));
 }
 
 // Asetusviesti: saman asetuksen (key) aiempi viesti korvataan, jotta jonoon ei jää vanhoja arvoja,
@@ -2185,7 +2188,7 @@ function toggleLight() {
 // taipuu taaksepäin sitä enemmän, mitä enemmän voimaa on, ja heiton jälkeen se heilahtaa eteen.
 function rodGeom() {
   const p = player, ax = isoX(p.x, p.y), ay = isoY(p.x, p.y) - playerLift();
-  const step = p.moving ? Math.floor(p.anim / 6) % 2 : 0;
+  const step = p.moving ? Math.floor(p.anim / 5) % 2 : 0;
   const hand = HAND[playerDir()], hx = ax + hand[0], hy = ay + hand[1] + step;
   const sway = Math.sin(time * 0.035) * 0.7;
   const reach = 11 - (cast.charging ? cast.power * 13 : 0) + cast.flick * 0.5;
