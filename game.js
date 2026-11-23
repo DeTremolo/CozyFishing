@@ -2362,7 +2362,9 @@ function updateCast() {
 // (sama mittakaava kuin pohjan syvyydellä: Z_PX pikseliä metriä kohden).
 const hookSegs = () => Math.max(1, Math.round((cast.hookDepth * Z_PX) / LINE_SEG));
 function resetLine() {
-  const g = rodGeom(), n = BOB_I + 1 + (isDirect(player.lure) ? 0 : hookSegs());
+  // Pohjaongen roikkuva siima: ylhäällä pääsiima, sen alla säädettävä syötin korkeus (puntista haaran kiinnityskohtaan, RIG_VIS px / m) ja
+  // alimpana puntti ketjun päässä; ketjun pituus seuraa säätöä, jotta kiinnityskohta on aina oikealla korkeudella puntin yläpuolella
+  const g = rodGeom(), n = isRig(player.lure) ? RIG_TOP_SEGS + Math.ceil((cast.rigDist * RIG_VIS) / LINE_SEG) + 1 : BOB_I + 1 + (isDirect(player.lure) ? 0 : hookSegs());
   line = Array.from({ length: n }, (_, i) => ({ x: g.tx, y: g.ty + i * LINE_SEG, px: g.tx, py: g.ty + i * LINE_SEG }));
   rigArm = [];
   if (isRig(player.lure)) {
@@ -2374,11 +2376,14 @@ function resetLine() {
 // Pohjaongen sivuhaara: oma pieni siimaketju (Verlet), joka on kiinni pääsiimassa RIG_DIST puntin yläpuolella,
 // mutta liikkuu pääsiimasta erillään. Kun onkea heilutellaan, haara ja syötti heiluvat vapaasti.
 // Piirrossa sivuhaara on suurennettu (kolme pikseliä; 10 cm olisi alle pikselin), samoin syötti.
-const RIG_ARM_SEG = 1.4;
+const RIG_ARM_SEG = 1.1;   // syöttihaaran nivel (px); haaran kokonaispituus 2 nivelta = 2,2 px, joten syötti ei roiku puntin alapuolelle
+// Roikkuvan pohjaongen piirtomittakaava: syötin korkeus puntista näytetään 14 px / m (pienemmästä välistä näkyisi vain pikseli), ja
+// pääsiimaa on kiinnityskohdan yläpuolella vähintään RIG_TOP_SEGS nivelen verran
+const RIG_VIS = 14, RIG_TOP_SEGS = 5;
 let rigArm = [];
-// Haaran kiinnityskohta pääsiimaketjussa: cast.rigDist * Z_PX pikseliä ketjun päästä ylöspäin
+// Haaran kiinnityskohta pääsiimaketjussa: cast.rigDist * RIG_VIS pikseliä ketjun (puntin) päästä ylöspäin
 function rigJunction() {
-  const n = line.length, idx = Math.max(0, n - 1 - (cast.rigDist * Z_PX) / LINE_SEG), i0 = Math.min(n - 2, Math.floor(idx)), f = idx - i0;
+  const n = line.length, idx = Math.max(0, n - 1 - (cast.rigDist * RIG_VIS) / LINE_SEG), i0 = Math.min(n - 2, Math.floor(idx)), f = idx - i0;
   const a = line[i0], b = line[i0 + 1];
   return { x: lerp(a.x, b.x, f), y: lerp(a.y, b.y, f) };
 }

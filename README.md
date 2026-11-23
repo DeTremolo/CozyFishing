@@ -212,6 +212,11 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
 
 ## Pieniä yksityiskohtia
 
+- Roikkuva pohjaonki (heittämättä): puntti on siiman alapäässä, ja siitä ylöspäin on säädettävä siimaosuus (syötin korkeus 20–120 cm),
+  jonka yläpäässä on syöttisiima: pieni sivuhaara, jonka päässä on mato tai boilie ja joka liikkuu omana osanaan. Sen yläpuolella on
+  pääsiima onkeen. Syötin korkeus näytetään 14 px / m, ja siimaketjun pituus seuraa säätöä (haarakohta on aina oikealla korkeudella
+  puntin yläpuolella). Syötti ei roiku puntin alapuolelle edes pienimmällä korkeudella.
+
 - Veden pinnan aaltokuvio (tuulen mukana liikkuvat vaaleat viirut) on veden omaa sävyä, pehmeä (läpikuultava) ja vain hieman vettä vaaleampi.
 
 - Pelaaja kävelee 0,063 ruutua päivityksessä (3,78 m/s); kävelyanimaatio ja askeläänet on mitoitettu sen mukaan.
