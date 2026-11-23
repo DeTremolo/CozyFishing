@@ -3527,43 +3527,65 @@ function spawnFish() {
 // kireänä suora, löysänä siima putoaa kärjestä lähes pystysuoraan maahan / pohjalle ja makaa pohjan profiilia pitkin puntille.
 // Välitila on näiden sekoitus (kireys tf: löysää alle 0,5 m). Pisteet {x, y, z}, z = syvyys pinnasta (m), negatiivinen = ilmassa.
 // Koho-ongella (bob = true) siima päättyy pinnalla kelluvaan kohoon (z = L.sub): löysä siima uppoaa, lepää pohjalla / maalla ja nousee kohoon.
-const rigPathCache = {};
+const rigPathCache = {}, rigSolveCache = {};
+const SAG_SINK = 0.12;  // veden alla olevan löysän siiman uppoamisnopeus (m/s, notkon syvenemisnopeus)
 function rigPath(L, tf, d, p, tipH, bob) {
-  const zS = bob ? L.sub || 0 : L.z, key = [L.x, L.y, zS, L.out, p.x, p.y, tipH].join(',') + bob;
-  const hit = rigPathCache[bob ? 'b' : 'r'];
-  if (hit && hit.key === key) return hit.pts;
+  const zS = bob ? L.sub || 0 : L.z, kk = bob ? 'b' : 'r';
   const slackM = Math.max(0, L.out - Math.hypot(d, zS + tipH)), N = Math.min(120, 40 + Math.ceil(slackM * 5));
   const nx = -(L.y - p.y) / d, ny = (L.x - p.x) / d, waves = Math.max(1, Math.round(d / 2));
   const zb = (x, y) => Math.max(0, depthAt(x, y) - 0.02);
   // Vapaa siima roikkuu paraabelina kärjen ja puntin / kohon välillä (notko sag metriä suoran alapuolella); maahan tai pohjaan
-  // osuva osa jää makaamaan sille. Jos ylimääräistä siimaa on vielä enemmän, se kiemurtelee sivusuunnassa (a)
-  const build = (sag, a) => {
+  // osuva osa jää makaamaan sille. Jos ylimääräistä siimaa on vielä enemmän, se kiemurtelee sivusuunnassa (a).
+  // sagL = veden alla olevan osan (hitaasti uppoava) notko: ilmassa olevaa osaa ohjaa heti sag
+  const build = (sag, a, sagL) => {
     const pts = [];
     for (let k = 0; k <= N; k++) {
       const u = k / N, w = a * Math.sin(Math.PI * u) * Math.sin(2 * Math.PI * waves * u);
-      const x = lerp(p.x, L.x, u) + nx * w, y = lerp(p.y, L.y, u) + ny * w;
-      let z = -tipH + (zS + tipH) * u + sag * 4 * u * (1 - u);
-      if (u > 0 && u < 1 && z > 0) z = Math.min(z, zb(x, y));
+      const x = lerp(p.x, L.x, u) + nx * w, y = lerp(p.y, L.y, u) + ny * w, base = -tipH + (zS + tipH) * u, inner = u > 0 && u < 1;
+      let z = base + sag * 4 * u * (1 - u);
+      if (inner && z > 0) z = Math.min(z, zb(x, y));
+      if (sagL !== undefined && z > 0) {
+        let zl = base + sagL * 4 * u * (1 - u);
+        if (inner && zl > 0) zl = Math.min(zl, zb(x, y));
+        z = Math.max(0, zl);
+      }
       pts.push({ x, y, z });
     }
     return pts;
   };
   const len = (pts) => { let t = 0; for (let k = 1; k < pts.length; k++) t += Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y, pts[k].z - pts[k - 1].z); return t; };
-  // Piirretyn siiman pituus on aina HUDin LINE-luku (L.out)
-  let pts = build(0, 0);
-  if (len(pts) < L.out - 0.02) {
-    const deep = build(60, 0);
-    if (len(deep) <= L.out) {
-      let lo = 0, hi = 10;
-      for (let i = 0; i < 10; i++) { const mid = (lo + hi) / 2; if (len(build(60, mid)) < L.out) lo = mid; else hi = mid; }
-      pts = build(60, lo);
-    } else {
-      let lo = 0, hi = 60;
-      for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (len(build(mid, 0)) < L.out) lo = mid; else hi = mid; }
-      pts = build(hi, 0);
+  // Tavoitemuoto: piirretyn siiman pituus on aina HUDin LINE-luku (L.out)
+  const key = [L.x, L.y, zS, L.out, p.x, p.y, tipH].join(',');
+  let sol = rigSolveCache[kk];
+  if (!sol || sol.key !== key) {
+    sol = { key, sag: 0, a: 0 };
+    if (len(build(0, 0)) < L.out - 0.02) {
+      if (len(build(60, 0)) <= L.out) {
+        let lo = 0, hi = 10;
+        for (let i = 0; i < 10; i++) { const mid = (lo + hi) / 2; if (len(build(60, mid)) < L.out) lo = mid; else hi = mid; }
+        sol.sag = 60; sol.a = lo;
+      } else {
+        let lo = 0, hi = 60;
+        for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (len(build(mid, 0)) < L.out) lo = mid; else hi = mid; }
+        sol.sag = hi;
+      }
     }
+    rigSolveCache[kk] = sol;
   }
-  rigPathCache[bob ? 'b' : 'r'] = { key, pts };
+  // Veden alla oleva siima uppoaa hitaasti kohti tavoitenotkoa (nouseva siima, esim. kelaus, seuraa heti)
+  const cap = sol.sag;
+  if (L.sagCur === undefined) { L.sagCur = cap; L.sagTick = time; }
+  else if (L.sagTick !== time) {
+    const dt = clamp(time - L.sagTick, 0, 5);
+    L.sagTick = time;
+    L.sagCur = L.sagCur > cap ? cap : Math.min(cap, L.sagCur + (dt * SAG_SINK * (1 + L.sagCur / 3)) / 60);   // syvä notko uppoaa nopeammin
+  }
+  if (sol.sag === 0) return build(0, 0);
+  const r = cap > 0.01 ? clamp(L.sagCur / cap, 0, 1) : 1, aShape = sol.a * smooth(clamp((r - 0.7) / 0.3, 0, 1));
+  const pkey = key + '|' + L.sagCur + '|' + aShape, hit = rigPathCache[kk];
+  if (hit && hit.key === pkey) return hit.pts;
+  const pts = build(sol.sag, aShape, L.sagCur);
+  rigPathCache[kk] = { key: pkey, pts };
   return pts;
 }
 
