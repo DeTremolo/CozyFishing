@@ -3988,6 +3988,13 @@ function drawUnderwater(camXr, camYr) {
       g.globalAlpha = underVis(f.z * 0.5);
       if (wl) plotPts(g, wl.dn, 'rgba(225, 230, 235, 0.6)');
       else plotLine(g, lx, ly + L.sub * Z_PX, fx, fy, 'rgba(225, 230, 235, 0.6)');
+      if (isRig(L.kind) && wl) {
+        // Kala kiinni syötissä: puntti roikkuu siimassa L.dist metriä haaran kiinnityskohdan (kalan suun) alapuolella tai lepää pohjalla
+        const zk = Math.min(f.z + L.dist, Math.max(f.z, depthAt(f.x, f.y) - 0.02)), sy2 = Math.round(fy + (zk - f.z) * Z_PX);
+        g.globalAlpha = underVis(zk);
+        plotLine(g, fx, fy, fx, sy2, 'rgba(225, 230, 235, 0.6)');
+        drawSinkerAt(fx, sy2);
+      }
       if (L.sub > 0.05) { g.globalAlpha = underVis(L.sub); bobberBehind = behindPlayer(L.x, L.y); drawBobberAt(lx, Math.round(ly + L.sub * Z_PX), false, false, underVis(L.sub) * 0.6); }
     } else if (isArt(L.kind)) {
       // Pinnan alle sukeltanut vaappu ja siima pinnasta vaappuun
@@ -5946,19 +5953,34 @@ function drawCastLine(g, camXr, camYr) {
     plotLine(ctx, tx, ty, L.ax - camXr, L.ay - camYr, col);
     if (isArt(L.kind)) drawArtAt(L.kind, Math.round(L.ax - camXr), Math.round(L.ay - camYr), L.ax > L.ax0 ? 1 : -1, false);
     else if (isRig(L.kind)) {
-      // Puntti lentää edellä, sivuhaara ja syötti perässä
-      const fx = Math.round(L.ax - camXr), fy = Math.round(L.ay - camYr);
-      plotLine(ctx, fx, fy - 2, fx + (L.ax > L.ax0 ? -3 : 3), fy - 4, 'rgba(210, 214, 218, 0.8)');
-      drawRigBait(L.kind, fx + (L.ax > L.ax0 ? -3 : 3), fy - 4);
-      drawSinkerAt(fx, fy);
-    } else drawBobberAt(Math.round(L.ax - camXr), Math.round(L.ay - camYr), false);
+      // Lennossa pohjaonki näyttää samalta kuin ennen heittoa: puntti alimpana, siimalla haaran kiinnityskohta rigVisPx ylempänä
+      // (kohti ongen kärkeä) ja siitä vapaasti alas roikkuva sivuhaara syötteineen
+      const fx = Math.round(L.ax - camXr), fy = Math.round(L.ay - camYr), ddx = tx - L.ax + camXr, ddy = ty - L.ay + camYr, dl = Math.hypot(ddx, ddy) || 1;
+      const vp = rigVisPx(cast.rigDist), jx = Math.round(L.ax - camXr + (ddx / dl) * vp), jy = Math.round(L.ay - camYr + (ddy / dl) * vp);
+      plotLine(ctx, fx, fy, jx, jy, 'rgba(225, 230, 235, 0.6)');
+      const ay = jy + Math.round(RIG_ARM_SEG * 2);
+      plotLine(ctx, jx, jy, jx, ay, 'rgba(210, 214, 218, 0.8)');
+      drawRigBait(L.kind, jx, ay);
+      drawSinkerAt(fx, fy + 1);
+    } else {
+      // Koho ja sen alla roikkuva koukku ja mato kuten ennen heittoa
+      const bx = Math.round(L.ax - camXr), by = Math.round(L.ay - camYr), hp = Math.round(hookSegs() * LINE_SEG);
+      plotLine(ctx, bx, by, bx, by + hp, 'rgba(200, 205, 210, 0.45)');
+      drawHookBait(bx, by + hp);
+      drawBobberAt(bx, by, false);
+    }
     return;
   }
   if (L.fish && L.fish.mode === 'caught') {
     // Saalis roikkuu ilmassa ongen kärjestä pää ylöspäin ja sätkii
     const f = L.fish, img = FISH_SPR[fishSprKey(f)][f.px].side[(f.anim >> 2) % 2];
     plotLine(ctx, tx, ty, tx, ty + 6, col);
-    if (!isArt(L.kind)) drawBobberAt(Math.round(tx), Math.round(ty + 4), false);
+    if (isRig(L.kind)) {
+      // Puntti roikkuu kalan vieressä siimassa haaran kiinnityskohdan alapuolella
+      const sx = Math.round(tx) + 4, sy = Math.round(ty + 6 + rigVisPx(cast.rigDist));
+      plotLine(ctx, Math.round(tx), Math.round(ty + 6), sx, sy, col);
+      drawSinkerAt(sx, sy);
+    } else if (!isArt(L.kind)) drawBobberAt(Math.round(tx), Math.round(ty + 4), false);
     ctx.save();
     ctx.translate(Math.round(tx) + Math.round(Math.sin(f.anim * 0.5)), Math.round(ty + 7));
     ctx.rotate(-Math.PI / 2);
