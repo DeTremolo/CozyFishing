@@ -2269,7 +2269,21 @@ function updateCast() {
     }
     return;
   }
-  if (L.fish) { updateFight(L, held); return; }
+  if (L.fish) {
+    // Taistelussa siima viiltää pintaa: pieni pyöreä aalto kohtaan, jossa siima menee veden alle (koho-ongella kohon kohta,
+    // pohjaongella suora viiva ongen kärjestä kalan suuhun leikkaa pinnan)
+    const f = L.fish;
+    if (f.mode === 'fight' && L.onWater && time % 18 === 0) {
+      let ex = L.x, ey = L.y;
+      if (isDirect(L.kind)) {
+        const O = rigOrigin(), t0 = tipHeight() / (tipHeight() + Math.max(0, f.z));
+        ex = O.x + (f.x - O.x) * t0; ey = O.y + (f.y - O.y) * t0;
+      }
+      ripples.push({ x: ex, y: ey, t: 0, life: 34, max: 3.2, a: 0.55 });
+    }
+    updateFight(L, held);
+    return;
+  }
   // Kelaus vähentää ulkona olevaa siimaa; ensin kiristyy löysä siima, sitten koho alkaa liikkua
   if (mouseHeld2 && !held) releaseLine(L);
   if (held) { L.out = Math.max(0, L.out - reelStep(L)); if (++c.reelT % 6 === 0) SFX.reel(); }
@@ -5963,10 +5977,12 @@ function drawCastLine(g, camXr, camYr) {
       drawRigBait(L.kind, jx, ay);
       drawSinkerAt(fx, fy + 1);
     } else {
-      // Koho ja sen alla roikkuva koukku ja mato kuten ennen heittoa
-      const bx = Math.round(L.ax - camXr), by = Math.round(L.ay - camYr), hp = Math.round(hookSegs() * LINE_SEG);
-      plotLine(ctx, bx, by, bx, by + hp, 'rgba(200, 205, 210, 0.45)');
-      drawHookBait(bx, by + hp);
+      // Koho-onki lentää mato edellä: koukku ja mato kärjessä, koho tulee perässä osana lentävää siimaa (hookSegs-matkan päässä kohti ongen kärkeä)
+      const hx = Math.round(L.ax - camXr), hy = Math.round(L.ay - camYr), hp = hookSegs() * LINE_SEG;
+      const ddx = tx - L.ax + camXr, ddy = ty - L.ay + camYr, dl = Math.hypot(ddx, ddy) || 1;
+      const bx = Math.round(L.ax - camXr + (ddx / dl) * hp), by = Math.round(L.ay - camYr + (ddy / dl) * hp);
+      plotLine(ctx, hx, hy, bx, by, 'rgba(200, 205, 210, 0.45)');
+      drawHookBait(hx, hy);
       drawBobberAt(bx, by, false);
     }
     return;
