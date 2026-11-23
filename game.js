@@ -990,7 +990,9 @@ const playerSolid = (t) => t === T_FOREST || t === T_TENT || t === T_CAMP || t =
 // alemmas. Lammen pohja piirretään kerran valmiiksi sarake kerrallaan kaukaa lähelle, jolloin
 // lähempänä olevat rinteet peittävät taaempana olevat. Näin syntyy syvyysilluusio ilman 3D-mallia.
 // ---------------------------------------------------------------------------
-const Z_PX = 5;
+// Mittakaava: hahmo on noin 20 px ja 180 cm, joten 1 m = 100 / 9 px (≈ 11,1 px). Kiinteät esineet (spritet, laituri, puut) pidetään pikselikooltaan
+// ennallaan; korkeudet ja syvyydet (metreinä) piirtyvät tällä mittakaavalla.
+const Z_PX = 100 / 9;
 const DEPTH_RES = 0.25, DEPTH_X0 = C - POND_RMAX - 1, DEPTH_N = Math.ceil(((POND_RMAX + 1) * 2) / DEPTH_RES) + 2;
 let depthGrid = null;
 // Syvä kohta: kaksi päällekkäistä lohkoa, joiden reunaa aaltoilevat satunnaiset vaiheet (p1–p3)
@@ -1855,7 +1857,7 @@ function setupWorld() {
   SHED.logs = 10;
   [player.gux, player.guy] = screenDir(Math.cos(player.fa), Math.sin(player.fa));
   line = [];
-  cast = { charging: false, power: 0, pdir: 1, flick: 0, lure: null, reelT: 0, releaseT: 0, needRelease: false, hookDepth: 0.5, reelSpeed: 40, rigDist: 1.22 };
+  cast = { charging: false, power: 0, pdir: 1, flick: 0, lure: null, reelT: 0, releaseT: 0, needRelease: false, hookDepth: 0.5, reelSpeed: 40, rigDist: 1.0 };
   particles = []; ripples = []; wakes = []; drops = []; animals = []; skyBirds = []; banners = []; loose = [];
   spawnFish();
   catches = [];
@@ -2013,12 +2015,12 @@ const isArt = (kind) => kind === 'wobbler' || kind === 'spoon';
 // (rigworm = mato, rigboilie = syöttipallo). Siima kulkee ongen kärjestä suoraan puntille kuten uistimilla.
 const isRig = (kind) => kind === 'rigworm' || kind === 'rigboilie';
 const isDirect = (kind) => isArt(kind) || isRig(kind);
-const RIG_MIN = 5.6 / 5, RIG_MAX = 12.4 / 5;   // syötin korkeus puntista (m) = piirretty pituus / 5 px/m: 112–248 cm (5,6–12,4 px), säädetään rullalla
+const RIG_MIN = 0.5, RIG_MAX = 1.5;   // syötin korkeus puntista (m): 50–150 cm (5,6–16,7 px), säädetään rullalla 10 cm:n välein
 const RIG_ARM = 3.2 / Z_PX;           // sivuhaaran pituus (m) = 3,2 px kuten roikkuvassa tilassa: syötti roikkuu vapaana haaran kiinnityskohdan alapuolella
 const RIG_SINK = 1.0;                 // puntin uppoamisnopeus (m/s)
 const RIG_REEL = 1.2 / 60;            // pohjaongen kelausnopeus (m / päivitys)
 const RIG_CAST_MAX = 24;              // pohjaongen heiton enimmäispituus (m); muilla vieheillä CAST_MAX
-const RIG_TIP = 3;                    // ongen kärjen korkeus veden yläpuolella (m), määrää siiman kulman
+const RIG_TIP = 2.1;                   // ongen kärjen korkeus veden yläpuolella (m), määrää siiman kulman
 // Ongen kärjen korkeus veden pinnasta (m): kärki on RIG_TIP metriä seisontapinnan yläpuolella, ja laituri / vene nostavat sitä vielä
 const tipHeight = () => RIG_TIP + playerLift() / Z_PX;
 const SNAP_T = 14;   // vieheen nosto ongen kärkeen kelauksen lopussa (ruutua)
@@ -2347,7 +2349,7 @@ function updateCast() {
     if (!(L.snap >= 0) && held && L.out <= tipH + 0.15) { L.snap = 0; L.sx = L.x; L.sy = L.y; L.sz = L.z || 0; L.out0 = L.out; }
     if (L.snap >= 0) {
       const u = Math.min(1, ++L.snap / SNAP_T), e = u * u * (3 - 2 * u);
-      L.x = lerp(L.sx, O.x, e); L.y = lerp(L.sy, O.y, e); L.z = L.sz * (1 - e); L.sub = -3.2 * e; L.out = lerp(L.out0, 0.3, e);
+      L.x = lerp(L.sx, O.x, e); L.y = lerp(L.sy, O.y, e); L.z = L.sz * (1 - e); L.sub = (-16 / Z_PX) * e; L.out = lerp(L.out0, 0.3, e);
       if (u >= 1) L.out = 0;
     } else L.sub = 0;
   }
@@ -2379,11 +2381,11 @@ function resetLine() {
 // mutta liikkuu pääsiimasta erillään. Kun onkea heilutellaan, haara ja syötti heiluvat vapaasti.
 // Piirrossa sivuhaara on suurennettu (kolme pikseliä; 10 cm olisi alle pikselin), samoin syötti.
 const RIG_ARM_SEG = 1.6;   // syöttihaaran nivel (px); haaran kokonaispituus 2 nivelta = 3,2 px (pienimmän korkeuden 5,6 px:n sisällä, joten syötti ei roiku puntin alapuolelle)
-// Piirrettävä pituus (px) = syötin korkeus (m) kertaa Z_PX (1 m = 5 px), ei vääristelyä. Roikkuva siima on aina RIG_SEGS nivelen (14,4 px)
-// pituinen ongen kärjestä puntille; säätö siirtää haaran kiinnityskohtaa: pienin korkeus 5,6 px (kiinnityskohta 8,8 px kärjen alla),
-// suurin 12,4 px (kiinnityskohta 2 px päässä kärjestä)
+// Piirrettävä pituus (px) = syötin korkeus (m) kertaa Z_PX (9 cm / px), ei vääristelyä. Roikkuva siima on aina RIG_SEGS nivelen (22,4 px)
+// pituinen ongen kärjestä puntille, jolloin puntti roikkuu melkein maassa; säätö siirtää haaran kiinnityskohtaa:
+// pienin korkeus 50 cm (5,6 px), suurin 150 cm (16,7 px)
 const rigVisPx = (d) => d * Z_PX;
-const RIG_SEGS = 9;
+const RIG_SEGS = 14;
 let rigArm = [];
 // Haaran kiinnityskohta pääsiimaketjussa: rigVisPx(cast.rigDist) pikseliä ketjun (puntin) päästä ylöspäin
 function rigJunction() {

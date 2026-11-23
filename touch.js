@@ -142,6 +142,7 @@
   // Napit: ROD ottaa ongen käteen / laittaa sen pois, LAMP otsalamppu, LURE vaihtaa vieheen, CUT katkaisee siiman
   button('btn-rod', () => { if (state === 'play') pressed.KeyR = true; });
   button('btn-light', () => { if (state === 'play') pressed.KeyF = true; });
+  button('btn-water', () => { if (state === 'play') pressed.KeyV = true; });
   button('btn-cut', () => { if (state === 'play') pressed.KeyC = true; });
   button('btn-lure', () => { if (state === 'play') pressed.KeyQ = true; });
 
@@ -241,12 +242,13 @@
   if (!document.fullscreenEnabled) document.getElementById('btn-full').hidden = true;
 
   // Napit seuraavat pelin tilaa: st-hand (ei onkea kädessä), st-ready (onki kädessä, ei heitetty), st-out (heitetty)
-  const rodBtn = document.getElementById('btn-rod'), lightBtn = document.getElementById('btn-light');
+  const rodBtn = document.getElementById('btn-rod'), lightBtn = document.getElementById('btn-light'), waterBtn = document.getElementById('btn-water');
   const chopBtn = document.getElementById('btn-chop'), stowBtn = document.getElementById('btn-stow'), stepLabel = document.getElementById('step-label');
   setInterval(() => {
     const play = state === 'play', rod = !!(player && player.rod), out = !!(cast && cast.lure), tool = player && player.tool;
     const b = document.body.classList;
     lightBtn.classList.toggle('on', !!(player && player.light));
+    waterBtn.classList.toggle('on', !water.show);
     b.toggle('menu', state !== 'play' && state !== 'pause');
     b.toggle('st-hand', play && !rod && !tool);
     b.toggle('st-tool', play && !rod && !!tool);

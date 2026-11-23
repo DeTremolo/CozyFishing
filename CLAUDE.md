@@ -35,7 +35,7 @@ ajantasainen toiminnallinen kuvaus (kaikki mekaniikat, näppäimet ja luvut).
 | Tiedosto | Sisältö |
 |---|---|
 | `game.js` | Koko peli (~5500 riviä): kartta, grafiikka (kaikki spritet piirretään koodissa), fysiikka, kalat, äänet, UI |
-| `touch.js` | Kosketusohjaus: liiketikku ja tilan mukaan vaihtuvat napit (st-hand / st-ready / st-out: ROD, tee-painike, CAST/REEL IN, RELEASE LINE, LURE, − / +, CUT, AXE/KNIFE/STOW, CHOP, kolme tee-painiketta; LAMP aina; II, ♪, ⛶) |
+| `touch.js` | Kosketusohjaus: liiketikku ja tilan mukaan vaihtuvat napit (st-hand / st-ready / st-out: ROD, tee-painike, CAST/REEL IN, RELEASE LINE, LURE, − / +, CUT, AXE/KNIFE/STOW, CHOP, kolme tee-painiketta; LAMP ja WATER (veden piilotus, V) aina; II, ♪, ⛶) |
 | `index.html`, `style.css` | Canvas, kosketusnapit, pystyasentokehote |
 | `img/watch.png` | Rannekellon taulu (49×49), generoitu skriptillä `tools/mkwatch.py` |
 | `fonts/` | Press Start 2P -fontti (OFL) |
@@ -70,7 +70,7 @@ Polttopuukatos → Tähtäin ja vieheet (`LURES`) → Pelisilmukka.
 
 ### Koordinaatit ja kartta
 - Maailma on `N`×`N` = 112×112 ruutua, 1 ruutu = 1 m. Lammen keskipiste `C = 56`, keskisäde `POND_R = 25`.
-- Isometrinen projektio: `isoX(x,y) = (x-y)*8 + N*8`, `isoY(x,y) = (x+y)*4`; korkeus `Z_PX = 5` px/m.
+- Isometrinen projektio: `isoX(x,y) = (x-y)*8 + N*8`, `isoY(x,y) = (x+y)*4`; korkeus `Z_PX = 100/9` px/m (hahmo ≈ 20 px = 180 cm; esineet pidetty pikselikoossa, syvyydet metreinä piirtyvät tällä).
 - Ranta on epäsäännöllinen: `pondR(angle)` (satunnaiset vaiheet `shoreA..E`), `bankW(angle)` penkereen leveys.
   `shoreDist(x,y)` > 0 maalla, < 0 vedessä. `depthAt(x,y)` veden syvyys.
 - Ruututyypit `type[cellIdx(x,y)]`: `T_BANK`, `T_FOREST`, `T_CLEAR`, `T_TENT`, `T_CAMP`, `T_SHED` ...
