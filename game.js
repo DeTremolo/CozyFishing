@@ -2271,13 +2271,15 @@ function updateCast() {
   }
   if (L.fish) {
     // Taistelussa siima viiltää pintaa: pieni pyöreä aalto kohtaan, jossa siima menee veden alle (koho-ongella kohon kohta,
-    // pohjaongella suora viiva ongen kärjestä kalan suuhun leikkaa pinnan)
+    // pohjaongella piirretyn siiman pinnanläpäisykohta)
     const f = L.fish;
     if (f.mode === 'fight' && L.onWater && time % 18 === 0) {
       let ex = L.x, ey = L.y;
       if (isDirect(L.kind)) {
-        const O = rigOrigin(), t0 = tipHeight() / (tipHeight() + Math.max(0, f.z));
-        ex = O.x + (f.x - O.x) * t0; ey = O.y + (f.y - O.y) * t0;
+        // Sama läpäisykohta kuin piirretyssä siimassa (huomioi myös löysän siiman notkon): wobblerLine absoluuttisilla pikseleillä
+        const wl = wobblerLine(0, 0);
+        if (!wl) { updateFight(L, held); return; }
+        [ex, ey] = absToWorld(wl.wx, wl.wy);
       }
       ripples.push({ x: ex, y: ey, t: 0, life: 34, max: 3.2, a: 0.55 });
     }

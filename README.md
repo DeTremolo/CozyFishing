@@ -402,7 +402,7 @@ Paikallisesti: `python3 -m http.server` repon juuressa ja selaimella http://loca
 
 ## Tiedostot
 
-  Heiton lennossa pohjaonki piirretään samoin kuin ennen heittoa: puntti alimpana, haaran kiinnityskohta säädetyn korkeuden verran ylempänä siimalla ja siitä alas roikkuva sivuhaara syötteineen. Koho-onki lentää mato edellä: koukku ja mato ovat kärjessä ja koho tulee perässä osana lentävää siimaa. Kun kala on kiinni, siiman vesirajaan (koho-ongella kohon kohtaan, pohjaongella kohtaan, jossa siima menee veden alle) piirtyy pieni pyöreä aalto. Kun kala on kiinni pohjaongen syötissä (myös ilmassa roikkuessaan), siima jatkuu syötin jälkeen puntille ja puntti piirretään.
+  Heiton lennossa pohjaonki piirretään samoin kuin ennen heittoa: puntti alimpana, haaran kiinnityskohta säädetyn korkeuden verran ylempänä siimalla ja siitä alas roikkuva sivuhaara syötteineen. Koho-onki lentää mato edellä: koukku ja mato ovat kärjessä ja koho tulee perässä osana lentävää siimaa. Kun kala on kiinni, siiman vesirajaan (koho-ongella kohon kohtaan, pohjaongella kohtaan, jossa piirretty siima menee veden alle; löysä siima huomioidaan) piirtyy pieni pyöreä aalto. Kun kala on kiinni pohjaongen syötissä (myös ilmassa roikkuessaan), siima jatkuu syötin jälkeen puntille ja puntti piirretään.
 - `index.html`, `style.css`
 - `game.js` – peli (grafiikka piirretään koodissa, äänet syntetisoidaan Web Audiolla)
 - `touch.js` – kosketusohjaimet puhelimille
