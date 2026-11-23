@@ -354,7 +354,8 @@ Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan su
   roikkuu vapaana siiman kiinnityskohdasta alaspäin (ei makaa sivuttain pohjalla). Kelattaessa syötti nousee pois vedestä, kun
   siima on veden alla lyhyempi kuin haaran etäisyys puntista: haara ja syötti kulkevat ilmassa olevalla siimalla kohti ongen
   kärkeä, eivätkä kalat huomaa tai syö syöttiä, ennen kuin se on vedessä. Pikakelaus ongen kärkeen (ja siiman palautus
-  lepotilaan) tapahtuu vasta, kun myös puntti nousee vedestä (ilmaan ongen kärjen alle tai maalle); puntin voi silti
+  lepotilaan) tapahtuu vasta, kun puntti on pois vedestä (ilmassa tai maalla) ja siimaa on ulkona enintään metri enemmän kuin ongen
+  kärjestä puntille on matkaa; jos puntin vetää kävelemällä vedestä ja siimaa on paljon ulkona, sitä pitää vielä kelata; puntin voi silti
   päästää pohjaan myös aivan pelaajan edestä, eikä sitä nosteta ylös ilman kelausta. Kun kala nappaa pohjaonkeen, vavan päässä
   oleva pieni kilikello soi (ja heiluu). Ahven pitää madosta (0,75-kertaisesti) mutta boilie ei kelpaa sille juuri (0,12-kertaisesti);
   hauki ei välitä pohjaongesta (0,2 ja 0,04).
