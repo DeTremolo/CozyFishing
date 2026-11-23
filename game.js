@@ -3599,13 +3599,30 @@ function rigPath(L, tf, d, p, tipH, bob) {
   if (f >= 1) return sol.target;
   const pkey = key + '|' + f, hit = rigPathCache[kk];
   if (hit && hit.key === pkey) return hit.pts;
-  const nn = sol.target.length - 1;
-  // Lähtömuoto on kireä suora (pinnan yläpuolella pinnassa); puntin päässä siima on aina puntissa
-  const pts = sol.target.map((q, k) => {
-    if (q.z <= 0) return q;
-    const bz = Math.min(Math.max(-tipH + (zS + tipH) * (k / nn), 0), q.z), fk = f + (1 - f) * smooth((k / nn - 0.9) / 0.1);
-    return { x: q.x, y: q.y, z: bz + (q.z - bz) * fk };
+  const tg = sol.target, nn = tg.length - 1;
+  // Nopeasti vapautunut siima purkautuu ongen kärjestä veden pinnalle (tai maalle) kasaksi, joka uppoaa sellaisenaan ja avautuu vähitellen
+  // paraabelin muotoon: lähtömuoto on pinnan läpäisykohdasta puntille suora siima ja läpäisykohdan viereen kiemurtelevaksi kasaksi
+  // ladottu ylimääräinen pituus; piirretyn siiman pituus pysyy koko ajan L.out:na (kasan amplitudi ratkaistaan)
+  let uc = -1;
+  for (let k = 0; k <= nn; k++) if (tg[k].z > 0) { uc = k / nn; break; }
+  if (uc < 0) return tg;
+  const pw = 0.2, cyc = clamp(Math.floor((pw * nn) / 6), 1, 5);
+  const shape = (aP) => tg.map((q, k) => {
+    const u = k / nn;
+    if (q.z <= 0 && u < uc + 1e-9) return q;
+    const pre = zS * clamp((u - uc) / (1 - uc), 0, 1), env = u > uc && u < uc + pw ? Math.sin((Math.PI * (u - uc)) / pw) : 0;
+    const w = aP * env * Math.sin((2 * Math.PI * cyc * (u - uc)) / pw);
+    let z = pre + (q.z - pre) * f;
+    const x = q.x + nx * w, y = q.y + ny * w;
+    if (z > 0 && u < 1) z = Math.min(z, zb(x, y));
+    return { x, y, z };
   });
+  let pts = shape(0);
+  if (len(pts) < L.out) {
+    let lo = 0, hi = 8;
+    for (let i = 0; i < 9; i++) { const mid = (lo + hi) / 2; if (len(shape(mid)) < L.out) lo = mid; else hi = mid; }
+    pts = shape(lo);
+  }
   rigPathCache[kk] = { key: pkey, pts };
   return pts;
 }
