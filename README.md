@@ -335,7 +335,7 @@ Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan su
   pohjaan ja jää paikalleen. Kelausnopeus säädetään kuten vaapulla. Tähtäimenä on metallinharmaa lippa.
 
 - **Pohjaonki** (bottom rig; kaksi syöttiä Q:lla: mato ja boilie): siiman päässä on puntti, ja siitä säädettävän matkan
-  (20–120 cm, hiiren rulla) päässä siimaa ylöspäin on 10 cm pitkä sivuhaara, jonka päässä on koukku ja syötti. Mato näyttää
+  (20–120 cm, hiiren rulla) päässä siimaa ylöspäin on sivuhaara, jonka päässä on koukku ja syötti. Mato näyttää
   samalta kuin koho-ongessa; boilie on ruskea noin 3 cm:n syöttipallo (kuvassa suurennettu kahteen pikseliin).
   Mato ja boilie eivät kellu, joten ne roikkuvat sivuhaaran mukana alaspäin kohti pohjaa. Sivuhaara on mallinnettu
   pääsiimasta erillään (oma siimaketju), joten onkea heiluteltaessa haara ja syötti heiluvat vapaasti. Pohjaonki heitetään
@@ -349,7 +349,12 @@ Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan su
   kireälle (löysää alle 0,5 m), jotta sivuhaara nousee pois pohjasta: löysä siima makaa pohjalla ja syötti sen mukana, ja
   pohjassa makaava syötti kiinnostaa kaloja vain vähän (HUD varoittaa: BAIT ON BOTTOM - REEL IN TO TIGHTEN). Siima on kireällä
   kulmassa, joten pitkä sivuhaara (120 cm) nostaa syötin pohjasta enemmän kuin lyhyt. Tiedoissa näytetään puntin syvyys
-  (SINKER). Pohjaonki nousee vedestä vasta, kun puntti on kelattu pintaan aivan pelaajan lähelle (alle 1,5 m); puntin voi siis
+  (SINKER). Heitetyn pohjaongen siima, sivuhaara ja puntti noudattavat samoja pikselipituuksia kuin roikkuvassa tilassa:
+  haaran kiinnityskohta on 20 cm:llä 5,7 px ja 120 cm:llä 11,7 px puntin yläpuolella (1 m = 5 px), ja noin 3 px pitkä sivuhaara
+  roikkuu vapaana siiman kiinnityskohdasta alaspäin (ei makaa sivuttain pohjalla). Kelattaessa syötti nousee pois vedestä, kun
+  siima on veden alla lyhyempi kuin haaran etäisyys puntista: haara ja syötti kulkevat ilmassa olevalla siimalla kohti ongen
+  kärkeä, eivätkä kalat huomaa tai syö syöttiä, ennen kuin se on vedessä. Pikakelaus ongen kärkeen (ja siiman palautus
+  lepotilaan) tapahtuu vasta, kun myös puntti nousee vedestä (ilmaan ongen kärjen alle tai maalle); puntin voi silti
   päästää pohjaan myös aivan pelaajan edestä, eikä sitä nosteta ylös ilman kelausta. Kun kala nappaa pohjaonkeen, vavan päässä
   oleva pieni kilikello soi (ja heiluu). Ahven pitää madosta (0,75-kertaisesti) mutta boilie ei kelpaa sille juuri (0,12-kertaisesti);
   hauki ei välitä pohjaongesta (0,2 ja 0,04).
