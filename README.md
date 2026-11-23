@@ -29,7 +29,7 @@ Pohjana on Jungle Hunterin selainmoottori (`DeTremolo/JungleHunterMobile`); Andr
 | Z (nuotion vieressä) | LIGHT FIRE (tee-painike) | sytytä sammunut nuotio (kun siinä on puita) |
 | hiiren oikea nappi pohjassa | RELEASE LINE (pidä pohjassa) | vapauta siimaa kelalta (enintään 30 m ulkona) |
 | Q | LURE | vaihda viehe: koho ja mato / vaappu / lippa / pohjaonki ja mato / pohjaonki ja boilie (vain kun siima on kelattu sisään) |
-| hiiren rulla tai - / + | − / + | koholla koukun syvyys 0,1–1,5 m ja pohjaongella syötin etäisyys puntista 20–120 cm (vain kun siima on kelattu sisään); uistimilla kelausnopeus 10–100 cm/s |
+| hiiren rulla tai - / + | − / + | koholla koukun syvyys 0,1–1,5 m ja pohjaongella syötin korkeus puntista 112–248 cm (vain kun siima on kelattu sisään); uistimilla kelausnopeus 10–100 cm/s |
 | T / Shift+T | – | ajan nopeus 1x–10x todelliseen aikaan verrattuna (nopeampi / hitaampi) |
 | L | – | kelaa kello nopeasti (60 min/s) selaimen paikalliseen kellonaikaan; perillä nopeus palaa 1x:ään |
 | V | – | huijaustila (cheat mode) päälle / pois: vesi piilotetaan, kalat ja pohja näkyvät, debug-viivat |
@@ -212,10 +212,10 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
 
 ## Pieniä yksityiskohtia
 
-- Roikkuva pohjaonki (heittämättä): puntti on siiman alapäässä, ja siitä ylöspäin on säädettävä siimaosuus (syötin korkeus 20–120 cm),
+- Roikkuva pohjaonki (heittämättä): puntti on siiman alapäässä, ja siitä ylöspäin on säädettävä siimaosuus (syötin korkeus 112–248 cm),
   jonka yläpäässä on syöttisiima: pieni sivuhaara, jonka päässä on mato tai boilie ja joka liikkuu omana osanaan. Sen yläpuolella on
-  pääsiima onkeen. Syötin korkeus piirretään lineaarisesti 5,6 px:stä (20 cm) 11,2 px:iin (120 cm), ja siimaketjun pituus seuraa säätöä (haarakohta
-  on aina oikealla korkeudella puntin yläpuolella). Sivuhaara on 3,2 px pitkä, eikä syötti roiku puntin alapuolelle edes pienimmällä korkeudella.
+  pääsiima onkeen. Syötin korkeus vastaa suoraan piirrettyä pituutta (1 m = 5 px): pienin 112 cm = 5,6 px ja suurin 248 cm = 12,4 px, jolloin
+  haaran kiinnityskohta on 2 px:n päässä ongen kärjestä. Siimaketjun kokonaispituus (14,4 px) ei muutu, vaan säätö siirtää haarakohtaa. Sivuhaara on 3,2 px pitkä, eikä syötti roiku puntin alapuolelle edes pienimmällä korkeudella.
 
 - Veden pinnan aaltokuvio (tuulen mukana liikkuvat vaaleat viirut) on veden omaa sävyä, pehmeä (läpikuultava) ja vain hieman vettä vaaleampi.
 
@@ -335,7 +335,7 @@ Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan su
   pohjaan ja jää paikalleen. Kelausnopeus säädetään kuten vaapulla. Tähtäimenä on metallinharmaa lippa.
 
 - **Pohjaonki** (bottom rig; kaksi syöttiä Q:lla: mato ja boilie): siiman päässä on puntti, ja siitä säädettävän matkan
-  (20–120 cm, hiiren rulla) päässä siimaa ylöspäin on sivuhaara, jonka päässä on koukku ja syötti. Mato näyttää
+  (112–248 cm, hiiren rulla) päässä siimaa ylöspäin on sivuhaara, jonka päässä on koukku ja syötti. Mato näyttää
   samalta kuin koho-ongessa; boilie on ruskea noin 3 cm:n syöttipallo (kuvassa suurennettu kahteen pikseliin).
   Mato ja boilie eivät kellu, joten ne roikkuvat sivuhaaran mukana alaspäin kohti pohjaa. Sivuhaara on mallinnettu
   pääsiimasta erillään (oma siimaketju), joten onkea heiluteltaessa haara ja syötti heiluvat vapaasti. Pohjaonki heitetään
@@ -348,9 +348,9 @@ Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan su
   kulkee pohjaa pitkin kohti ongen kärkeä ja painuu taas pohjaan, kun kelaus loppuu. Kun puntti on pohjassa, siima pitää kelata
   kireälle (löysää alle 0,5 m), jotta sivuhaara nousee pois pohjasta: löysä siima makaa pohjalla ja syötti sen mukana, ja
   pohjassa makaava syötti kiinnostaa kaloja vain vähän (HUD varoittaa: BAIT ON BOTTOM - REEL IN TO TIGHTEN). Siima on kireällä
-  kulmassa, joten pitkä sivuhaara (120 cm) nostaa syötin pohjasta enemmän kuin lyhyt. Tiedoissa näytetään puntin syvyys
+  kulmassa, joten korkea syöttihaara (248 cm) nostaa syötin pohjasta enemmän kuin lyhyt. Tiedoissa näytetään puntin syvyys
   (SINKER). Heitetyn pohjaongen siima, sivuhaara ja puntti noudattavat samoja pikselipituuksia kuin roikkuvassa tilassa:
-  haaran kiinnityskohta on 20 cm:llä 5,7 px ja 120 cm:llä 11,7 px puntin yläpuolella (1 m = 5 px), ja noin 3 px pitkä sivuhaara
+  haaran kiinnityskohta on puntin yläpuolella säädetyn korkeuden verran (112 cm = 5,6 px … 248 cm = 12,4 px; 1 m = 5 px), ja noin 3 px pitkä sivuhaara
   roikkuu vapaana siiman kiinnityskohdasta alaspäin (ei makaa sivuttain pohjalla). Kelattaessa syötti nousee pois vedestä, kun
   siima on veden alla lyhyempi kuin haaran etäisyys puntista: haara ja syötti kulkevat ilmassa olevalla siimalla kohti ongen
   kärkeä, eivätkä kalat huomaa tai syö syöttiä, ennen kuin se on vedessä. Pikakelaus ongen kärkeen (ja siiman palautus

@@ -1855,7 +1855,7 @@ function setupWorld() {
   SHED.logs = 10;
   [player.gux, player.guy] = screenDir(Math.cos(player.fa), Math.sin(player.fa));
   line = [];
-  cast = { charging: false, power: 0, pdir: 1, flick: 0, lure: null, reelT: 0, releaseT: 0, needRelease: false, hookDepth: 0.5, reelSpeed: 40, rigDist: 0.6 };
+  cast = { charging: false, power: 0, pdir: 1, flick: 0, lure: null, reelT: 0, releaseT: 0, needRelease: false, hookDepth: 0.5, reelSpeed: 40, rigDist: 1.22 };
   particles = []; ripples = []; wakes = []; drops = []; animals = []; skyBirds = []; banners = []; loose = [];
   spawnFish();
   catches = [];
@@ -2013,7 +2013,7 @@ const isArt = (kind) => kind === 'wobbler' || kind === 'spoon';
 // (rigworm = mato, rigboilie = syöttipallo). Siima kulkee ongen kärjestä suoraan puntille kuten uistimilla.
 const isRig = (kind) => kind === 'rigworm' || kind === 'rigboilie';
 const isDirect = (kind) => isArt(kind) || isRig(kind);
-const RIG_MIN = 0.2, RIG_MAX = 1.2;   // syötin etäisyys puntista ylöspäin (m), säädetään rullalla
+const RIG_MIN = 5.6 / 5, RIG_MAX = 12.4 / 5;   // syötin korkeus puntista (m) = piirretty pituus / 5 px/m: 112–248 cm (5,6–12,4 px), säädetään rullalla
 const RIG_ARM = 3.2 / Z_PX;           // sivuhaaran pituus (m) = 3,2 px kuten roikkuvassa tilassa: syötti roikkuu vapaana haaran kiinnityskohdan alapuolella
 const RIG_SINK = 1.0;                 // puntin uppoamisnopeus (m/s)
 const RIG_REEL = 1.2 / 60;            // pohjaongen kelausnopeus (m / päivitys)
@@ -2366,7 +2366,7 @@ const hookSegs = () => Math.max(1, Math.round((cast.hookDepth * Z_PX) / LINE_SEG
 function resetLine() {
   // Pohjaongen roikkuva siima: ylhäällä pääsiima, sen alla säädettävä syötin korkeus (puntista haaran kiinnityskohtaan, rigVisPx) ja
   // alimpana puntti ketjun päässä; ketjun pituus seuraa säätöä, jotta kiinnityskohta on aina oikealla korkeudella puntin yläpuolella
-  const g = rodGeom(), n = isRig(player.lure) ? RIG_TOP_SEGS + Math.ceil(rigVisPx(cast.rigDist) / LINE_SEG) + 1 : BOB_I + 1 + (isDirect(player.lure) ? 0 : hookSegs());
+  const g = rodGeom(), n = isRig(player.lure) ? RIG_SEGS + 1 : BOB_I + 1 + (isDirect(player.lure) ? 0 : hookSegs());
   line = Array.from({ length: n }, (_, i) => ({ x: g.tx, y: g.ty + i * LINE_SEG, px: g.tx, py: g.ty + i * LINE_SEG }));
   rigArm = [];
   if (isRig(player.lure)) {
@@ -2379,12 +2379,11 @@ function resetLine() {
 // mutta liikkuu pääsiimasta erillään. Kun onkea heilutellaan, haara ja syötti heiluvat vapaasti.
 // Piirrossa sivuhaara on suurennettu (kolme pikseliä; 10 cm olisi alle pikselin), samoin syötti.
 const RIG_ARM_SEG = 1.6;   // syöttihaaran nivel (px); haaran kokonaispituus 2 nivelta = 3,2 px (pienimmän korkeuden 5,6 px:n sisällä, joten syötti ei roiku puntin alapuolelle)
-// Roikkuvan pohjaongen piirtomittakaava (pienestä välistä näkyisi vain pikseli); pääsiimaa on kiinnityskohdan yläpuolella vähintään
-// RIG_TOP_SEGS nivelen verran
-// Piirrettävä pituus (px) syötin korkeudelle d (m): lineaarinen kuvaus, jossa 20 cm piirretään 5,6 px:n (aiemmin 40 cm:n) ja 120 cm 11,2 px:n
-// (aiemmin 80 cm:n) pituisena, jotta puntti ei roiku liian alhaalla
-const rigVisPx = (d) => 4.48 + 5.6 * d;
-const RIG_TOP_SEGS = 5;
+// Piirrettävä pituus (px) = syötin korkeus (m) kertaa Z_PX (1 m = 5 px), ei vääristelyä. Roikkuva siima on aina RIG_SEGS nivelen (14,4 px)
+// pituinen ongen kärjestä puntille; säätö siirtää haaran kiinnityskohtaa: pienin korkeus 5,6 px (kiinnityskohta 8,8 px kärjen alla),
+// suurin 12,4 px (kiinnityskohta 2 px päässä kärjestä)
+const rigVisPx = (d) => d * Z_PX;
+const RIG_SEGS = 9;
 let rigArm = [];
 // Haaran kiinnityskohta pääsiimaketjussa: rigVisPx(cast.rigDist) pikseliä ketjun (puntin) päästä ylöspäin
 function rigJunction() {
@@ -2396,8 +2395,8 @@ function rigJunction() {
 // Pohjaongen syötin etäisyyttä puntista (20–120 cm) voi säätää vain, kun koko siima on kelattu sisään
 function adjustRig(dv) {
   if (cast.lure) { notify('Reel in fully to adjust the bait distance.', 100, 'hint'); return; }
-  cast.rigDist = clamp(Math.round((cast.rigDist + dv) * 10) / 10, RIG_MIN, RIG_MAX);
-  notify('Bait distance ' + Math.round(cast.rigDist * 100) + ' cm', 90, 'hook');
+  cast.rigDist = clamp(Math.round((cast.rigDist + dv) * 100) / 100, RIG_MIN, RIG_MAX);
+  notify('Bait height ' + Math.round(cast.rigDist * 100) + ' cm', 90, 'hook');
   if (player.rod) resetLine();
   SFX.reel();
 }
