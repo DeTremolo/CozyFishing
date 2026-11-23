@@ -3858,7 +3858,7 @@ function updateFight(L, held) {
   L.x = f.x; L.y = f.y;
   L.onWater = f.mode !== 'land';
   L.sub = f.mode === 'land' || isDirect(L.kind) ? 0 : Math.max(0, f.z - cast.hookDepth);
-  if (L.onWater && f.mode === 'fight' && ++L.wakeT % 10 === 0) ripples.push({ x: L.x, y: L.y, t: 0, life: 35, max: L.sub > 0 ? 5 : 3, a: 0.55 });
+  if (L.onWater && f.mode === 'fight' && !isDirect(L.kind) && ++L.wakeT % 10 === 0) ripples.push({ x: L.x, y: L.y, t: 0, life: 35, max: L.sub > 0 ? 5 : 3, a: 0.55 });
   // Lähelle kelattu kala nostetaan ilmaan
   if (limF <= 1.2 && d < 1.9) { f.mode = 'caught'; f.caughtT = 75; SFX.splash(0.4); }
 }
@@ -4011,6 +4011,7 @@ function drawUnderwater(camXr, camYr) {
     drawFishImg(f, x, y, sx < 0, f.anim * (hooked && f.mode === 'fight' ? 3 : 1), fishDir(f));
   }
   drawSealUnder(g, camXr, camYr);
+  drawGrebeUnder(g, camXr, camYr);
   if (L && L.st === 'float' && L.onWater) {
     const lx = Math.round(isoX(L.x, L.y) - camXr), ly = Math.round(isoY(L.x, L.y) - camYr);
     if (L.fish) {
@@ -4018,6 +4019,7 @@ function drawUnderwater(camXr, camYr) {
       const f = L.fish, [mdx, mdy] = fishMouthScreen(f);
       const fx = Math.round(isoX(f.x, f.y) - camXr + mdx), fy = Math.round(isoY(f.x, f.y) - camYr + mdy + f.z * Z_PX);
       const wl = wobblerLine(camXr, camYr);
+      if (!isDirect(L.kind) && L.fish.mode === 'fight') drawBobLineUnder(g, camXr, camYr);   // kohosta ylöspäin kärkeen menevän siiman vedenalainen osa
       g.globalAlpha = underVis(f.z * 0.5);
       if (wl) plotPts(g, wl.dn, 'rgba(225, 230, 235, 0.6)');
       else plotLine(g, lx, ly + L.sub * Z_PX, fx, fy, 'rgba(225, 230, 235, 0.6)');
@@ -4031,8 +4033,7 @@ function drawUnderwater(camXr, camYr) {
       if (L.sub > 0.05) { g.globalAlpha = underVis(L.sub); bobberBehind = behindPlayer(L.x, L.y); drawBobberAt(lx, Math.round(ly + L.sub * Z_PX), false, false, underVis(L.sub) * 0.6); }
     } else if (isArt(L.kind)) {
       // Pinnan alle sukeltanut vaappu ja siima pinnasta vaappuun
-      const wl = wobblerLine(camXr, camYr);
-      if (wl && wl.depth > 0.02) { g.globalAlpha = underVis(wl.depth * 0.5); plotPts(g, wl.dn, 'rgba(225, 230, 235, 0.6)'); }
+      drawBobLineUnder(g, camXr, camYr);
       if (L.z > 0.05) {
         g.globalAlpha = underVis(L.z);
         drawArtAt(L.kind, lx, Math.round(ly + L.z * Z_PX), wobblerDir(L, camXr), L.moving);
@@ -4104,10 +4105,12 @@ function drawRigUnder(g, L, camXr, camYr) {
 // Koho-ongen siimapolku (kärjestä kohoon) ja sen piirto: ilmaosa pääruudulle, vedenalainen osa vesikerrokseen
 function bobPts(camXr, camYr) {
   const L = cast.lure, p = rigOrigin(), d = Math.hypot(L.x - p.x, L.y - p.y) || 0.001, tipH = tipHeight();
-  const slack = Math.max(0, L.out - Math.hypot(d, (L.sub || 0) + tipH)), tf = clamp(1 - slack / 0.5, 0, 1);
-  return pathScreen(rigPath(L, tf, d, p, tipH, true), camXr, camYr).pts;
+  const bob = !isDirect(L.kind), zS = bob ? L.sub || 0 : L.z || 0;
+  const slack = Math.max(0, L.out - Math.hypot(d, zS + tipH)), tf = clamp(1 - slack / 0.5, 0, 1);
+  return pathScreen(rigPath(L, tf, d, p, tipH, bob), camXr, camYr).pts;
 }
-const bobLineOn = (L) => L.st === 'float' && L.onWater && !L.fish && !isDirect(L.kind);
+// Koho-ongen (myös kalan taistellessa) sekä vaapun ja lipan (ilman kalaa) siima: sama paraabeli- / uppoamismalli kuin pohjaongella
+const bobLineOn = (L) => L.st === 'float' && L.onWater && !isRig(L.kind) && (!L.fish || (!isDirect(L.kind) && L.fish.mode === 'fight'));
 function drawBobLine(camXr, camYr) {
   const pts = bobPts(camXr, camYr);
   for (let k = 1; k < pts.length; k++) {
@@ -4407,6 +4410,11 @@ const GREBE_SPR = {
   fly0: makeSprite(['......gg.........', '.....gwwg........', '....gwwwwg.......', '...gwwwwg........', '..gwwwg..........', 'ggGGGGGGwwwwwKrpP', '..cccccccc.......'], GREBE_PAL),
   fly1: makeSprite(['ggGGGGGGwwwwwKrpP', '..ccccwwcc.......', '...gwwwwg........', '....gwwwwg.......', '.....gwwwg.......', '......gwwg.......', '.......gg........'], GREBE_PAL),
 };
+// Veden alla uiva uikku (12 x 5), naama oikealle: ojennettu kaula, jalat työntävät takana (kaksi vaihetta)
+GREBE_SPR.under = [
+  ['............', '..gGGGGgKKK.', 'tGGGGGGgcKep', '.tccccccw.p.', '..t.........'],
+  ['............', '..gGGGGgKKK.', 'ttGGGGGgcKep', '..cccccccw..', '.t..........'],
+].map((rows) => makeSprite(rows, GREBE_PAL));
 GREBE_SPR.fly0.body = 5; GREBE_SPR.fly1.body = 0;   // rungon rivi (kuvan korkeus vaihtelee siipien mukaan)
 function makeGrebe(x, y) {
   return { x, y, z: 0, a: rand(0, Math.PI * 2), sp: 0, mode: 'swim', t: rand(120, 400), nerve: 0, anim: 0, flip: false, wakeT: 0, vz: 0, callT: rand(900, 2400),
@@ -4457,7 +4465,7 @@ function takeOffGrebe(d, partner) {
 }
 
 function grebeDive(d, flee) {
-  d.mode = 'dive'; d.dive = 0; d.sp = 0; d.nerve = 0;
+  d.mode = 'dive'; d.dive = 0; d.sp = 0; d.nerve = 0; d.x0 = d.x; d.y0 = d.y;
   d.t = Math.round(flee ? rand(260, 420) : rand(160, 380));   // kokonaisluku, koska vaiheet tunnistetaan vertaamalla ruutulaskuria
   d.up = false;
   // Nousupaikka: eteenpäin tai poispäin pelaajasta, vapaaseen veteen
@@ -4592,6 +4600,24 @@ function drawGrebe(d, sx, sy) {
   ctx.fillRect(sx - 4, sy + 1, 7, 1);
 }
 
+// Veden alla uiva uikku: sukelluksen aikana kuva vaihtuu uintikuvaksi, joka uiskentelee pinnan alla sukelluspaikasta nousupaikkaan;
+// pinnalle noustessa uintikuva häivytetään ja vedenpäällinen kuva kohoaa pinnalle
+function drawGrebeUnder(g, camXr, camYr) {
+  for (const d of grebes) {
+    if (d.mode !== 'dive' || d.dive < 18) continue;
+    const t1 = d.t - SURF, s = d.up ? 1 : clamp((d.dive - DIVE_SINK * 0.5) / Math.max(1, t1 - DIVE_SINK * 0.5), 0, 1);
+    const x = d.up ? d.dx : lerp(d.x0, d.dx, s), y = d.up ? d.dy : lerp(d.y0, d.dy, s);
+    const fadeIn = clamp((d.dive - 18) / 34, 0, 1), fadeOut = clamp((d.t - d.dive) / SURF, 0, 1), a = Math.min(fadeIn, fadeOut);
+    const zmax = clamp(depthAt(x, y) - 0.25, 0.2, 0.45), z = zmax * fadeIn * Math.pow(fadeOut, 0.6) + Math.sin(d.anim * 0.1) * 0.04;
+    const sx = Math.round(isoX(x, y) - camXr), sy = Math.round(isoY(x, y) - camYr + z * Z_PX);
+    if (sx < -12 || sx > W + 12 || sy < -6 || sy > H + 30) continue;
+    const mvx = screenDir(d.dx - d.x0, d.dy - d.y0)[0], flip = Math.abs(mvx) > 0.05 ? mvx < 0 : d.flip;
+    g.globalAlpha = underVis(z) * a * 0.95;
+    drawImg(GREBE_SPR.under[(d.anim >> 3) % 2], sx - 6, sy - 2, flip);
+  }
+  g.globalAlpha = 1;
+}
+
 function drawGrebeReflection(d, camXr, camYr) {
   if (d.mode === 'dive' && d.hidden) return;
   const sx = Math.round(isoX(d.x, d.y) - camXr), sy = Math.round(isoY(d.x, d.y) - camYr);
@@ -4657,9 +4683,17 @@ const SEAL_SPR = (() => {
     [[2, 0], [4, 1], [6, 0], [8, 1], [10, 0], [10, 2], [9, 5], [10, 10], [10, 15], [8, 19], [6, 20], [4, 19], [2, 15], [2, 10], [3, 5], [2, 2]],
     [[4, 6], [7, 8], [5, 11], [8, 12], [6, 3]],
     [[3, 0, 'f'], [9, 0, 'f'], [4, 17, 'k'], [8, 17, 'k'], [6, 19, 'k'], [5, 18, 'l'], [7, 18, 'l'], [3, 18, 'w'], [9, 18, 'w']]);
-  return { rest, swim, head, bend, plunge };
+  // Pinnalle nouseva norppa (13 x 19): pää ja vartalo yhtenä kuvana; vesirajan (rivi SEAL_SURF_WL) yläpuolella näkyy vain pää, alapuolella
+  // vartalo veden alla (häntäevät alhaalla). Korvaa uintikuvan pään noustessa ja laskiessa.
+  const surf = sealCanvas(13, 19,
+    [[5, 0], [8, 0], [10, 2], [11, 5], [11, 8], [12, 11], [12, 15], [10, 17], [8, 19], [5, 19], [3, 17], [1, 15], [1, 11], [2, 8], [2, 5], [3, 2]],
+    [[5, 11], [8, 12], [6, 14], [4, 13], [9, 10], [7, 16], [5, 9]],
+    [[4, 3, 'k'], [8, 3, 'k'], [4, 2, 'g'], [8, 2, 'g'], [6, 4, 'g'], [5, 5, 'l'], [7, 5, 'l'], [6, 5, 'k'], [5, 6, 'l'], [6, 6, 'l'], [7, 6, 'l'], [2, 6, 'w'], [3, 6, 'w'], [9, 6, 'w'], [10, 6, 'w'], [2, 5, 'w'], [10, 5, 'w'],
+      [3, 17, 'f'], [2, 16, 'f'], [9, 17, 'f'], [10, 16, 'f'], [6, 18, 'f']]);
+  return { rest, swim, head, bend, plunge, surf };
 })();
 
+const SEAL_SURF_WL = 7;   // vesirajan rivi pinnalle nousevan norpan kuvassa (rivit 0–6 ovat veden yläpuolella)
 let seal = null;
 const dockPt = (t, s) => [dock.x0 + dock.ux * t + dock.px * s, dock.y0 + dock.uy * t + dock.py * s];
 const SEAL_T = DOCK_LEN - 1.0;   // lepopaikka laiturin nokassa (etäisyys rannasta)
@@ -4821,8 +4855,9 @@ function drawSeal(camXr, camYr) {
     ctx.fillStyle = 'rgba(8, 14, 18, 0.35)'; ctx.fillRect(sx - 3, y + 1, 7, 1);
     ctx.fillStyle = `rgba(${env.ring}, 0.5)`; ctx.fillRect(sx - 4, y, 9, 1);
     const hk = S.sinkT ? S.sinkT / SEAL_HEAD_T : clamp(S.surfAge / SEAL_HEAD_T, 0, 1);   // pään korkeus: 0 = veden alla, 1 = täysin pinnalla
-    ctx.save(); ctx.beginPath(); ctx.rect(sx - 6, y - 9, 13, 9 + bob); ctx.clip();
-    drawImg(SEAL_SPR.head, sx - 4, y - 7 + bob + Math.round((1 - hk) * 8), S.face < 0);
+    // Pää ja vartalo ovat yhtä kuvaa (surf): vesirajan yläpuolinen osa piirretään tässä, vedenalainen osa drawSealUnderissa
+    ctx.save(); ctx.beginPath(); ctx.rect(sx - 8, y - 12, 17, 12); ctx.clip();
+    drawImg(SEAL_SPR.surf, sx - 6, y - SEAL_SURF_WL + bob + Math.round((1 - hk) * 9), S.face < 0);
     ctx.restore();
     return;
   }
@@ -4869,7 +4904,16 @@ function drawSealUnder(g, camXr, camYr) {
   if (!S || (S.st !== 'swim' && S.st !== 'surf' && S.st !== 'nap')) return;
   const x = Math.round(isoX(S.x, S.y) - camXr), z = S.st === 'surf' ? 0.5 : S.z, y = Math.round(isoY(S.x, S.y) - camYr + z * Z_PX);
   if (x < -14 || x > W + 14 || y < -10 || y > H + 20) return;
-  g.globalAlpha = underVis(z) * (S.st === 'surf' ? 0.8 : 0.95);
+  if (S.st === 'surf') {
+    // Pinnalla pää esillä: sama kuva kuin yläpuolella, vain vedenalainen osa (veden pinnan ja vartalon värit häivytetään syvyyden mukaan)
+    const hk = S.sinkT ? S.sinkT / SEAL_HEAD_T : clamp(S.surfAge / SEAL_HEAD_T, 0, 1), bob = Math.round(Math.sin(S.anim * 0.05) * 0.6), wl = Math.round(isoY(S.x, S.y) - camYr);
+    g.save(); g.beginPath(); g.rect(x - 8, wl, 17, 24); g.clip();
+    g.globalAlpha = underVis(0.35) * 0.9;
+    drawImg(SEAL_SPR.surf, x - 6, wl - SEAL_SURF_WL + bob + Math.round((1 - hk) * 9), S.face < 0);
+    g.restore(); g.globalAlpha = 1;
+    return;
+  }
+  g.globalAlpha = underVis(z) * 0.95;
   drawImg(SEAL_SPR.swim[S.st === 'nap' ? 0 : (S.anim >> 3) % 2], x - 10, y - 3, S.face < 0);
   g.globalAlpha = 1;
 }
