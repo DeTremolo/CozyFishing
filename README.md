@@ -345,7 +345,7 @@ Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan su
   vedenpinnan yläpuolella) puntille, ja jos siimaa ei ole riittävästi, puntti ei painu suoraan alas vaan kaartuu kireän
   siiman varassa kohti vapaa; siimaa voi päästää kelalta oikealla hiirennapilla. Kelattaessa (1,2 m/s) puntti
   kulkee pohjaa pitkin kohti ongen kärkeä ja painuu taas pohjaan, kun kelaus loppuu. Kun puntti on pohjassa, siima pitää kelata
-  kireälle (löysää alle 0,5 m), jotta sivuhaara nousee pois pohjasta: löysä siima putoaa ongen kärjestä lähes pystysuoraan maahan ja makaa maata ja pohjaa pitkin puntille (sama sääntö koko matkalla kärjestä pohjaan, ei vain veden alla): löysä siima makaa pohjalla ja syötti sen mukana, ja
+  kireälle (löysää alle 0,5 m), jotta sivuhaara nousee pois pohjasta: löysä siima putoaa ongen kärjestä lähes pystysuoraan maahan ja makaa maata ja pohjaa pitkin puntille (sama sääntö koko matkalla kärjestä pohjaan, ei vain veden alla): löysän siiman ylimääräinen pituus kiemurtelee sivusuunnassa, joten piirretyn siiman pituus vastaa HUDin LINE-lukua: löysä siima makaa pohjalla ja syötti sen mukana, ja
   pohjassa makaava syötti kiinnostaa kaloja vain vähän (HUD varoittaa: BAIT ON BOTTOM - REEL IN TO TIGHTEN). Siima on kireällä
   kulmassa, joten korkea syöttihaara (150 cm) nostaa syötin pohjasta enemmän kuin lyhyt. Tiedoissa näytetään puntin syvyys
   (SINKER). Heitetyn pohjaongen siima, sivuhaara ja puntti noudattavat samoja pikselipituuksia kuin roikkuvassa tilassa:

@@ -3527,16 +3527,34 @@ function spawnFish() {
 // kireänä suora, löysänä siima putoaa kärjestä lähes pystysuoraan maahan / pohjalle ja makaa pohjan profiilia pitkin puntille.
 // Välitila on näiden sekoitus (kireys tf: löysää alle 0,5 m). Pisteet {x, y, z}, z = syvyys pinnasta (m), negatiivinen = ilmassa.
 function rigPath(L, tf, d, p, tipH) {
-  const N = 28, pts = [], zS = L.z, dl = Math.min(0.5, 0.35 / d);
+  const slackM = Math.max(0, L.out - Math.hypot(d, L.z + tipH)), N = Math.min(120, 28 + Math.ceil(slackM * 5)), zS = L.z, dl = Math.min(0.5, 0.35 / d);
+  const nx = -(L.y - p.y) / d, ny = (L.x - p.x) / d, waves = Math.max(1, Math.round((d * (1 - dl)) / 2));
   const zb = (x, y) => Math.max(0, depthAt(x, y) - 0.02);
-  const zbl = (u) => Math.min(zb(lerp(p.x, L.x, u), lerp(p.y, L.y, u)), Math.max(0, zS));
-  const z0 = zbl(dl);
-  for (let k = 0; k <= N; k++) {
-    const u = k / N, x = lerp(p.x, L.x, u), y = lerp(p.y, L.y, u);
-    const zt = -tipH + (zS + tipH) * u, zl = u < dl ? lerp(-tipH, z0, u / dl) : zbl(u);
-    let z = tf * zt + (1 - tf) * zl;
-    if (u < 1 && z > 0) z = Math.min(z, zb(x, y));
-    pts.push({ x, y, z });
+  const build = (a) => {
+    const pts = [];
+    const pos = (u) => {
+      const sg = Math.max(0, (u - dl) / (1 - dl)), w = a * Math.sin(Math.PI * sg) * Math.sin(2 * Math.PI * waves * sg) * (1 - tf);
+      return [lerp(p.x, L.x, u) + nx * w, lerp(p.y, L.y, u) + ny * w];
+    };
+    const zbl = (u) => { const [x, y] = pos(u); return Math.min(zb(x, y), Math.max(0, zS)); };
+    const z0 = zbl(dl);
+    for (let k = 0; k <= N; k++) {
+      const u = k / N, [x, y] = pos(u);
+      const zt = -tipH + (zS + tipH) * u, zl = u < dl ? lerp(-tipH, z0, u / dl) : zbl(u);
+      let z = tf * zt + (1 - tf) * zl;
+      if (u < 1 && z > 0) z = Math.min(z, zb(x, y));
+      pts.push({ x, y, z });
+    }
+    return pts;
+  };
+  const len = (pts) => { let t = 0; for (let k = 1; k < pts.length; k++) t += Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y, pts[k].z - pts[k - 1].z); return t; };
+  let pts = build(0);
+  // Löysää siimaa on enemmän kuin suora polku vaatii: ylimääräinen pituus kiemurtelee sivusuunnassa, jolloin piirretyn siiman pituus
+  // vastaa HUDin LINE-lukua (L.out)
+  if (tf < 1 && len(pts) < L.out - 0.05) {
+    let lo = 0, hi = 8;
+    for (let i = 0; i < 10; i++) { const mid = (lo + hi) / 2; if (len(build(mid)) < L.out) lo = mid; else hi = mid; }
+    pts = build(lo);
   }
   return pts;
 }
