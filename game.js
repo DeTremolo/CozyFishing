@@ -4019,7 +4019,7 @@ function drawUnderwater(camXr, camYr) {
       const f = L.fish, [mdx, mdy] = fishMouthScreen(f);
       const fx = Math.round(isoX(f.x, f.y) - camXr + mdx), fy = Math.round(isoY(f.x, f.y) - camYr + mdy + f.z * Z_PX);
       const wl = wobblerLine(camXr, camYr);
-      if (!isDirect(L.kind) && L.fish.mode === 'fight') drawBobLineUnder(g, camXr, camYr);   // kohosta ylöspäin kärkeen menevän siiman vedenalainen osa
+      if (!isDirect(L.kind) && L.fish.mode !== 'land' && L.fish.mode !== 'caught') drawBobLineUnder(g, camXr, camYr);   // kohosta ylöspäin kärkeen menevän siiman vedenalainen osa
       g.globalAlpha = underVis(f.z * 0.5);
       if (wl) plotPts(g, wl.dn, 'rgba(225, 230, 235, 0.6)');
       else plotLine(g, lx, ly + L.sub * Z_PX, fx, fy, 'rgba(225, 230, 235, 0.6)');
@@ -4110,7 +4110,7 @@ function bobPts(camXr, camYr) {
   return pathScreen(rigPath(L, tf, d, p, tipH, bob), camXr, camYr).pts;
 }
 // Koho-ongen (myös kalan taistellessa) sekä vaapun ja lipan (ilman kalaa) siima: sama paraabeli- / uppoamismalli kuin pohjaongella
-const bobLineOn = (L) => L.st === 'float' && L.onWater && !isRig(L.kind) && (!L.fish || (!isDirect(L.kind) && L.fish.mode === 'fight'));
+const bobLineOn = (L) => L.st === 'float' && L.onWater && !isRig(L.kind) && (!L.fish || (!isDirect(L.kind) && L.fish.mode !== 'land' && L.fish.mode !== 'caught'));
 function drawBobLine(camXr, camYr) {
   const pts = bobPts(camXr, camYr);
   for (let k = 1; k < pts.length; k++) {
