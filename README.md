@@ -230,6 +230,7 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
   Vaapun ja lipan siima piirretään yhtenä jatkuvana kaarena kärjestä vieheeseen (löysän siiman verran notkoa), jonka yläpuolinen
   ja veden alainen osa ovat saman käyrän osia, joten läpäisykohdassa ei ole kulmaa. Vaapun ja lipan syvyyteen vaikuttaa vain
   todellinen veto (kelaus, kävely, vene), ei uppoamisen aiheuttama heiluriliike kärjen alle.
+- **Vapaaksi päästetty (löysä) siima**: pohjaongella ja koho-ongella siima on yksi jatkuva polku kärjestä vieheeseen. Kireänä se on suora; löysänä se putoaa kärjestä lähes pystysuoraan maahan, lepää maata ja pohjaa pitkin ja kiemurtelee sivusuunnassa, ja piirretyn siiman pituus vastaa aina HUDin LINE-lukua. Koho-ongessa siima uppoaa veteen ja nousee pohjalta kohoon, joka kannattelee sitä toisesta päästä; pohjaongessa se päättyy pohjassa makaavaan puntiin.
 - Kelauksen lopussa viehe (koho, vaappu, lippa) napataan ongen kärkeen heti, kun kelalla ulkona oleva siima on lyhyempi kuin ongen
   kärjen korkeus veden pinnasta (noin 2,1 m): silloin viehe ei enää yllä veteen, joten se nousee noin 0,25 s:ssa kärkeen ja siima
   palautetaan lepotilaan; sitä ei tarvitse kelata kärkeen asti.

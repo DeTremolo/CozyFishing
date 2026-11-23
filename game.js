@@ -3526,21 +3526,22 @@ function spawnFish() {
 // Pohjaongen siima kärjestä puntille yhtenä jatkuvana 3D-polkuna (kärki, ilma, veden pinta, vesi, pohja samalla säännöllä):
 // kireänä suora, löysänä siima putoaa kärjestä lähes pystysuoraan maahan / pohjalle ja makaa pohjan profiilia pitkin puntille.
 // Välitila on näiden sekoitus (kireys tf: löysää alle 0,5 m). Pisteet {x, y, z}, z = syvyys pinnasta (m), negatiivinen = ilmassa.
-function rigPath(L, tf, d, p, tipH) {
-  const slackM = Math.max(0, L.out - Math.hypot(d, L.z + tipH)), N = Math.min(120, 28 + Math.ceil(slackM * 5)), zS = L.z, dl = Math.min(0.5, 0.35 / d);
+// Koho-ongella (bob = true) siima päättyy pinnalla kelluvaan kohoon (z = L.sub): löysä siima uppoaa, lepää pohjalla / maalla ja nousee kohoon.
+function rigPath(L, tf, d, p, tipH, bob) {
+  const zS = bob ? L.sub || 0 : L.z, slackM = Math.max(0, L.out - Math.hypot(d, zS + tipH)), N = Math.min(120, 28 + Math.ceil(slackM * 5)), dl = Math.min(0.5, 0.35 / d);
   const nx = -(L.y - p.y) / d, ny = (L.x - p.x) / d, waves = Math.max(1, Math.round((d * (1 - dl)) / 2));
   const zb = (x, y) => Math.max(0, depthAt(x, y) - 0.02);
-  const build = (a) => {
+  const build = (a, tf) => {
     const pts = [];
     const pos = (u) => {
-      const sg = Math.max(0, (u - dl) / (1 - dl)), w = a * Math.sin(Math.PI * sg) * Math.sin(2 * Math.PI * waves * sg) * (1 - tf);
+      const sg = Math.max(0, (u - dl) / (1 - dl)), w = a * Math.sin(Math.PI * sg) * Math.sin(2 * Math.PI * waves * sg);
       return [lerp(p.x, L.x, u) + nx * w, lerp(p.y, L.y, u) + ny * w];
     };
-    const zbl = (u) => { const [x, y] = pos(u); return Math.min(zb(x, y), Math.max(0, zS)); };
-    const z0 = zbl(dl);
+    const zbl = (u) => { const [x, y] = pos(u); return bob ? zb(x, y) : Math.min(zb(x, y), Math.max(0, zS)); };
+    const z0 = zbl(dl), ue = 1 - dl, z1 = bob ? zbl(ue) : 0;
     for (let k = 0; k <= N; k++) {
       const u = k / N, [x, y] = pos(u);
-      const zt = -tipH + (zS + tipH) * u, zl = u < dl ? lerp(-tipH, z0, u / dl) : zbl(u);
+      const zt = -tipH + (zS + tipH) * u, zl = u < dl ? lerp(-tipH, z0, u / dl) : bob && u > ue ? lerp(z1, zS, (u - ue) / dl) : zbl(u);
       let z = tf * zt + (1 - tf) * zl;
       if (u < 1 && z > 0) z = Math.min(z, zb(x, y));
       pts.push({ x, y, z });
@@ -3548,13 +3549,20 @@ function rigPath(L, tf, d, p, tipH) {
     return pts;
   };
   const len = (pts) => { let t = 0; for (let k = 1; k < pts.length; k++) t += Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y, pts[k].z - pts[k - 1].z); return t; };
-  let pts = build(0);
-  // Löysää siimaa on enemmän kuin suora polku vaatii: ylimääräinen pituus kiemurtelee sivusuunnassa, jolloin piirretyn siiman pituus
-  // vastaa HUDin LINE-lukua (L.out)
-  if (tf < 1 && len(pts) < L.out - 0.05) {
-    let lo = 0, hi = 8;
-    for (let i = 0; i < 10; i++) { const mid = (lo + hi) / 2; if (len(build(mid)) < L.out) lo = mid; else hi = mid; }
-    pts = build(lo);
+  // Piirretyn siiman pituus on aina HUDin LINE-luku (L.out): kireä siima on suora; löysä putoaa kärjestä maahan / pohjalle (sekoitus
+  // suoran ja pohjalla makaavan polun välillä, kunnes pituus täsmää), ja jos lepopolkukin on lyhyempi, ylimäärä kiemurtelee sivusuunnassa
+  let pts = build(0, 1);
+  if (len(pts) < L.out - 0.02) {
+    const lay = build(0, 0);
+    if (len(lay) <= L.out) {
+      let lo = 0, hi = 8;
+      for (let i = 0; i < 10; i++) { const mid = (lo + hi) / 2; if (len(build(mid, 0)) < L.out) lo = mid; else hi = mid; }
+      pts = build(lo, 0);
+    } else {
+      let lo = 0, hi = 1;   // lo = pituus yli, hi = pituus alle
+      for (let i = 0; i < 9; i++) { const mid = (lo + hi) / 2; if (len(build(0, mid)) > L.out) lo = mid; else hi = mid; }
+      pts = build(0, hi);
+    }
   }
   return pts;
 }
@@ -3966,6 +3974,7 @@ function drawUnderwater(camXr, camYr) {
       drawRigUnder(g, L, camXr, camYr);
     } else {
       // Syötti ja koukku riippuvat kohon alla koukun syvyydellä (tai pohjassa, jos vesi on matalampaa)
+      drawBobLineUnder(g, camXr, camYr);
       const hz = Math.min(cast.hookDepth, depthAt(L.x, L.y) - 0.03), hy = Math.round(ly + hz * Z_PX);
       g.globalAlpha = underVis(hz * 0.5);
       plotLine(g, lx, ly, lx, hy, 'rgba(200, 205, 210, 0.55)');
@@ -3987,10 +3996,14 @@ function drawUnderwater(camXr, camYr) {
 }
 
 // Pohjaongen siimapolku ruutupisteinä [x, y, z]; alku sovitetaan ongen kärkeen (painotus pienenee puntille päin)
-function rigScreen(L, rs, camXr, camYr) {
-  const g = rodGeom(), pts = rs.path.map((q) => [isoX(q.x, q.y) - camXr, isoY(q.x, q.y) - camYr + q.z * Z_PX, q.z]);
+function pathScreen(path, camXr, camYr) {
+  const g = rodGeom(), pts = path.map((q) => [isoX(q.x, q.y) - camXr, isoY(q.x, q.y) - camYr + q.z * Z_PX, q.z]);
   const dx = g.tx - camXr - pts[0][0], dy = g.ty - camYr - pts[0][1], n = pts.length - 1;
   pts.forEach((q, k) => { const w = 1 - k / n; q[0] += dx * w; q[1] += dy * w; });
+  return { pts, dx, dy, n };
+}
+function rigScreen(L, rs, camXr, camYr) {
+  const { pts, dx, dy, n } = pathScreen(rs.path, camXr, camYr);
   // Haaran kiinnityskohta: sama polunpiste kuin rigStatessa (lähin näyte)
   let best = 0, bd = 1e9;
   rs.path.forEach((q, k) => { const e = Math.hypot(q.x - rs.jx, q.y - rs.jy) + Math.abs(q.z - rs.zJ); if (e < bd) { bd = e; best = k; } });
@@ -4019,6 +4032,30 @@ function drawRigUnder(g, L, camXr, camYr) {
   const bx = jx + Math.round(Math.sin(time * 0.03 + L.x * 3) * 0.7), by = jy + Math.max(0, Math.round((rs.zB - rs.zJ) * Z_PX));
   plotLine(g, jx, jy, bx, by, 'rgba(200, 205, 210, 0.6)');
   drawRigBait(L.kind, bx, by);
+}
+
+// Koho-ongen siimapolku (kärjestä kohoon) ja sen piirto: ilmaosa pääruudulle, vedenalainen osa vesikerrokseen
+function bobPts(camXr, camYr) {
+  const L = cast.lure, p = rigOrigin(), d = Math.hypot(L.x - p.x, L.y - p.y) || 0.001, tipH = tipHeight();
+  const slack = Math.max(0, L.out - Math.hypot(d, (L.sub || 0) + tipH)), tf = clamp(1 - slack / 0.5, 0, 1);
+  return pathScreen(rigPath(L, tf, d, p, tipH, true), camXr, camYr).pts;
+}
+const bobLineOn = (L) => L.st === 'float' && L.onWater && !L.fish && !isDirect(L.kind);
+function drawBobLine(camXr, camYr) {
+  const pts = bobPts(camXr, camYr);
+  for (let k = 1; k < pts.length; k++) {
+    if ((pts[k][2] + pts[k - 1][2]) / 2 > 0.02) continue;
+    plotLine(ctx, pts[k - 1][0], pts[k - 1][1], pts[k][0], pts[k][1], 'rgba(225, 230, 235, 0.55)');
+  }
+}
+function drawBobLineUnder(g, camXr, camYr) {
+  const pts = bobPts(camXr, camYr);
+  for (let k = 1; k < pts.length; k++) {
+    const zm = (pts[k][2] + pts[k - 1][2]) / 2;
+    if (zm <= 0.02) continue;
+    g.globalAlpha = underVis(zm * 0.5);
+    plotLine(g, pts[k - 1][0], pts[k - 1][1], pts[k][0], pts[k][1], 'rgba(225, 230, 235, 0.6)');
+  }
 }
 
 // Pohjaongen siima ilman puolella (pinnan yläpuolinen osa kärjestä): sama polku kuin veden alla
@@ -5903,6 +5940,7 @@ function drawCastLine(g, camXr, camYr) {
     return;
   }
   if (isRig(L.kind) && L.onWater && !L.fish) { drawRigLine(camXr, camYr); return; }
+  if (bobLineOn(L)) { drawBobLine(camXr, camYr); return; }
   const wl = wobblerLine(camXr, camYr);
   if (wl) {
     // Pinnan yläpuolinen osa kärjestä vedenpinnan läpäisykohtaan (sama kaari kuin veden alla)
