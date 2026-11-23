@@ -2381,11 +2381,11 @@ function resetLine() {
 // mutta liikkuu pääsiimasta erillään. Kun onkea heilutellaan, haara ja syötti heiluvat vapaasti.
 // Piirrossa sivuhaara on suurennettu (kolme pikseliä; 10 cm olisi alle pikselin), samoin syötti.
 const RIG_ARM_SEG = 1.6;   // syöttihaaran nivel (px); haaran kokonaispituus 2 nivelta = 3,2 px (pienimmän korkeuden 5,6 px:n sisällä, joten syötti ei roiku puntin alapuolelle)
-// Piirrettävä pituus (px) = syötin korkeus (m) kertaa Z_PX (9 cm / px), ei vääristelyä. Roikkuva siima on aina RIG_SEGS nivelen (22,4 px)
+// Piirrettävä pituus (px) = syötin korkeus (m) kertaa Z_PX (9 cm / px), ei vääristelyä. Roikkuva siima on aina RIG_SEGS nivelen (17,6 px)
 // pituinen ongen kärjestä puntille, jolloin puntti roikkuu melkein maassa; säätö siirtää haaran kiinnityskohtaa:
 // pienin korkeus 50 cm (5,6 px), suurin 150 cm (16,7 px)
 const rigVisPx = (d) => d * Z_PX;
-const RIG_SEGS = 14;
+const RIG_SEGS = 11;
 let rigArm = [];
 // Haaran kiinnityskohta pääsiimaketjussa: rigVisPx(cast.rigDist) pikseliä ketjun (puntin) päästä ylöspäin
 function rigJunction() {
@@ -3523,27 +3523,41 @@ function spawnFish() {
   for (const k in SPECIES) for (let n = 0; n < SPECIES[k].count; n++) fishes.push(makeFish(k));
 }
 
-// Pohjaongen tila vedessä. Siima kulkee ongen kärjestä vedenpinnan läpäisykohdan (E0) kautta puntille (L).
-// Kun siima on kireä (löysää alle 0,5 m), se on suora ja nousee puntilta ylöspäin kulmassa; löysä siima
-// vajoaa pohjalle ja makaa sitä pitkin. Sivuhaara on kiinni siimassa L.dist puntin yläpuolella (siiman
-// pituutta pitkin) ja haaran päässä oleva syötti roikkuu RIG_ARM (10 cm) haaran kiinnityskohdan alapuolella,
-// mutta ei pohjan läpi. Syötti makaa pohjassa (lying), jos se ylettyy pohjaan asti.
-//   tf = siiman kireys 0–1, df(t) = siiman syvyys pinnan (t = 0) ja puntin (t = 1) välillä osuutena puntin syvyydestä
+// Pohjaongen siima kärjestä puntille yhtenä jatkuvana 3D-polkuna (kärki, ilma, veden pinta, vesi, pohja samalla säännöllä):
+// kireänä suora, löysänä siima putoaa kärjestä lähes pystysuoraan maahan / pohjalle ja makaa pohjan profiilia pitkin puntille.
+// Välitila on näiden sekoitus (kireys tf: löysää alle 0,5 m). Pisteet {x, y, z}, z = syvyys pinnasta (m), negatiivinen = ilmassa.
+function rigPath(L, tf, d, p, tipH) {
+  const N = 28, pts = [], zS = L.z, dl = Math.min(0.5, 0.35 / d);
+  const zb = (x, y) => Math.max(0, depthAt(x, y) - 0.02);
+  const zbl = (u) => Math.min(zb(lerp(p.x, L.x, u), lerp(p.y, L.y, u)), Math.max(0, zS));
+  const z0 = zbl(dl);
+  for (let k = 0; k <= N; k++) {
+    const u = k / N, x = lerp(p.x, L.x, u), y = lerp(p.y, L.y, u);
+    const zt = -tipH + (zS + tipH) * u, zl = u < dl ? lerp(-tipH, z0, u / dl) : zbl(u);
+    let z = tf * zt + (1 - tf) * zl;
+    if (u < 1 && z > 0) z = Math.min(z, zb(x, y));
+    pts.push({ x, y, z });
+  }
+  return pts;
+}
+
+// Pohjaongen tila vedessä: siimapolku, haaran kiinnityskohta (L.dist metriä puntista polkua pitkin) ja siinä roikkuva syötti.
+// Syötti roikkuu RIG_ARM verran kiinnityskohdan alapuolella, mutta ei pohjan läpi (lying = ylettyy pohjaan).
+//   tf = siiman kireys 0–1
 function rigState(L) {
-  const p = rigOrigin(), d = Math.hypot(L.x - p.x, L.y - p.y) || 0.001, zS = L.z, tipH = RIG_TIP + playerLift() / Z_PX;
+  const p = rigOrigin(), d = Math.hypot(L.x - p.x, L.y - p.y) || 0.001, zS = L.z, tipH = tipHeight();
   const slack = Math.max(0, L.out - Math.hypot(d, zS + tipH));   // siimaa ongen kärjestä puntille ylimääräisenä
-  const tf = clamp(1 - slack / 0.5, 0, 1), zW = Math.max(0, zS), fe = zS < 0 ? 1 : tipH / (tipH + zW);
-  const ex = p.x + (L.x - p.x) * fe, ey = p.y + (L.y - p.y) * fe;
-  const dh = d * (1 - fe), Lw = Math.hypot(dh, zW);
-  const df = (t) => tf * t + (1 - tf) * Math.min(1, t / 0.15);
-  const tj = Lw > 0.01 ? clamp(1 - L.dist / Lw, 0, 1) : 0;
-  // Jos haara on kauempana puntista kuin veden alla kulkevan siiman pituus, se on jo veden yläpuolella ilmassa kulkevalla osalla
-  // (ua = osuus pinnan läpäisykohdasta ongen kärkeen); nostettu puntti (z < 0) on itse ilmassa, ja haara on sen yläpuolella
-  const hE = Math.max(0, -zS), La = Math.hypot(d * fe, tipH - hE), over = L.dist - Lw;
-  const ua = over > 0 && La > 0.01 ? clamp(over / La, 0, 1) * (zS < 0 ? 1 : tf) : 0;
-  const jx = lerp(ex, ua > 0 ? p.x : L.x, ua > 0 ? ua : tj), jy = lerp(ey, ua > 0 ? p.y : L.y, ua > 0 ? ua : tj), floor = depthAt(jx, jy);
-  const zJ = ua > 0 ? -(hE + ua * (tipH - hE)) : Math.min(zS * df(tj), Math.max(0, floor - 0.01));
-  return { d, slack, tf, ex, ey, tj, ua, df, jx, jy, zJ, zB: Math.min(zJ + RIG_ARM, floor - 0.02), lying: zJ + RIG_ARM >= floor - 0.04 };
+  const tf = zS < 0 ? 1 : clamp(1 - slack / 0.5, 0, 1);
+  const path = rigPath(L, tf, d, p, tipH), n = path.length;
+  // Kiinnityskohta: kuljetaan puntista (viimeinen piste) kärkeä kohti L.dist metriä (3D-pituus)
+  let rem = L.dist, jx = path[0].x, jy = path[0].y, jz = path[0].z;
+  for (let k = n - 1; k > 0; k--) {
+    const a = path[k], b = path[k - 1], seg = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) || 1e-6;
+    if (rem <= seg) { const f = rem / seg; jx = lerp(a.x, b.x, f); jy = lerp(a.y, b.y, f); jz = lerp(a.z, b.z, f); rem = 0; break; }
+    rem -= seg;
+  }
+  const floor = depthAt(jx, jy), zJ = jz > 0 ? Math.min(jz, Math.max(0, floor - 0.01)) : jz;
+  return { d, slack, tf, path, jx, jy, zJ, zB: Math.min(zJ + RIG_ARM, floor - 0.02), lying: zJ + RIG_ARM >= floor - 0.04 };
 }
 
 // Siiman löysä (m): pohjaongella ongen kärjestä puntille kulkevan siiman pituus (3D), muilla vaakaetäisyys
@@ -3954,22 +3968,34 @@ function drawUnderwater(camXr, camYr) {
   ctx.drawImage(underCanvas, 0, 0);
 }
 
-// Pohjaonki veden alla: siima pinnalta puntille (kireänä suora, löysänä pohjalle vajoava ja pohjaa pitkin
-// makaava), sivuhaara siimassa RIG_DIST puntin yläpuolella ja haaran päässä roikkuva syötti. Syötti makaa
-// sivulla pohjassa, kun haara ulottuu pohjaan; muuten se roikkuu alaspäin ja heiluu hieman.
+// Pohjaongen siimapolku ruutupisteinä [x, y, z]; alku sovitetaan ongen kärkeen (painotus pienenee puntille päin)
+function rigScreen(L, rs, camXr, camYr) {
+  const g = rodGeom(), pts = rs.path.map((q) => [isoX(q.x, q.y) - camXr, isoY(q.x, q.y) - camYr + q.z * Z_PX, q.z]);
+  const dx = g.tx - camXr - pts[0][0], dy = g.ty - camYr - pts[0][1], n = pts.length - 1;
+  pts.forEach((q, k) => { const w = 1 - k / n; q[0] += dx * w; q[1] += dy * w; });
+  // Haaran kiinnityskohta: sama polunpiste kuin rigStatessa (lähin näyte)
+  let best = 0, bd = 1e9;
+  rs.path.forEach((q, k) => { const e = Math.hypot(q.x - rs.jx, q.y - rs.jy) + Math.abs(q.z - rs.zJ); if (e < bd) { bd = e; best = k; } });
+  const w = 1 - best / n;
+  return { pts, j: [isoX(rs.jx, rs.jy) - camXr + dx * w, isoY(rs.jx, rs.jy) - camYr + rs.zJ * Z_PX + dy * w] };
+}
+
+// Pohjaonki veden alla: siima pinnalta puntille ja pohjalle (sama polku kuin ilmassa), puntti ja vapaasti roikkuva sivuhaara
+// syötteineen. Haara ja syötti piirretään tässä vain, kun kiinnityskohta on vedessä (muuten drawRigAir).
 function drawRigUnder(g, L, camXr, camYr) {
   if (L.z < 0) return;   // nostettu puntti on ilmassa (drawLure)
-  const wl = wobblerLine(camXr, camYr);
-  if (!wl) return;
-  const rs = rigState(L), zS = L.z, sy = wl.ey - zS * Z_PX, N = 14;
-  const P = (t) => [lerp(wl.wx, wl.ex, t), lerp(wl.wy, sy, t) + zS * rs.df(t) * Z_PX];
-  g.globalAlpha = underVis(zS * 0.5);
-  let [px, py] = P(0);
-  for (let i = 1; i <= N; i++) { const [qx, qy] = P(i / N); plotLine(g, px, py, qx, qy, 'rgba(225, 230, 235, 0.6)'); px = qx; py = qy; }
-  g.globalAlpha = underVis(zS);
-  drawSinkerAt(Math.round(wl.ex), Math.round(wl.ey));
-  if (rs.zJ < 0) return;   // haara ja syötti ovat ilmassa (drawLure)
-  const [jx0, jy0] = P(rs.tj), jx = Math.round(jx0), jy = Math.round(jy0);
+  const rs = rigState(L), sc = rigScreen(L, rs, camXr, camYr), pts = sc.pts;
+  for (let k = 1; k < pts.length; k++) {
+    const zm = (pts[k][2] + pts[k - 1][2]) / 2;
+    if (zm <= 0) continue;
+    g.globalAlpha = underVis(zm * 0.5);
+    plotLine(g, pts[k - 1][0], pts[k - 1][1], pts[k][0], pts[k][1], 'rgba(225, 230, 235, 0.6)');
+  }
+  const e = pts[pts.length - 1];
+  g.globalAlpha = underVis(L.z);
+  drawSinkerAt(Math.round(e[0]), Math.round(e[1]));
+  if (rs.zJ < 0) return;   // haara ja syötti ovat ilmassa (drawRigAir)
+  const jx = Math.round(sc.j[0]), jy = Math.round(sc.j[1]);
   g.globalAlpha = underVis(rs.zJ);
   // Sivuhaara roikkuu vapaana siiman kiinnityskohdasta alas (pohjalla lyhyempänä) ja heiluu hieman
   const bx = jx + Math.round(Math.sin(time * 0.03 + L.x * 3) * 0.7), by = jy + Math.max(0, Math.round((rs.zB - rs.zJ) * Z_PX));
@@ -3977,15 +4003,21 @@ function drawRigUnder(g, L, camXr, camYr) {
   drawRigBait(L.kind, bx, by);
 }
 
-// Veden yläpuolelle noussut haara ja syötti (kelattaessa): haara on ilmassa kulkevalla siimalla ja roikkuu vapaana alas.
-// Pinnan läpäisykohdan (wl) ja ongen kärjen välinen siima on piirretty jo; piirtää myös nostetun puntin.
+// Pohjaongen siima ilman puolella (pinnan yläpuolinen osa kärjestä): sama polku kuin veden alla
+function drawRigLine(camXr, camYr) {
+  const L = cast.lure, rs = rigState(L), pts = rigScreen(L, rs, camXr, camYr).pts;
+  for (let k = 1; k < pts.length; k++) {
+    if ((pts[k][2] + pts[k - 1][2]) / 2 > 0) continue;
+    plotLine(ctx, pts[k - 1][0], pts[k - 1][1], pts[k][0], pts[k][1], 'rgba(225, 230, 235, 0.55)');
+  }
+}
+
+// Veden yläpuolelle noussut haara ja syötti sekä nostettu puntti (kelattaessa). Haara roikkuu vapaana alas.
 function drawRigAir(L, camXr, camYr, x, y) {
   const rs = rigState(L);
   if (L.z < -0.05) drawSinkerAt(x, y + Math.round(L.z * Z_PX));
   if (rs.zJ >= 0) return;
-  const g = rodGeom(), tx = g.tx - camXr, ty = g.ty - camYr, wl = wobblerLine(camXr, camYr);
-  const sx = L.z < 0 ? x : wl ? wl.wx : x, sy = L.z < 0 ? y + L.z * Z_PX : wl ? wl.wy : y;
-  const jx = Math.round(lerp(sx, tx, rs.ua)), jy = Math.round(lerp(sy, ty, rs.ua));
+  const sc = rigScreen(L, rs, camXr, camYr), jx = Math.round(sc.j[0]), jy = Math.round(sc.j[1]);
   const bx = jx + Math.round(Math.sin(time * 0.03 + L.x * 3) * 0.7), by = jy + Math.round(RIG_ARM * Z_PX);
   plotLine(ctx, jx, jy, bx, by, 'rgba(210, 214, 218, 0.8)');
   drawRigBait(L.kind, bx, by);
@@ -5852,6 +5884,7 @@ function drawCastLine(g, camXr, camYr) {
     ctx.restore();
     return;
   }
+  if (isRig(L.kind) && L.onWater && !L.fish) { drawRigLine(camXr, camYr); return; }
   const wl = wobblerLine(camXr, camYr);
   if (wl) {
     // Pinnan yläpuolinen osa kärjestä vedenpinnan läpäisykohtaan (sama kaari kuin veden alla)

@@ -214,7 +214,7 @@ Pohjakuvissa ei ole ihonvärisiä käsipikseleitä, koska roikkuvat kädet poist
 
 - Roikkuva pohjaonki (heittämättä): puntti on siiman alapäässä, ja siitä ylöspäin on säädettävä siimaosuus (syötin korkeus 50–150 cm),
   jonka yläpäässä on syöttisiima: pieni sivuhaara, jonka päässä on mato tai boilie ja joka liikkuu omana osanaan. Sen yläpuolella on
-  pääsiima onkeen. Syötin korkeus vastaa suoraan piirrettyä pituutta (1 m = 11,1 px, ks. mittakaava): pienin 50 cm = 5,6 px ja suurin 150 cm = 16,7 px. Siimaketjun kokonaispituus (22,4 px, puntti roikkuu melkein maassa) ei muutu, vaan säätö siirtää haarakohtaa. Sivuhaara on 3,2 px pitkä, eikä syötti roiku puntin alapuolelle edes pienimmällä korkeudella.
+  pääsiima onkeen. Syötin korkeus vastaa suoraan piirrettyä pituutta (1 m = 11,1 px, ks. mittakaava): pienin 50 cm = 5,6 px ja suurin 150 cm = 16,7 px. Siimaketjun kokonaispituus (17,6 px, puntti roikkuu lähellä maata) ei muutu, vaan säätö siirtää haarakohtaa. Sivuhaara on 3,2 px pitkä, eikä syötti roiku puntin alapuolelle edes pienimmällä korkeudella.
 
 - Veden pinnan aaltokuvio (tuulen mukana liikkuvat vaaleat viirut) on veden omaa sävyä, pehmeä (läpikuultava) ja vain hieman vettä vaaleampi.
 
@@ -345,7 +345,7 @@ Kala ui syötin luo niin, että sen suu osuu syöttiin, ja siima kulkee kalan su
   vedenpinnan yläpuolella) puntille, ja jos siimaa ei ole riittävästi, puntti ei painu suoraan alas vaan kaartuu kireän
   siiman varassa kohti vapaa; siimaa voi päästää kelalta oikealla hiirennapilla. Kelattaessa (1,2 m/s) puntti
   kulkee pohjaa pitkin kohti ongen kärkeä ja painuu taas pohjaan, kun kelaus loppuu. Kun puntti on pohjassa, siima pitää kelata
-  kireälle (löysää alle 0,5 m), jotta sivuhaara nousee pois pohjasta: löysä siima makaa pohjalla ja syötti sen mukana, ja
+  kireälle (löysää alle 0,5 m), jotta sivuhaara nousee pois pohjasta: löysä siima putoaa ongen kärjestä lähes pystysuoraan maahan ja makaa maata ja pohjaa pitkin puntille (sama sääntö koko matkalla kärjestä pohjaan, ei vain veden alla): löysä siima makaa pohjalla ja syötti sen mukana, ja
   pohjassa makaava syötti kiinnostaa kaloja vain vähän (HUD varoittaa: BAIT ON BOTTOM - REEL IN TO TIGHTEN). Siima on kireällä
   kulmassa, joten korkea syöttihaara (150 cm) nostaa syötin pohjasta enemmän kuin lyhyt. Tiedoissa näytetään puntin syvyys
   (SINKER). Heitetyn pohjaongen siima, sivuhaara ja puntti noudattavat samoja pikselipituuksia kuin roikkuvassa tilassa:
