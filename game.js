@@ -3528,7 +3528,7 @@ function spawnFish() {
 // Välitila on näiden sekoitus (kireys tf: löysää alle 0,5 m). Pisteet {x, y, z}, z = syvyys pinnasta (m), negatiivinen = ilmassa.
 // Koho-ongella (bob = true) siima päättyy pinnalla kelluvaan kohoon (z = L.sub): löysä siima uppoaa, lepää pohjalla / maalla ja nousee kohoon.
 const rigPathCache = {}, rigSolveCache = {};
-const SAG_SINK = 0.12;  // veden alla olevan löysän siiman uppoamisnopeus (m/s, notkon syvenemisnopeus)
+const SAG_SINK = 0.3;   // veden alla olevan löysän siiman uppoamisnopeus (m/s, syvimmän kohdan nopeus)
 function rigPath(L, tf, d, p, tipH, bob) {
   const zS = bob ? L.sub || 0 : L.z, kk = bob ? 'b' : 'r';
   const slackM = Math.max(0, L.out - Math.hypot(d, zS + tipH)), N = Math.min(120, 40 + Math.ceil(slackM * 5));
@@ -3536,19 +3536,13 @@ function rigPath(L, tf, d, p, tipH, bob) {
   const zb = (x, y) => Math.max(0, depthAt(x, y) - 0.02);
   // Vapaa siima roikkuu paraabelina kärjen ja puntin / kohon välillä (notko sag metriä suoran alapuolella); maahan tai pohjaan
   // osuva osa jää makaamaan sille. Jos ylimääräistä siimaa on vielä enemmän, se kiemurtelee sivusuunnassa (a).
-  // sagL = veden alla olevan osan (hitaasti uppoava) notko: ilmassa olevaa osaa ohjaa heti sag
-  const build = (sag, a, sagL) => {
+  const build = (sag, a) => {
     const pts = [];
     for (let k = 0; k <= N; k++) {
       const u = k / N, w = a * Math.sin(Math.PI * u) * Math.sin(2 * Math.PI * waves * u);
       const x = lerp(p.x, L.x, u) + nx * w, y = lerp(p.y, L.y, u) + ny * w, base = -tipH + (zS + tipH) * u, inner = u > 0 && u < 1;
       let z = base + sag * 4 * u * (1 - u);
       if (inner && z > 0) z = Math.min(z, zb(x, y));
-      if (sagL !== undefined && z > 0) {
-        let zl = base + sagL * 4 * u * (1 - u);
-        if (inner && zl > 0) zl = Math.min(zl, zb(x, y));
-        z = Math.max(0, zl);
-      }
       pts.push({ x, y, z });
     }
     return pts;
@@ -3572,19 +3566,30 @@ function rigPath(L, tf, d, p, tipH, bob) {
     }
     rigSolveCache[kk] = sol;
   }
-  // Veden alla oleva siima uppoaa hitaasti kohti tavoitenotkoa (nouseva siima, esim. kelaus, seuraa heti)
-  const cap = sol.sag;
-  if (L.sagCur === undefined) { L.sagCur = cap; L.sagTick = time; }
-  else if (L.sagTick !== time) {
-    const dt = clamp(time - L.sagTick, 0, 5);
-    L.sagTick = time;
-    L.sagCur = L.sagCur > cap ? cap : Math.min(cap, L.sagCur + (dt * SAG_SINK * (1 + L.sagCur / 3)) / 60);   // syvä notko uppoaa nopeammin
+  if (sol.sag === 0) { L.sinkZ = 0; return build(0, 0); }
+  // Veden alla oleva siima uppoaa hitaasti koko matkaltaan: jokaisen vedenalaisen pisteen syvyys siirtyy lähtömuodosta tavoitesyvyyteen edistymisen f mukana
+  // (lähtömuotona kireä suora), joten siima uppoaa koko matkalta yhtä aikaa; nouseva siima (esim. kelaus) seuraa heti
+  if (!sol.target) {
+    sol.target = build(sol.sag, sol.a);
+    sol.maxZ = Math.max(0.01, ...sol.target.map((q) => q.z));
   }
-  if (sol.sag === 0) return build(0, 0);
-  const r = cap > 0.01 ? clamp(L.sagCur / cap, 0, 1) : 1, aShape = sol.a * smooth(clamp((r - 0.7) / 0.3, 0, 1));
-  const pkey = key + '|' + L.sagCur + '|' + aShape, hit = rigPathCache[kk];
+  if (L.sinkZ === undefined) { L.sinkZ = sol.maxZ; L.sinkTick = time; }
+  else if (L.sinkTick !== time) {
+    const dt = clamp(time - L.sinkTick, 0, 5);
+    L.sinkTick = time;
+    L.sinkZ = L.sinkZ > sol.maxZ ? sol.maxZ : Math.min(sol.maxZ, L.sinkZ + (dt * SAG_SINK) / 60);
+  }
+  const f = clamp(L.sinkZ / sol.maxZ, 0, 1);
+  if (f >= 1) return sol.target;
+  const pkey = key + '|' + f, hit = rigPathCache[kk];
   if (hit && hit.key === pkey) return hit.pts;
-  const pts = build(sol.sag, aShape, L.sagCur);
+  const nn = sol.target.length - 1;
+  // Lähtömuoto on kireä suora (pinnan yläpuolella pinnassa); puntin päässä siima on aina puntissa
+  const pts = sol.target.map((q, k) => {
+    if (q.z <= 0) return q;
+    const bz = Math.min(Math.max(-tipH + (zS + tipH) * (k / nn), 0), q.z), fk = f + (1 - f) * smooth((k / nn - 0.9) / 0.1);
+    return { x: q.x, y: q.y, z: bz + (q.z - bz) * fk };
+  });
   rigPathCache[kk] = { key: pkey, pts };
   return pts;
 }
