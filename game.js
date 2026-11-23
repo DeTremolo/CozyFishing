@@ -2369,9 +2369,9 @@ function updateCast() {
       if (u >= 1) L.out = 0;
     } else L.sub = 0;
   }
-  // Pohjaongella pikakelaus tapahtuu vasta, kun puntti on pois vedestä (ilmassa tai maalla) ja siimaa on ulkona enintään metri enemmän
-  // kuin ongen kärjestä puntille on matkaa (esim. kävelemällä maalle vedetty puntti ei pikakelaudu, jos siimaa on paljon)
-  if (isRig(L.kind) ? held && (L.z <= -0.1 || !L.onWater) && L.out <= Math.hypot(Math.hypot(O.x - L.x, O.y - L.y), tipH + Math.max(0, L.z)) + 1 : L.out <= 0.4 || L.snap >= SNAP_T) {
+  // Pohjaongella pikakelaus tapahtuu kuten koho-ongella vasta, kun ulkona oleva siima on lyhyempi kuin ongen kärjen korkeus maasta / veden
+  // pinnasta, eli puntti nousisi irti maasta tai vedestä. Punttia voi kelata ja raahata maalla ja vedessä kunnes siima on lyhyt.
+  if (isRig(L.kind) ? held && L.out <= tipH + 0.15 : L.out <= 0.4 || L.snap >= SNAP_T) {
     c.lure = null; c.needRelease = true;
     resetLine();
     SFX.rodIn();
