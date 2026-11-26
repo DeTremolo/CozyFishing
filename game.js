@@ -3789,6 +3789,8 @@ function hookFish(f) {
 // Koukkuun tarttunut kala. Se voi vetää siimaa vain ulkona olevan määrän verran ja vetää kohon
 // veden alle, mikä kuluttaa sen voimia (koho kelluu). Pelaajan lähelle kelattu kala nousee
 // roikkumaan ilmaan ja kerätään talteen. Kuivalle maalle vedetty kala sätkii satunnaisiin suuntiin.
+// Kelan jarrun luisto (m/s) kalan painon (g) mukaan: alle 250 g ei luista, 2000 g luistaa 0,5 m/s, väli lineaarinen ja 0,5 m/s on enimmäisarvo
+const dragSlip = (w) => clamp((w - 250) / (2000 - 250), 0, 1) * 0.5;
 function updateFight(L, held) {
   const p = player, f = L.fish, sp = SPECIES[f.kind];
   if (!f.dead) f.anim++;
@@ -3835,8 +3837,15 @@ function updateFight(L, held) {
     taut = m > 0.002;
     if (f.mode === 'fight') {
       f.energy -= 0.4;
-      // Kala vetää kireää siimaa: kela ritisee (kelan lukko ei vielä luista)
-      if (++L.clickT % 4 === 0) SFX.ratchet();
+      // Kelan jarru luistaa, kun taistelevaa kalaa ei kelata kokonaan: siimaa lähtee kalan painon mukaan (alle 250 g ei lainkaan, 2000 g
+      // 0,5 m/s, väli lineaarinen, enintään 0,5 m/s); kelatessa luisto puolittuu, eikä jarru luista, kun siimaa päästetään napilla
+      const slip = mouseHeld2 && !held ? 0 : dragSlip(f.w) * (held ? 0.5 : 1);
+      if (slip > 0 && L.out < LINE_MAX) {
+        L.out = Math.min(LINE_MAX, L.out + slip / 60);
+        // Kela naksuu vain, kun jarru luistaa; tiheys kasvaa luiston nopeuden mukana (0,5 m/s = 16 naksua sekunnissa)
+        L.clickAcc = (L.clickAcc || 0) + (slip * 32) / 60;
+        if (L.clickAcc >= 1) { L.clickAcc -= 1; SFX.ratchet(); }
+      }
     }
   }
   // Siiman kesto: jos kalaa kelataan tai vedetään (kävellen tai veneellä) samaan aikaan kun se

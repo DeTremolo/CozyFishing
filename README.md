@@ -374,7 +374,11 @@ katkaistessa. Kun kala ei taistele tai vetoa ei ole, rasitus laskee: väsynyttä
 Voimakas kala (painava, vetävä laji, paljon voimia jäljellä) rasittaa kireää siimaa myös ilman kelausta.
 Silloin siimaa pitää päästää kelalta hiiren oikealla napilla, mikä keventää kuormaa. Kun kaikki 30 m siimaa
 on ulkona, siimaa ei voi enää päästää, ja rasitus kasvaa, kunnes siima katkeaa.
-Kun kala vetää kireää siimaa, kela ritisee (kelan lukon luistoa ei vielä ole). Siiman voi
+**Kelan jarru**: kun taisteleva kala vetää kireää siimaa, jarru luistaa ja siimaa lähtee kelalta kalan painon mukaan: alle 250 g kalat eivät
+saa jarrua luistamaan lainkaan, 2000 g:n kala saa sen luistamaan 0,5 m/s, väli on lineaarinen ja 0,5 m/s on enimmäisluisto (esim. 1000 g = 0,21 m/s).
+Kelatessa luisto puolittuu. Jos kala ei taistele vastaan (väsynyt), luisto on nolla myös kelatessa, ja luisto on nolla myös silloin, kun siimaa päästetään
+kelalta napilla (hiiren oikea / RELEASE LINE). Kela naksuu vain, kun jarru luistaa, ja naksutus tihenee luiston mukana (0,5 m/s = 16 naksua sekunnissa).
+Siiman voi
 katkaista (C): koukussa ollut kala ui lopun siiman ja kohon kanssa hetken ja katoaa sitten,
 ja ongen kärkeen tulee uusi koho ja koukku. Saaliiksi saadun tai siiman mukana kadonneen kalan
 tilalle syntyy lampeen heti uusi, satunnainen kala.
