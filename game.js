@@ -3835,7 +3835,7 @@ function updateFight(L, held) {
     // odottaa, kunnes voimat ovat täysin palautuneet
     // Palautuminen rajoittuu jäljellä olevaan kokonaisenergiaan (stam): kun se on loppu, kala on lopullisesti uuvuksissa eikä enää taistele
     const cap = Math.min(f.maxE, Math.max(0, f.stam));
-    if (f.stam <= 0) { f.energy = 0; if (!f.exhausted) { f.exhausted = true; notify('The fish is exhausted.', 100, 'exhaust'); } }
+    if (f.stam <= 0) { f.energy = 0; f.exhausted = true; }
     else f.energy = Math.min(cap, f.energy + rand(0.15, 0.45) * sp.regen);
     if (f.stam > 0 && (f.energy >= cap || (f.energy >= cap * 0.5 && Math.random() < 1 / 300))) { f.mode = 'fight'; f.dirT = 0; SFX.splash(0.3); ripples.push({ x: f.x, y: f.y, t: 0, life: 40, max: 5, a: 0.6 }); }
   } else if (f.mode === 'land') {
