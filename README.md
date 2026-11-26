@@ -303,7 +303,7 @@ energiaansa (voimapalkki veden pinnalla kalan kohdalla); se voi vetää kohon ve
 voimia, ja se voi viedä siimaa vain ulkona olevan määrän verran. Kala taistelee ainakin, kunnes alle
 puolet voimista on jäljellä; sen jälkeen se voi lopettaa satunnaisella hetkellä, viimeistään kun voimat
 loppuvat. Väsynyt kala ui rauhassa ja aloittaa taistelun uudelleen satunnaisesti, kun voimista on
-palautunut vähintään puolet (joskus vasta täysin palauduttuaan). Ahvenella on nelinkertaiset voimat ja kaksinkertainen
+palautunut vähintään puolet (joskus vasta täysin palauduttuaan). Koukussa olevalla kalalla on lisäksi kokonaisenergia (kolminkertainen taisteluvoimiin nähden), joka kuluu kaikesta vastaan taistelusta eikä palaudu: lepo palauttaa taisteluvoimia vain jäljellä olevan kokonaisenergian verran, joten kala väsyy jokaisen taisteluerän jälkeen enemmän, ja lopulta (esim. iso hauki noin 2,5 minuutin taistelun jälkeen) se on lopullisesti uuvuksissa ("The fish is exhausted.") eikä jaksa enää taistella vastaan. Ahvenella on nelinkertaiset voimat ja kaksinkertainen
 palautuminen. Hauella on kolminkertaiset voimat ja nelinkertainen palautuminen. Pelaajan lähelle kelattu kala nousee
 roikkumaan ongen kärkeen ja kerätään talteen (saalis näkyy vasemmassa yläkulmassa). Kuivalle
 maalle vedetty kala sätkii satunnaisiin suuntiin, ja jos se pääsee veteen, se jatkaa uintia. Kuivalla

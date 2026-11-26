@@ -3779,6 +3779,7 @@ function hookFish(f) {
   L.fish = f;
   if (isRig(L.kind)) { SFX.bell(); bellT = 150; }   // pohjaongen kello ilmoittaa syönnistä
   f.mode = 'fight'; f.energy = f.maxE * rand(0.85, 1); f.dirT = 0;
+  f.stam = f.maxE * STAM_K;   // kokonaisenergia: kuluu kaikesta vastaan taistelusta, eikä palaudu (ks. updateFight)
   L.tension = 0;
   ripples.push({ x: L.x, y: L.y, t: 0, life: 45, max: 5, a: 0.75 });
   banners.unshift({ text: 'Fish on!', t: 90 });
@@ -3802,9 +3803,11 @@ function bobEntry(L) {
   }
   return null;
 }
+const STAM_K = 3;   // koukussa olevan kalan kokonaisenergia kalan taisteluvoimien (maxE) monikertoina
 function updateFight(L, held) {
   const p = player, f = L.fish, sp = SPECIES[f.kind];
   if (!f.dead) f.anim++;
+  const e0 = f.energy;
   if (f.mode === 'caught') { if (--f.caughtT <= 0) collectFish(f); return; }
   if (mouseHeld2 && !held) releaseLine(L);
   if (held) { L.out = Math.max(0, L.out - reelStep(L) * (f.mode === 'fight' ? 0.55 : 1)); if (++cast.reelT % 6 === 0) SFX.reel(); }
@@ -3819,7 +3822,7 @@ function updateFight(L, held) {
     f.energy -= 0.6 + (isDirect(L.kind) ? 0 : Math.max(0, f.z - cast.hookDepth) * 1.6);
     // Kala taistelee ainakin, kunnes alle puolet voimista on jäljellä; sen jälkeen se voi lopettaa
     // satunnaisella hetkellä, viimeistään kun voimat loppuvat
-    if (f.energy <= 0 || (f.energy < f.maxE * 0.5 && Math.random() < 1 / 240)) {
+    if (f.energy <= 0 || f.stam <= 0 || (f.energy < Math.min(f.maxE, f.stam) * 0.5 && Math.random() < 1 / 240)) {
       f.energy = Math.max(0, f.energy); f.mode = 'tired';
       f.tz = Math.max(0.3, f.z * 0.6);
     }
@@ -3830,8 +3833,11 @@ function updateFight(L, held) {
     f.z += clamp(f.tz - f.z, -0.004, 0.004);
     // Taistelu alkaa uudelleen satunnaisesti, kun voimista on palautunut vähintään puolet; joskus kala
     // odottaa, kunnes voimat ovat täysin palautuneet
-    f.energy = Math.min(f.maxE, f.energy + rand(0.15, 0.45) * sp.regen);
-    if (f.energy >= f.maxE || (f.energy >= f.maxE * 0.5 && Math.random() < 1 / 300)) { f.mode = 'fight'; f.dirT = 0; SFX.splash(0.3); ripples.push({ x: f.x, y: f.y, t: 0, life: 40, max: 5, a: 0.6 }); }
+    // Palautuminen rajoittuu jäljellä olevaan kokonaisenergiaan (stam): kun se on loppu, kala on lopullisesti uuvuksissa eikä enää taistele
+    const cap = Math.min(f.maxE, Math.max(0, f.stam));
+    if (f.stam <= 0) { f.energy = 0; if (!f.exhausted) { f.exhausted = true; notify('The fish is exhausted.', 100, 'exhaust'); } }
+    else f.energy = Math.min(cap, f.energy + rand(0.15, 0.45) * sp.regen);
+    if (f.stam > 0 && (f.energy >= cap || (f.energy >= cap * 0.5 && Math.random() < 1 / 300))) { f.mode = 'fight'; f.dirT = 0; SFX.splash(0.3); ripples.push({ x: f.x, y: f.y, t: 0, life: 40, max: 5, a: 0.6 }); }
   } else if (f.mode === 'land') {
     flopFish(f);
     // Kuivalla maalla olevan kalan voi kerätä talteen kävelemällä sen päälle
@@ -3859,6 +3865,8 @@ function updateFight(L, held) {
       }
     }
   }
+  // Taistelussa kulunut energia vähentää myös kalan kokonaisenergiaa (palautuva energia ei riitä loputtomiin)
+  if (f.mode === 'fight' && f.energy < e0) f.stam -= e0 - f.energy;
   // Siiman kesto: jos kalaa kelataan tai vedetään (kävellen tai veneellä) samaan aikaan kun se
   // taistelee vastaan, siiman rasitus kasvaa kalan painon, lajin ja voimien mukaan. Täynnä siima
   // katkeaa. Kun kala ei taistele tai vetoa ei ole, rasitus laskee: väsynyttä kalaa voi kelata turvallisesti.
