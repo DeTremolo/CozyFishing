@@ -115,7 +115,7 @@ Polttopuukatos → Tähtäin ja vieheet (`LURES`) → Pelisilmukka.
 - Koho heitetään tähtäämällä (`aimCast()`, `castTarget()`, `castLureAt()`; tarkkuuskehä `CAST_SPREAD = 2.5`,
   enimmäispituus `CAST_AIM_MAX = 15`); muut vieheet voimapalkilla.
 - Kalat: `SPECIES` (ahven `perch`, hauki `pike`, lahna `bream`) – energia, palautuminen, veto, viehemieltymykset. Lahnalla `bite: 'nibble'`: kala maistelee syöttiä (`nibbleBait`: koho painuu `L.sub` ≤ 0,2 m tai kellahtaa `L.flat`, pohjaongen kello) ennen `hookFish`ia; ikäkauden mukainen kuvasarja `fishSprKey(f)` (`bream`, `bream1`, `bream2`).
-  Taistelussa jarru luistaa `dragSlip(f.w)` (0 alle 250 g, 0,5 m/s 2000 g:sta ylöspäin, lineaarinen; kelatessa puolet, väsyneellä kalalla ja RELEASE-napilla 0; naksutus `SFX.ratchet` vain luiston aikana, tiheys ∝ nopeus) ja siiman kireys `cast.lure.tension`; ≥ 1 katkaisee siiman (`cutLine(true)`).
+  Taistelussa jarru luistaa `dragSlip(f.w)` (0 alle 250 g, 1,0 m/s 2000 g:sta ylöspäin, lineaarinen; kelatessa puolet, väsyneellä kalalla ja RELEASE-napilla 0; naksutus `SFX.ratchet` vain luiston aikana, tiheys ∝ nopeus) ja siiman kireys `cast.lure.tension`; ≥ 1 katkaisee siiman (`cutLine(true)`).
 - Huijaustila (V): vesi piiloon, kalat/pohja/debug-viivat näkyviin, `[` `]` sameus, `B` syvyyskäyrät, `H` kalan voimapalkki.
 
 ### Muut järjestelmät

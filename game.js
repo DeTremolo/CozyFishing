@@ -2274,14 +2274,13 @@ function updateCast() {
     // pohjaongella piirretyn siiman pinnanläpäisykohta)
     const f = L.fish;
     if (f.mode === 'fight' && L.onWater && time % 18 === 0) {
-      let ex = L.x, ey = L.y;
+      let e = null;
       if (isDirect(L.kind)) {
         // Sama läpäisykohta kuin piirretyssä siimassa (huomioi myös löysän siiman notkon): wobblerLine absoluuttisilla pikseleillä
         const wl = wobblerLine(0, 0);
-        if (!wl) { updateFight(L, held); return; }
-        [ex, ey] = absToWorld(wl.wx, wl.wy);
-      }
-      ripples.push({ x: ex, y: ey, t: 0, life: 34, max: 3.2, a: 0.55 });
+        if (wl) e = absToWorld(wl.wx, wl.wy);
+      } else e = bobEntry(L);   // koho-ongella siiman pinnanläpäisykohta; kohon omaa aaltoa ohjaa updateFight (vain kohon ollessa pinnalla)
+      if (e) ripples.push({ x: e[0], y: e[1], t: 0, life: 34, max: 3.2, a: 0.55 });
     }
     updateFight(L, held);
     return;
@@ -3789,8 +3788,20 @@ function hookFish(f) {
 // Koukkuun tarttunut kala. Se voi vetää siimaa vain ulkona olevan määrän verran ja vetää kohon
 // veden alle, mikä kuluttaa sen voimia (koho kelluu). Pelaajan lähelle kelattu kala nousee
 // roikkumaan ilmaan ja kerätään talteen. Kuivalle maalle vedetty kala sätkii satunnaisiin suuntiin.
-// Kelan jarrun luisto (m/s) kalan painon (g) mukaan: alle 250 g ei luista, 2000 g luistaa 0,5 m/s, väli lineaarinen ja 0,5 m/s on enimmäisarvo
-const dragSlip = (w) => clamp((w - 250) / (2000 - 250), 0, 1) * 0.5;
+// Kelan jarrun luisto (m/s) kalan painon (g) mukaan: alle 250 g ei luista, 2000 g luistaa 1,0 m/s, väli lineaarinen ja 1,0 m/s on enimmäisarvo
+const dragSlip = (w) => clamp((w - 250) / (2000 - 250), 0, 1) * 1.0;
+// Koho-ongen siiman (kärjestä kohoon) pinnanläpäisykohta maailmankoordinaateissa, tai null jos siima päättyy pinnalla kelluvaan kohoon eikä mene sitä ennen veden alle
+function bobEntry(L) {
+  const p = rigOrigin(), d = Math.hypot(L.x - p.x, L.y - p.y) || 0.001, tipH = tipHeight(), zS = L.sub || 0;
+  const slack = Math.max(0, L.out - Math.hypot(d, zS + tipH)), pts = rigPath(L, clamp(1 - slack / 0.5, 0, 1), d, p, tipH, true);
+  for (let k = 1; k < pts.length; k++) {
+    if (pts[k].z > 0.03 && pts[k - 1].z <= 0.03) {
+      const a = pts[k - 1], b = pts[k], t = clamp((0.03 - a.z) / (b.z - a.z || 1), 0, 1);
+      return [lerp(a.x, b.x, t), lerp(a.y, b.y, t)];
+    }
+  }
+  return null;
+}
 function updateFight(L, held) {
   const p = player, f = L.fish, sp = SPECIES[f.kind];
   if (!f.dead) f.anim++;
@@ -3838,12 +3849,12 @@ function updateFight(L, held) {
     if (f.mode === 'fight') {
       f.energy -= 0.4;
       // Kelan jarru luistaa, kun taistelevaa kalaa ei kelata kokonaan: siimaa lähtee kalan painon mukaan (alle 250 g ei lainkaan, 2000 g
-      // 0,5 m/s, väli lineaarinen, enintään 0,5 m/s); kelatessa luisto puolittuu, eikä jarru luista, kun siimaa päästetään napilla
+      // 1,0 m/s, väli lineaarinen, enintään 1,0 m/s); kelatessa luisto puolittuu, eikä jarru luista, kun siimaa päästetään napilla
       const slip = mouseHeld2 && !held ? 0 : dragSlip(f.w) * (held ? 0.5 : 1);
       if (slip > 0 && L.out < LINE_MAX) {
         L.out = Math.min(LINE_MAX, L.out + slip / 60);
-        // Kela naksuu vain, kun jarru luistaa; tiheys kasvaa luiston nopeuden mukana (0,5 m/s = 16 naksua sekunnissa)
-        L.clickAcc = (L.clickAcc || 0) + (slip * 32) / 60;
+        // Kela naksuu vain, kun jarru luistaa; tiheys kasvaa luiston nopeuden mukana (96 naksua per luistettu metri; enintään yksi naksaus ruudussa = 60/s)
+        L.clickAcc = (L.clickAcc || 0) + (slip * 96) / 60;
         if (L.clickAcc >= 1) { L.clickAcc -= 1; SFX.ratchet(); }
       }
     }
@@ -3867,7 +3878,7 @@ function updateFight(L, held) {
   L.x = f.x; L.y = f.y;
   L.onWater = f.mode !== 'land';
   L.sub = f.mode === 'land' || isDirect(L.kind) ? 0 : Math.max(0, f.z - cast.hookDepth);
-  if (L.onWater && f.mode === 'fight' && !isDirect(L.kind) && ++L.wakeT % 10 === 0) ripples.push({ x: L.x, y: L.y, t: 0, life: 35, max: L.sub > 0 ? 5 : 3, a: 0.55 });
+  if (L.onWater && f.mode === 'fight' && !isDirect(L.kind) && L.sub <= 0.05 && ++L.wakeT % 10 === 0) ripples.push({ x: L.x, y: L.y, t: 0, life: 35, max: L.sub > 0 ? 5 : 3, a: 0.55 });
   // Lähelle kelattu kala nostetaan ilmaan
   if (limF <= 1.2 && d < 1.9) { f.mode = 'caught'; f.caughtT = 75; SFX.splash(0.4); }
 }
